@@ -216,7 +216,7 @@ __PREPROCD__ void particle::new_velocities() {
 	}
 	else if (coll_type == 'W' && diffuse == true) {
 		//V = sqrt(vx * vx + vy * vy + vz * vz);
-		phi = acos(cbrt(1.0 - uniform()));
+		phi = acos(sqrt(uniform()));
 		theta = unif02pi();
 		if (wall_hit == 'x') {
 			v.x = -1 * sgn(v.x) * Vel * cos(phi);
