@@ -1,0 +1,17 @@
+ioutInt, 0.1
+integratorType, 1
+dist, C
+T, 4.2
+iout, 2
+gas_coll, false
+rtol, 1.0e-14
+t0, 0.0
+tf, 100.0
+ioutInt, 10.0
+gravity, true
+B0, 0, 0, 3.0e-6
+E, 0, 0, 75.0e5,
+integratorType, 1
+h, 0.1
+numParticles, 1000
+numPerGPUBlock, 128

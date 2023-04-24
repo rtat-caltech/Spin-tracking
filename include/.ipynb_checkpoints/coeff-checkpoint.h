@@ -1,5 +1,4 @@
-#ifndef __COEF_H_INCLUDED
-#define __COEF_H_INCLUDED
+#pragma once
 
 namespace COEF
 {
@@ -214,5 +213,3 @@ namespace RK45COEF
 	constexpr double CT5 = 1.0/20.0;
 	constexpr double CT6 = -6.0/25.0;
 };
-
-#endif

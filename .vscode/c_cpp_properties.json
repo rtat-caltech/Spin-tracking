@@ -6,13 +6,11 @@
             "includePath": [
                 "/usr/include",
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include",
-                "/usr/local/cuda-12/include"
+                "${workspaceFolder}/include"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "gnu17",
-            "cppStandard": "gnu++17",
-            "configurationProvider": "ms-vscode.makefile-tools"
+            "cppStandard": "gnu++17"
         }
     ],
     "version": 4

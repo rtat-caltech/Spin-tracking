@@ -1,78 +1,53 @@
-###########################################################
-
-## USER SPECIFIC DIRECTORIES ##
-
-# CUDA directory:
-CUDA_ROOT_DIR=/usr/local/cuda-12
-
-##########################################################
-
-## CC COMPILER OPTIONS ##
-
+vpath %.cpp src/
+vpath %.h include/
 # CC compiler options:
-CC=pgc++
-CC_FLAGS= -O3 -m64
-CC_LIBS=
 
-##########################################################
+##This is the CPU compilation section
+#CC = g++ 
+#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp 
 
-## NVCC COMPILER OPTIONS ##
+#AMD GPU Compilation Section
+#CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
+#CC_FLAGS = -g -O3 -std=c++17 -fgpu-rdc
+#INCLUDES = /opt/rocm-5.2.5/lib
+#LIBRARY_PATH = 
+#LIBRARIES = -L /opt/rocm-5.2.5/hiprand/lib
 
-# NVCC compiler options:
-NVCC=nvcc
-NVCC_FLAGS=
-NVCC_LIBS=
+#Nvidia GPU Compilation Section
+#using NVCC
+BASEGPUPATH = /usr/local/cuda-11.6
+CC = $(BASEGPUPATH)/bin/nvcc
+SM = 86
+NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
+TYPE_FLAG = -x cu
+CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
+CC_INCLUDES = -I $(BASEGPUPATH)/include
+LIBRARY_PATH = -L $(BASEGPUPATH)/lib64 
+LIBRARIES = -lcudart -lcurand
 
-# CUDA library directory:
-CUDA_LIB_DIR= -L$(CUDA_ROOT_DIR)/lib64
-# CUDA include directory:
-CUDA_INC_DIR= -I$(CUDA_ROOT_DIR)/include
-# CUDA linking libraries:
-CUDA_LINK_LIBS= -lcudart
+#end nvidia GPU compilation section
 
-##########################################################
 
 ## Project file structure ##
+MAIN = main
+SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.cpp
+INCLUDES = $(SOURCES:.cpp=.h)
+OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
+BUILD = build/
+EXECS =
 
-# Source file directory:
-SRC_DIR = src
+all: $(MAIN)
 
-# Object file directory:
-OBJ_DIR = bin
+$(MAIN): $(OBJECTS)
+	$(CC) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) $(addprefix $(BUILD),$(SOURCES:.cpp=.o)) -o $(EXECS)$@ $(BUILD)$(MAIN).o $(LIBRARIES)
 
-# Include header file diretory:
-INC_DIR = include
+$(MAIN).o : $(MAIN).cpp $(INCLUDES)
+	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
-##########################################################
+%.o : %.cpp %.h
+	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
-## Make variables ##
+$(shell mkdir -p $(BUILD) $(EXECS))  
 
-# Target executable name:
-EXE = run
-
-# Object files:
-OBJS = $(OBJ_DIR)/test.o $(OBJ_DIR)/DOP853.o $(OBJ_DIR)/particle.o $(OBJ_DIR)/main.o
-
-##########################################################
-
-## Compile ##
-
-# Link c++ and CUDA compiled object files to target executable:
-$(EXE) : $(OBJS)
-	$(CC) $(CC_FLAGS) $(OBJS) -o $@ $(CUDA_INC_DIR) $(CUDA_LIB_DIR) $(CUDA_LINK_LIBS)
-
-# Compile main .cpp file to object files:
-$(OBJ_DIR)/%.o : %.cpp
-	$(CC) $(CC_FLAGS) -c $< -o $@
-
-# Compile C++ source files to object files:
-$(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp include/%.h
-	$(CC) $(CC_FLAGS) -c $< -o $@
-
-# Compile CUDA source files to object files:
-$(OBJ_DIR)/%.o : $(SRC_DIR)/%.cu $(INC_DIR)/%.cuh
-	$(NVCC) $(NVCC_FLAGS) -c $< -o $@ $(NVCC_LIBS)
-
-# Clean objects in object directory.
 clean:
-	$(RM) bin/* *.o $(EXE)
+	rm -f bin/* *.o $(MAIN)
