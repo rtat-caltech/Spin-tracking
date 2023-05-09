@@ -42,7 +42,6 @@ Most other parameters within this simulation code can be modified via a text par
 | fac2 | DOP853 Spin-Integration parameter | double | 6.0 |
 | hmax | Largest allowed step size  of spin integration (s) | double | 1.0 |
 | h | Initial step size of spin integration (s) | double | 0.001 |
-| tc | Collision time constant | double | 1.0e-4 |
 | T | Temperature (K) | double | 4.2 |
 | gamma |  Gyromagnetic ratio of the particle (rad/s/T) | double | -2.078e8 |
 | V | Velocity of the neutrons (m/s) | double | 5.0 |

@@ -24,7 +24,6 @@ struct options{
 	double fac2 = 6.0;
 	double hmax = 1.0;
 	double h = 0.001;
-	double tc = 1e-4;
 	double T = 4.2;
 	double gamma = -2.078e8;
 	double V = 5.0;

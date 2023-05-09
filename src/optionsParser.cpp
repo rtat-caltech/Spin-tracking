@@ -64,9 +64,6 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "gas_coll"){
 		opt.gas_coll = to_bool(elements.at(1));
 	}
-	else if(elements.at(0) == "tc"){
-		opt.tc = std::stod(elements.at(1));
-	}
 	else if(elements.at(0) == "T"){
 		opt.T = std::stod(elements.at(1));
 	}
@@ -150,6 +147,10 @@ void parseLine(options& opt, std::string s){
 	}
 	else if(elements.at(0) == "iout"){
 		opt.iout = std::stoi(elements.at(1));
+	}
+	else{
+		std::cout<<"Unrecognized Option: "<<elements.at(0)<<std::endl;
+		std::cout<<"Line Ignored"<<std::endl;
 	}
 }
 
