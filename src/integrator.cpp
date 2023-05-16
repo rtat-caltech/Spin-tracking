@@ -108,10 +108,9 @@ __PREPROC__ double3 findCrossTerm(const double t, const double3 y, const double3
 					 const double gamma, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
 	double3 p, v, G;
-	double3 B = pulse(t) + B0;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
-	//G = grad(p);
-	B = pulse(t) + B0 + 1.0/c2*cross(v, E);
+	G = grad(p);
+	B = pulse(t) + B0 + 1.0/c2*cross(v, E) + G;
 	return gamma * B;
 }
 
