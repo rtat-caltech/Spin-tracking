@@ -242,6 +242,7 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 		gpuErrchk(hipDeviceSynchronize());
 		#endif
 		//write what time it currently is
+		printf("&buffers.particleStatesCPU[0].t = %lf\n", &buffers.particleStatesCPU[0].t);
 		fwrite(&buffers.particleStatesCPU[0].t, sizeof(double), 1, f);
 		histogramPos(opt.numParticles, buffers, opt);
 		fwrite(buffers.posHist, sizeof(unsigned int), buffers.numx*buffers.numy*buffers.numz, f);

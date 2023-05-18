@@ -7,7 +7,7 @@ gravity, true
 B0, 0, 0, 3.0e-6
 E, 0, 0, 75.0e5,
 h, 0.1
-numParticles, 1000
+numParticles, 100
 numPerGPUBlock, 256
 t0, 0.0
 tf, 2000.0
