@@ -52,9 +52,7 @@ outputBuffers createOutputBuffers(options opt){
 			buffers.numy = opt.L.y/opt.gridSize+1;
 			buffers.numz = opt.L.z/opt.gridSize+1;
 			//printf("%d %d %d %d \n", buffers.numVecBins, buffers.numx, buffers.numy, buffers.numz);
-			buffers.xHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numx);
-			buffers.yHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numy);
-			buffers.zHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numz);
+			buffers.posHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numx * buffers.numy * buffers.numz);
 			buffers.sxHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
 			buffers.syHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
 			buffers.szHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
@@ -87,9 +85,7 @@ void destroyOutputBuffers(outputBuffers buffers, options opt){
 		free(buffers.allParticleStatesCPU);
 	}
 	else if(opt.output == 'H' || opt.output == 'h'){
-		free(buffers.xHist);
-		free(buffers.yHist);
-		free(buffers.zHist);
+		free(buffers.posHist)
 		free(buffers.sxHist);
 		free(buffers.syHist);
 		free(buffers.szHist);
@@ -159,15 +155,36 @@ void calculateMeanAndSD(double* data, int length, double &average, double &std) 
 	return;
 }
 
-void histogram(double* data, int length, unsigned int *hist, double binSize, double binLower, int numBins){
-	for(int i = 0; i < numBins; i++){
-		hist[i] = 0; //reset the histogram to zero
+void histogramPos(int length, outputBuffers buffers, options opt){
+	for(int i = 0; i < buffers.numx*buffers.numy*buffers.numz; i++){
+		buffers.posHist[i] = 0; //reset the histogram to zero
 	}
+	double3 bins;
+	int bin;
 	for(int i = 0; i < length; i++){
-		int bin = int(floor((data[i]-binLower)/binSize));
-		hist[bin] += 1;
+		bins = buffers.particleStatesCPU[i].x-opt.L/2.0;
+		bin = (int)bins.x + (int)bins.y*buffers.numx + (int)bins.z*buffers.numx*buffers.numy;
+		buffers.posHist[bin] += 1;
 	}
 }
+
+void histogramSpin(int length, outputBuffers buffers, options opt){
+	for(int i = 0; i < buffers.numVecBins; i++){
+		buffers.thetaHist[i] = 0; //reset the histogram to zero
+		buffers.phiHist[i] = 0;
+	}
+	int bin;
+	double angle;
+	for(int i = 0; i < length; i++){
+		angle = atan2(buffers.particleStatesCPU[i].y, buffers.particleStatesCPU[i].x);
+		bin = angle-M_PI
+		buffers.thetaHist[i]
+		bin = (int)bins.x + (int)bins.y*buffers.numx + (int)bins.z*buffers.numx*buffers.numy;
+		buffers.posHist[bin] += 1;
+	}
+}
+
+
 
 void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buffers){
 	if(tolower(opt.output) == 'a'){
@@ -228,26 +245,12 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 		//write what time it currently is
 		fwrite(&buffers.particleStatesCPU[0].t, sizeof(double), 1, f);
 		
-		//x coordinate data
+		//coordinate data
 		for(int i = 0; i < opt.numParticles; i++){
 			buffers.temp[i] = buffers.particleStatesCPU[i].x.x;
 		}
-		histogram(buffers.temp, opt.numParticles, buffers.xHist, buffers.gridSize, -opt.L.x/2.0, buffers.numx);
-		fwrite(buffers.xHist, sizeof(unsigned int), buffers.numx, f);
-		
-		//y coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].x.y;
-		}
-		histogram(buffers.temp, opt.numParticles, buffers.yHist, buffers.gridSize, -opt.L.y/2.0, buffers.numy);
-		fwrite(buffers.yHist, sizeof(unsigned int), buffers.numy, f);
-		
-		//z coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].x.z;
-		}
-		histogram(buffers.temp, opt.numParticles, buffers.zHist, buffers.gridSize, -opt.L.z/2.0, buffers.numz);
-		fwrite(buffers.zHist, sizeof(unsigned int), buffers.numz, f);
+		histogram(opt.numParticles, buffers, opt);
+		fwrite(buffers.posHist, sizeof(unsigned int), buffers.numx*buffers.numy*buffers.numz, f);
 		
 		//spin x coordinate data
 		for(int i = 0; i < opt.numParticles; i++){

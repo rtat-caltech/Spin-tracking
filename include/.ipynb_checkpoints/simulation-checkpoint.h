@@ -47,13 +47,10 @@ struct outputBuffers{
 	double vecBinSize;
 	int numx, numy, numz;
 	int numVecBins;
-	unsigned int* xHist;
-	unsigned int* yHist;
-	unsigned int* zHist;
+	unsigned int* posHist;
 	
-	unsigned int* sxHist;
-	unsigned int* syHist;
-	unsigned int* szHist;
+	unsigned int* thetaHist;
+	unsigned int* phiHist;
 	
 	double* temp;
 };

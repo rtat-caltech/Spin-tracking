@@ -38,7 +38,7 @@ __PREPROC__ double3 pulse(const double t){
 }
 
 __PREPROC__ double3 grad(double3& pos){
-	return {0.0, 0.0, 0.0};
+	return {0.0, 0.0, pos.x*1.0e-9};
 }
 
 /*
@@ -107,7 +107,7 @@ __PREPROC__ void interpolate(const double t, const double t0, const double tf,
 __PREPROC__ double3 findCrossTerm(const double t, const double3 y, const double3 B0, const double3 E, 
 					 const double gamma, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
-	double3 p, v, G;
+	double3 p, v, G, B;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
 	G = grad(p);
 	B = pulse(t) + B0 + 1.0/c2*cross(v, E) + G;
