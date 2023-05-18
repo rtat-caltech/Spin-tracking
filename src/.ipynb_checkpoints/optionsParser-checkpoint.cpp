@@ -64,9 +64,6 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "gas_coll"){
 		opt.gas_coll = to_bool(elements.at(1));
 	}
-	else if(elements.at(0) == "tc"){
-		opt.tc = std::stod(elements.at(1));
-	}
 	else if(elements.at(0) == "T"){
 		opt.T = std::stod(elements.at(1));
 	}
@@ -87,6 +84,9 @@ void parseLine(options& opt, std::string s){
 	}
 	else if(elements.at(0) == "E"){
 		opt.E = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
+	}
+	else if(elements.at(0) == "posHistBins"){
+		opt.posHistBins = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
 	}
 	else if(elements.at(0) == "t0"){
 		opt.t0 = std::stod(elements.at(1));
@@ -139,17 +139,21 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "output"){
 		opt.output = elements.at(1)[0];
 	}
-	else if(elements.at(0) == "gridSize"){
-		opt.gridSize = std::stod(elements.at(1));
+	else if(elements.at(0) == "numPhiBins"){
+		opt.numPhiBins = std::stoi(elements.at(1));
 	}
-	else if(elements.at(0) == "vecBinSize"){
-		opt.vecBinSize = std::stod(elements.at(1));
+	else if(elements.at(0) == "numThetaBins"){
+		opt.numThetaBins = std::stoi(elements.at(1));
 	}
 	else if(elements.at(0) == "ioutInt"){
 		opt.ioutInt = std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "iout"){
 		opt.iout = std::stoi(elements.at(1));
+	}
+	else{
+		std::cout<<"Unrecognized Option: "<<elements.at(0)<<std::endl;
+		std::cout<<"Line Ignored"<<std::endl;
 	}
 }
 

@@ -3,16 +3,17 @@ T, 4.2
 iout, 2
 gas_coll, false
 rtol, 1.0e-14
-t0, 0.0
-tf, 100.0
 gravity, true
 B0, 0, 0, 3.0e-6
 E, 0, 0, 75.0e5,
-integratorType, 0
 h, 0.1
-numParticles, 65536
+numParticles, 1000
 numPerGPUBlock, 256
+t0, 0.0
+tf, 2000.0
+integratorType, 0
 output, h
-gridSize, 0.01
-vecBinSize, 0.001
 ioutInt, 1.0
+numPhiBins, 2000
+numThetaBins, 1000
+posHistBins, 10, 7, 40

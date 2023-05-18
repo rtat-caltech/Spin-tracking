@@ -46,9 +46,8 @@ struct outputBuffers{
 	double gridSize;
 	double vecBinSize;
 	int numx, numy, numz;
-	int numVecBins;
+	int numPhiBins, numThetaBins;
 	unsigned int* posHist;
-	
 	unsigned int* thetaHist;
 	unsigned int* phiHist;
 	

@@ -11,6 +11,7 @@ struct options{
 	double3 E = {0, 0, 75e5};
 	double3 L = {0.07, 0.1, 0.4};
 	double3 yi = {1.0, 0.0, 0.0};
+	double3 posHistBins = {7, 10, 40};
 	
 	double m = 2.2*5e-27;
 	double t0 = 0.0;
@@ -28,8 +29,6 @@ struct options{
 	double gamma = -2.078e8;
 	double V = 5.0;
 	double swapStepSize = 1.0-4; //above this use rotations, below this use standard RK techniques
-	double gridSize = 1.0; //output histogram size in cm for the position, assumes same bin size for each dimension
-	double vecBinSize = 0.1; //the width of each bin for the spin data, always from -1 to 1
 	double ioutInt = 0.05; // how frequently to output the state data
 	
 	unsigned int nmax = 10000000;
@@ -37,6 +36,8 @@ struct options{
 	int numParticles = 1000;
 	int numPerGPUBlock = 128;
 	int iout = 2; //used for the DOP853 integration method, don't mess with this
+	int numPhiBins = 1000;
+	int numThetaBins = 1000;
 	
 	char dist = 'C';
 	char output = 'A'; //controls the type of output being used, N means all particles, A means average, H means histogram

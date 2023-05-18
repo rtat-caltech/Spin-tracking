@@ -45,17 +45,14 @@ outputBuffers createOutputBuffers(options opt){
 			buffers.allParticleStatesCPU = (outputDtype*)malloc(sizeof(outputDtype)*numOutput*opt.numParticles);
 		}
 		else if(tolower(opt.output) == 'h'){
-			buffers.gridSize = opt.gridSize;
-			buffers.vecBinSize = opt.vecBinSize;
-			buffers.numVecBins = int(ceil(2.0/buffers.vecBinSize));
-			buffers.numx = opt.L.x/opt.gridSize+1;
-			buffers.numy = opt.L.y/opt.gridSize+1;
-			buffers.numz = opt.L.z/opt.gridSize+1;
-			//printf("%d %d %d %d \n", buffers.numVecBins, buffers.numx, buffers.numy, buffers.numz);
+			buffers.numPhiBins = opt.numPhiBins;
+			buffers.numThetaBins = opt.numThetaBins;
+			buffers.numx = opt.posHistBins.x;
+			buffers.numy = opt.posHistBins.y;
+			buffers.numz = opt.posHistBins.z;
 			buffers.posHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numx * buffers.numy * buffers.numz);
-			buffers.sxHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
-			buffers.syHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
-			buffers.szHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numVecBins);
+			buffers.thetaHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numThetaBins);
+			buffers.phiHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numPhiBins);
 			buffers.temp = (double*)malloc(sizeof(double) * opt.numParticles);
 		}
 		return buffers;
@@ -85,10 +82,9 @@ void destroyOutputBuffers(outputBuffers buffers, options opt){
 		free(buffers.allParticleStatesCPU);
 	}
 	else if(opt.output == 'H' || opt.output == 'h'){
-		free(buffers.posHist)
-		free(buffers.sxHist);
-		free(buffers.syHist);
-		free(buffers.szHist);
+		free(buffers.posHist);
+		free(buffers.thetaHist);
+		free(buffers.phiHist);
 		free(buffers.temp);
 	}
 	return;
@@ -155,36 +151,39 @@ void calculateMeanAndSD(double* data, int length, double &average, double &std) 
 	return;
 }
 
-void histogramPos(int length, outputBuffers buffers, options opt){
+void histogramPos(int length, outputBuffers &buffers, options opt){
 	for(int i = 0; i < buffers.numx*buffers.numy*buffers.numz; i++){
 		buffers.posHist[i] = 0; //reset the histogram to zero
 	}
 	double3 bins;
 	int bin;
 	for(int i = 0; i < length; i++){
-		bins = buffers.particleStatesCPU[i].x-opt.L/2.0;
+		bins = (buffers.particleStatesCPU[i].x+opt.L/2.0)/opt.L*double3{buffers.numx, buffers.numy, buffers.numz};
 		bin = (int)bins.x + (int)bins.y*buffers.numx + (int)bins.z*buffers.numx*buffers.numy;
 		buffers.posHist[bin] += 1;
 	}
 }
 
-void histogramSpin(int length, outputBuffers buffers, options opt){
-	for(int i = 0; i < buffers.numVecBins; i++){
-		buffers.thetaHist[i] = 0; //reset the histogram to zero
-		buffers.phiHist[i] = 0;
+void histogramSpin(int length, outputBuffers &buffers, options opt){
+	for(int i = 0; i < buffers.numPhiBins; i++){
+		buffers.phiHist[i] = 0; //reset the histogram to zero
+	}
+	for(int i = 0; i < buffers.numThetaBins; i++){
+		buffers.thetaHist[i] = 0;
 	}
 	int bin;
-	double angle;
+	double theta, phi, lengthVec;
 	for(int i = 0; i < length; i++){
-		angle = atan2(buffers.particleStatesCPU[i].y, buffers.particleStatesCPU[i].x);
-		bin = angle-M_PI
-		buffers.thetaHist[i]
-		bin = (int)bins.x + (int)bins.y*buffers.numx + (int)bins.z*buffers.numx*buffers.numy;
-		buffers.posHist[bin] += 1;
+		lengthVec = len(buffers.particleStatesCPU[i].s);
+		//phi is in the x-y plane from -pi to pi, theta is for the aximuthal angle from -pi/2 to pi/2
+		phi = atan2(buffers.particleStatesCPU[i].s.y, buffers.particleStatesCPU[i].s.x);
+		theta = acos(buffers.particleStatesCPU[i].s.z/length);
+		bin = (phi+M_PI)/(2.0*M_PI)*buffers.numPhiBins;
+		buffers.thetaHist[bin]+=1;
+		bin = theta/M_PI * buffers.numThetaBins;
+		buffers.phiHist[bin]+=1;
 	}
 }
-
-
 
 void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buffers){
 	if(tolower(opt.output) == 'a'){
@@ -244,34 +243,11 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 		#endif
 		//write what time it currently is
 		fwrite(&buffers.particleStatesCPU[0].t, sizeof(double), 1, f);
-		
-		//coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].x.x;
-		}
-		histogram(opt.numParticles, buffers, opt);
+		histogramPos(opt.numParticles, buffers, opt);
 		fwrite(buffers.posHist, sizeof(unsigned int), buffers.numx*buffers.numy*buffers.numz, f);
-		
-		//spin x coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].s.x;
-		}
-		histogram(buffers.temp, opt.numParticles, buffers.sxHist, buffers.vecBinSize, -1.0, buffers.numVecBins);
-		fwrite(buffers.sxHist, sizeof(unsigned int), buffers.numVecBins, f);
-		
-		//spin y coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].s.y;
-		}
-		histogram(buffers.temp, opt.numParticles, buffers.syHist, buffers.vecBinSize, -1.0, buffers.numVecBins);
-		fwrite(buffers.syHist, sizeof(unsigned int), buffers.numVecBins, f);
-		
-		//spin z coordinate data
-		for(int i = 0; i < opt.numParticles; i++){
-			buffers.temp[i] = buffers.particleStatesCPU[i].s.z;
-		}
-		histogram(buffers.temp, opt.numParticles, buffers.szHist, buffers.vecBinSize, -1.0, buffers.numVecBins);
-		fwrite(buffers.szHist, sizeof(unsigned int), buffers.numVecBins, f);
+		histogramSpin(opt.numParticles, buffers, opt);
+		fwrite(buffers.phiHist, sizeof(unsigned int), buffers.numPhiBins, f);
+		fwrite(buffers.thetaHist, sizeof(unsigned int), buffers.numThetaBins, f);
 	}
 }
 
