@@ -53,7 +53,6 @@ outputBuffers createOutputBuffers(options opt){
 			buffers.posHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numx * buffers.numy * buffers.numz);
 			buffers.thetaHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numThetaBins);
 			buffers.phiHist = (unsigned int*)malloc(sizeof(unsigned int) * buffers.numPhiBins);
-			buffers.temp = (double*)malloc(sizeof(double) * opt.numParticles);
 		}
 		return buffers;
 	}
@@ -85,7 +84,6 @@ void destroyOutputBuffers(outputBuffers buffers, options opt){
 		free(buffers.posHist);
 		free(buffers.thetaHist);
 		free(buffers.phiHist);
-		free(buffers.temp);
 	}
 	return;
 }
@@ -174,14 +172,23 @@ void histogramSpin(int length, outputBuffers &buffers, options opt){
 	int bin;
 	double theta, phi, lengthVec;
 	for(int i = 0; i < length; i++){
-		lengthVec = len(buffers.particleStatesCPU[i].s);
 		//phi is in the x-y plane from -pi to pi, theta is for the aximuthal angle from -pi/2 to pi/2
 		phi = atan2(buffers.particleStatesCPU[i].s.y, buffers.particleStatesCPU[i].s.x);
-		theta = acos(buffers.particleStatesCPU[i].s.z/length);
 		bin = (phi+M_PI)/(2.0*M_PI)*buffers.numPhiBins;
-		buffers.thetaHist[bin]+=1;
-		bin = theta/M_PI * buffers.numThetaBins;
+		if(bin < 0)
+			bin = 0;
+		else if(bin > buffers.numPhiBins-1)
+			bin = buffers.numPhiBins-1;
 		buffers.phiHist[bin]+=1;
+		
+		lengthVec = len(buffers.particleStatesCPU[i].s);
+		theta = acos(buffers.particleStatesCPU[i].s.z/length);
+		bin = theta/M_PI * buffers.numThetaBins;
+		if(bin < 0)
+			bin = 0;
+		else if(bin > buffers.numThetaBins-1)
+			bin = buffers.numThetaBins-1;
+		buffers.thetaHist[bin]+=1;
 	}
 }
 
@@ -195,7 +202,6 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 		gpuErrchk(hipMemcpy(buffers.particleStatesCPU, buffers.particleStatesGPU, sizeof(outputDtype)*opt.numParticles, hipMemcpyDeviceToHost));
 		gpuErrchk(hipDeviceSynchronize());
 		#endif
-		printf("time = %f\n", buffers.particleStatesCPU[0].t);
 		//first save the current time we are at
 		fwrite(&buffers.particleStatesCPU[0].t, sizeof(double), 1, f);
 		double average, std;
@@ -242,7 +248,6 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 		gpuErrchk(hipDeviceSynchronize());
 		#endif
 		//write what time it currently is
-		printf("&buffers.particleStatesCPU[0].t = %lf\n", &buffers.particleStatesCPU[0].t);
 		fwrite(&buffers.particleStatesCPU[0].t, sizeof(double), 1, f);
 		histogramPos(opt.numParticles, buffers, opt);
 		fwrite(buffers.posHist, sizeof(unsigned int), buffers.numx*buffers.numy*buffers.numz, f);
