@@ -41,6 +41,7 @@ __PREPROC__ double3 operator/(const double3, const double);
 __PREPROC__ double3 operator/(const double3, const double3);
 __PREPROC__ double3 cross(const double3, const double3);
 __PREPROC__ double sum(const double3);
+__PREPROC__ double dot(const double3, const double3);
 __PREPROC__ double len(const double3);
 __PREPROC__ double3 norm(const double3);
 __PREPROC__ double3 fabs3(const double3);
@@ -60,5 +61,6 @@ __PREPROC__ quaternion conjugate(const quaternion);
 __PREPROC__ quaternion qMult(const quaternion, const quaternion);
 __PREPROC__ double3 qv_mult(const quaternion, const double3);
 __PREPROC__ quaternion rodriguezQuat(const double3, const double);
+__PREPROC__ double3 rodriguez(const double3, const double3, const double);
 
 #endif

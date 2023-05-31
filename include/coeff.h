@@ -215,4 +215,68 @@ namespace RK45COEF
 	constexpr double CT6 = -6.0/25.0;
 };
 
+namespace CFET8
+{
+	constexpr double G11 = -0.005984812750244602;
+	constexpr double G12 = 0.020217897716672675;
+	constexpr double G13 = -0.03646660716686794;
+	constexpr double G14 = 0.04245408899634467;
+	constexpr double G15 = 0.14949496424802844;
+	constexpr double G21 = 0.02512881778391826;
+	constexpr double G22 = -0.08955337580937157;
+	constexpr double G23 = 0.19032828600393248;
+	constexpr double G24 = 0.28920194841768715;
+	constexpr double G25 = -0.03568486888016069;
+	constexpr double G31 = -0.04972613261435144;
+	constexpr double G32 = 0.6572496090804754;
+	constexpr double G33 = 0.11725149008224456;
+	constexpr double G34 = -0.43611911073577403;
+	constexpr double G35 = 0.18080345083145516;
+	constexpr double G41 = 0.0464837870954061;
+	constexpr double G42 = -0.6265183532355708;
+	constexpr double G43 = -0.11144873822286155;
+	constexpr double G44 = 0.4154988625423615;
+	constexpr double G45 = -0.17224148557040517;
+	constexpr double G51 = 0.015567390500242426;
+	constexpr double G52 = -0.0677120111619075;
+	constexpr double G53 = -0.15241336773272682;
+	constexpr double G54 = -0.08803798509100481;
+	constexpr double G55 = -0.0013284996209207986;
+	constexpr double G61 = -0.034049168494873015;
+	constexpr double G62 = 0.12263276452977083;
+	constexpr double G63 = 0.2699423185170027;
+	constexpr double G64 = 0.12263276452977094;
+	constexpr double G65 = -0.03404916849487304;
+};
+
+namespace CFET6
+{
+	constexpr double H11 = -0.007431519425246311;
+	constexpr double H12 = 0.022452824849980513;
+	constexpr double H13 = -0.03620393417193995;
+	constexpr double H14 = 0.0409779901800809;
+	constexpr double H15 = 0.1516046385671249;
+	constexpr double H21 = 0.03095749686312404;
+	constexpr double H22 = -0.10116885619385878;
+	constexpr double H23 = 0.1997455955716367;
+	constexpr double H24 = 0.3010242365525433;
+	constexpr double H25 = -0.055594729593982636;
+	constexpr double H31 = -0.001072443882925378;
+	constexpr double H32 = -0.023971860139062367;
+	constexpr double H33 = -0.04263887835494916;
+	constexpr double H34 = -0.023971860139062388;
+	constexpr double H35 = -0.0010724438829253797;
+};
+
+namespace GL5
+{
+	// 5-point Gauss Quadrature Collocation Points
+	// The weights have already been folded into the CFET coefficients
+	constexpr double X1 = 0.046910077030668074;
+	constexpr double X2 = 0.2307653449471585;
+	constexpr double X3 = 0.5;
+	constexpr double X4 = 0.7692346550528415;
+	constexpr double X5 = 0.9530899229693319;
+};
+
 #endif

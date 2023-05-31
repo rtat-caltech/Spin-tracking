@@ -83,6 +83,10 @@ __PREPROC__ double3 cross(const double3 a, const double3 b){
 	return out;
 }
 
+__PREPROC__ double dot(const double3 a, const double3 b){
+	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
 __PREPROC__ double sum(const double3 a){
 	return a.x+a.y+a.z;
 }
@@ -170,4 +174,11 @@ __PREPROC__ quaternion rodriguezQuat(const double3 k, const double dt){
 	double h = angle * dt;
 	norm = norm * -sin(h/2.0);
 	return {cos(h/2.0), norm.x, norm.y, norm.z};
+}
+
+__PREPROC__ double3 rodriguez(const double3 k, const double3 v1, const double dt){
+	double angle = len(k) * dt;
+	double s =  sin(angle);
+	double c = cos(angle);
+	return v1 * c + (cross(v1, k) * (s/angle)) + k * (dot(k, v1) * (1.0 - c)/(angle * angle))
 }
