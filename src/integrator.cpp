@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <math.h>
+#include <iostream>
 
 #if defined(__HIPCC__)
 #include <hip/hip_runtime.h>
@@ -530,28 +531,26 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 						const double3& p_new, const double3& v_old, const double3& v_new,
 						options OPT){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
-
 	double t = t0;
 	double dt = 1e-4;
-	
+
 	double3 k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
 	double3 B1, B2, B3, B4, B5;
 	double3 y8, y6;
-	
-    double beta1 = 0.7;
-    double beta2 = -0.4;
-    double accept_safety = 0.81;
-    double k = 7.0;
-    double prev_ratio = 1.0;
+  
+	double beta1 = 0.7;
+	double beta2 = -0.4;
+	double accept_safety = 0.81;
+	double k = 7.0;
+	double prev_ratio = 1.0;
 
 	double q, tol, error, ratio;
-	
-    while (t < tf) {
+	while (t < tf) {
 		B1 = findCrossTerm(t+GL5::X1*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-		B2 = findCrossTerm(t+GL5::X1*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-		B3 = findCrossTerm(t+GL5::X1*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-		B4 = findCrossTerm(t+GL5::X1*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-		B5 = findCrossTerm(t+GL5::X1*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+		B2 = findCrossTerm(t+GL5::X2*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+		B3 = findCrossTerm(t+GL5::X3*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+		B4 = findCrossTerm(t+GL5::X4*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+		B5 = findCrossTerm(t+GL5::X5*dt, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
 
 		k11 = (CFET8::G15 * B1 + CFET8::G14 * B2 + CFET8::G13 * B3 + CFET8::G12 * B4 + CFET8::G11 * B5) * dt;
 		k10 = (CFET8::G25 * B1 + CFET8::G24 * B2 + CFET8::G23 * B3 + CFET8::G22 * B4 + CFET8::G21 * B5) * dt;
@@ -578,16 +577,16 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 		error = len(y8 - y6);
 
 		tol = OPT.rtol; // TODO: incorporate abs and rel tols
-        ratio = tol/error;
+		ratio = tol/error;
 
 		q = pow(ratio, beta1/k) * pow(prev_ratio, beta2/k);
-        q = min(q,4.0); // control stepsize growth
-        if (q > accept_safety && error < 2 * tol) {
+		q = min(q,4.0); // control stepsize growth
+		if (q > accept_safety && error < 2 * tol) {
 			y = y8;
 			t += dt;
 		}
-		dt = min(dt - t, dt*q);
-        prev_ratio = ratio;
+		dt = min(tf - t, dt*q);
+		prev_ratio = ratio;
 	}
 	return 0;
 }

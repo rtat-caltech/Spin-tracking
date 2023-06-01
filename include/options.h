@@ -33,7 +33,7 @@ struct options{
 	double ioutInt = 0.05; // how frequently to output the state data
 	
 	unsigned int nmax = 10000000;
-	int integratorType = 0; //0 means DOP853, 1 means hybrid RK45 approach
+	int integratorType = 0; //0 means DOP853, 1 means hybrid RK45 approach, 2 means Magnus
 	int numParticles = 1000;
 	int numPerGPUBlock = 128;
 	int iout = 2; //used for the DOP853 integration method, don't mess with this
