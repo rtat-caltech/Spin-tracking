@@ -4,7 +4,7 @@ vpath %.h include/
 
 ##This is the CPU compilation section
 CC = g++ 
-CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp 
+CC_FLAGS= -g -w -O3 -std=c++17 -fPIC #-fopenmp 
 
 #AMD GPU Compilation Section
 #CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
