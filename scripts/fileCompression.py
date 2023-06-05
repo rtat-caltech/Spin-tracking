@@ -127,19 +127,12 @@ def modifyData(data, params):
 	outputData['sz'] = (data['sz']+1.0)/2.0*2**16
 	return outputData
 
-argv = sys.argv
+def compressFile(inputName, outputName):
+	parameters, data = readInOutputFile(inputName)
+	test = modifyData(data, parameters)
 
-if len(argv) != 3:
-	print('invalid input: expects input_name output_name')
-	sys.exit()
-
-inputname = argv[1]
-outputname = argv[2]
-
-parameters, data = readInOutputFile(inputname)
-test = modifyData(data, parameters)
-
-output = h5py.File(outputname, 'w')
-output.create_dataset('parameters', data=parameters)
-output.create_dataset('data', data=test, compression='gzip')
-output.close()
+	output = h5py.File(outputName, 'w')
+	output.create_dataset('parameters', data=parameters)
+	output.create_dataset('data', data=test, compression='gzip')
+	output.close()
+	return
