@@ -6,9 +6,10 @@ All of these should be defined so they are interchangeable if possible.
 
 import numpy as np
 import numba
+import DOP853Coefs as DOP
 
-@numba.jit
-def __DOP853Coefs():
+#@numba.jit
+def __DefineDOP853Coefs():
 	COEF = {
 		"c2" : 0.526001519587677318785587544488E-01,
 		"c3" : 0.789002279381515978178381316732E-01,
@@ -179,8 +180,10 @@ def __DOP853Coefs():
 	}
 	return COEF
 
-@numba.jit
-def __rkParamDef():
+__DOP853Coefs = __DefineDOP853Coefs()
+
+#@numba.jit
+def __DefineRK45Coefs():
 	rk45COEF = {
 		'A1': 0.0,
 		'A2': 2.0/9.0,
@@ -223,8 +226,10 @@ def __rkParamDef():
 	}
 	return rk45COEF
 
-@numba.jit
-def __RK75109Coefs():
+__rk45Coefs = __DefineRK45Coefs()
+
+#@numba.jit
+def __DefineRK75109Coefs():
 	coef = {
 		'A1': 0.0,
 		'A2': 4/63,
@@ -291,6 +296,8 @@ def __RK75109Coefs():
 		'CH9': 28487/712800
 	}
 	return coef
+
+__RK75109Coefs = __DefineRK75109Coefs()
 
 @numba.jit
 def calcGamma(v):
@@ -392,7 +399,6 @@ def BlochNew(t, dt, y, B0, t0, tf , p_old, p_new, v_old, v_new, gamma = -1.83247
 	trueS = np.dot(rotation, y)
 	return trueS
 
-
 @numba.jit
 def DOP853(particle, intOPT, physOPT, BField, EField):
 	t0 = particle['t_old']
@@ -402,7 +408,7 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	COEF = __DOP853Coefs()
+	#COEF = __DOP853Coefs
 	yy1 = np.zeros(3)
 	k1 = np.zeros(3)
 	k2 = np.zeros(3)
@@ -451,7 +457,7 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 	xout = 0.0
 	x = t0
 	xf = tf
-	h = np.float64(intOPT['h'])
+	h = particle['last_spin_step_size']
 	i = 0
 	n = 3
 	last  = 0
@@ -464,72 +470,76 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 	nfcn += 2
 	reject = 0
 	xold = x
+	outh = h
 	while 1:
+		outh = h
 		if nstep > np.float64(intOPT['nmax']):
 			xout = x
 			hout = h
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 		if 0.1 * abs(h) <= abs(x) * np.float64(intOPT['uround']):
 			xout = x
 			hout = h;
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 		if (x + 1.01*h - xf) * posneg > 0.0 :
 			h = xf - x
 			last = 1
 		nstep+=1
-		yy1 = y + h * COEF['a21'] * k1;
-		k2 = Bloch(x+COEF['c2']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * DOP.a21 * k1;
+		k2 = Bloch(x+DOP.c2*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a31']*k1 + COEF['a32']*k2);
-		k3 = Bloch(x+COEF['c3']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a31*k1 + DOP.a32*k2);
+		k3 = Bloch(x+DOP.c3*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a41']*k1 + COEF['a43']*k3);
-		k4 = Bloch(x+COEF['c4']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a41*k1 + DOP.a43*k3);
+		k4 = Bloch(x+DOP.c4*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a51']*k1 + COEF['a53']*k3 + COEF['a54']*k4);
-		k5 = Bloch(x+COEF['c5']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a51*k1 + DOP.a53*k3 + DOP.a54*k4);
+		k5 = Bloch(x+DOP.c5*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a61']*k1 + COEF['a64']*k4 + COEF['a65']*k5);
-		k6 = Bloch(x+COEF['c6']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a61*k1 + DOP.a64*k4 + DOP.a65*k5);
+		k6 = Bloch(x+DOP.c6*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a71']*k1 + COEF['a74']*k4 + COEF['a75']*k5 + COEF['a76']*k6);
-		k7 = Bloch(x+COEF['c7']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a71*k1 + DOP.a74*k4 + DOP.a75*k5 + DOP.a76*k6);
+		k7 = Bloch(x+DOP.c7*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a81']*k1 + COEF['a84']*k4 + COEF['a85']*k5 + COEF['a86']*k6 + COEF['a87']*k7);
-		k8 = Bloch(x+COEF['c8']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a81*k1 + DOP.a84*k4 + DOP.a85*k5 + DOP.a86*k6 + DOP.a87*k7);
+		k8 = Bloch(x+DOP.c8*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a91']*k1 + COEF['a94']*k4 + COEF['a95']*k5 + COEF['a96']*k6 + COEF['a97']*k7 + COEF['a98']*k8);
-		k9 = Bloch(x+COEF['c9']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a91*k1 + DOP.a94*k4 + DOP.a95*k5 + DOP.a96*k6 + DOP.a97*k7 + DOP.a98*k8);
+		k9 = Bloch(x+DOP.c9*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a101']*k1 + COEF['a104']*k4 + COEF['a105']*k5 + COEF['a106']*k6 + COEF['a107']*k7 + COEF['a108']*k8 + COEF['a109']*k9);
-		k10 = Bloch(x+COEF['c10']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOP.a101*k1 + DOP.a104*k4 + DOP.a105*k5 + DOP.a106*k6 + DOP.a107*k7 + DOP.a108*k8 + DOP.a109*k9);
+		k10 = Bloch(x+DOP.c10*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (COEF['a111']*k1 + COEF['a114']*k4 + COEF['a115']*k5 + COEF['a116']*k6 + COEF['a117']*k7 + COEF['a118']*k8 + COEF['a119']*k9 + COEF['a1110']*k10);
+		yy1 = y + h * (DOP.a111*k1 + DOP.a114*k4 + DOP.a115*k5 + DOP.a116*k6 + DOP.a117*k7 + DOP.a118*k8 + DOP.a119*k9 + DOP.a1110*k10);
 
-		k2 = Bloch(x+COEF['c11']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		k2 = Bloch(x+DOP.c11*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		xph = x + h;
 
-		yy1 = y + h * (COEF['a121']*k1 + COEF['a124']*k4 + COEF['a125']*k5 + COEF['a126']*k6 + COEF['a127']*k7 + COEF['a128']*k8 + COEF['a129']*k9 + COEF['a1210']*k10 + COEF['a1211']*k2);
+		yy1 = y + h * (DOP.a121*k1 + DOP.a124*k4 + DOP.a125*k5 + DOP.a126*k6 + DOP.a127*k7 + DOP.a128*k8 + DOP.a129*k9 + DOP.a1210*k10 + DOP.a1211*k2);
 
 		k3 = Bloch(xph, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		nfcn += 11;
 
-		k4 = COEF['b1']*k1 + COEF['b6']*k6 + COEF['b7']*k7 + COEF['b8']*k8 + COEF['b9']*k9 + COEF['b10']*k10 + COEF['b11']*k2 + COEF['b12']*k3;
+		k4 = DOP.b1*k1 + DOP.b6*k6 + DOP.b7*k7 + DOP.b8*k8 + DOP.b9*k9 + DOP.b10*k10 + DOP.b11*k2 + DOP.b12*k3;
 		k5 = y + h * k4;
 
 		# error estimation 
 		err = 0.0;
 		err2 = 0.0;
 		sk = atoli + rtoli * max_d3(np.abs(y), np.abs(k5));
-		erri = k4 - np.float64(COEF['bhh1'])*k1 - np.float64(COEF['bhh2'])*k9 - np.float64(COEF['bhh3'])*k3;
+		erri = k4 - np.float64(DOP.bhh1)*k1 - np.float64(DOP.bhh2)*k9 - np.float64(DOP.bhh3)*k3;
 		sqr = erri / sk;
 		err2 += sum(sqr*sqr);
-		erri = np.float64(COEF['er1'])*k1 + np.float64(COEF['er6'])*k6 + np.float64(COEF['er7'])*k7 + np.float64(COEF['er8'])*k8 +\
-			np.float64(COEF['er9'])*k9 + np.float64(COEF['er10'])*k10 + np.float64(COEF['er11'])*k2 + np.float64(COEF['er12'])*k3;
+		erri = np.float64(DOP.er1)*k1 + np.float64(DOP.er6)*k6 + np.float64(DOP.er7)*k7 + np.float64(DOP.er8)*k8 +\
+			np.float64(DOP.er9)*k9 + np.float64(DOP.er10)*k10 + np.float64(DOP.er11)*k2 + np.float64(DOP.er12)*k3;
 		sqr = erri / sk;
 		err += sum(sqr*sqr);
 		deno = err + 0.01 * err2;
@@ -557,6 +567,7 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 				hout=hnew;
 				particle['s'] = y[:]
 				particle['n_spin_steps'] += nstep
+				particle['last_spin_step_size'] = outh
 				return particle
 			if abs(hnew) > hmax:
 				hnew = posneg * hmax;
@@ -573,6 +584,7 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 		h = hnew;
 	particle['s'] = x
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -584,7 +596,7 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	COEF = __DOP853Coefs()
+	COEF = __DOP853Coefs
 	idid = 0
 	iasti = 0
 	iord = 0
@@ -622,7 +634,8 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 	xout = 0.0
 	x = t0
 	xf = tf
-	h = np.float64(intOPT['h'])
+	h = particle['last_spin_step_size']
+	outh = h
 	i = 0
 	n = 3
 	last  = 0
@@ -636,6 +649,7 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 	xold = x
 	while 1:
 		nstep+=1
+		outh = h
 		if nstep > np.float64(intOPT['nmax']):
 			xout = x
 			hout = h
@@ -662,10 +676,8 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 		
 		k5q = findCrossTerm(x+COEF['c5']*h, appCross(appCross(appCross(
 			y, k1q, COEF['a51']*h), k3q, COEF['a53']*h), k4q, COEF['a54']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		
 		k6q = findCrossTerm(x+COEF['c6']*h, appCross(appCross(appCross(
 			y, k1q, COEF['a61']*h), k4q, COEF['a64']*h), k5q, COEF['a65']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		
 		k7q = findCrossTerm(x+COEF['c7']*h, appCross(appCross(appCross(appCross(
 			y, k1q, COEF['a71']*h), k4q, COEF['a74']*h), k5q, COEF['a75']*h), k6q, COEF['a76']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		#print(appCross(appCross(appCross(appCross(appCross(
@@ -683,16 +695,13 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 		
 		yy1q = appCross(appCross(appCross(appCross(appCross(appCross(appCross(appCross(
 			y, k1q, COEF['a111']*h), k4q, COEF['a114']*h), k5q, COEF['a115']*h), k6q, COEF['a116']*h), k7q, COEF['a117']*h), k8q, COEF['a118']*h), k9q, COEF['a119']*h), k10q, COEF['a1110']*h)
-		
 		k2q = findCrossTerm(x+COEF['c11']*h, yy1q, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		xph = x + h;
-
 		yy1q = appCross(appCross(appCross(appCross(appCross(appCross(appCross(appCross(appCross(
             y, k1q, h*COEF['a121']), k4q, h*COEF['a124']), k5q, h*COEF['a125']), k6q, h*COEF['a126']), k7q, h*COEF['a127']), k8q, h*COEF['a128']), k9q, h*COEF['a129']), k10q, h*COEF['a1210']), k2q, h*COEF['a1211'])
 		#print(yy1q)
 		k3q = findCrossTerm(xph, yy1q, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		nfcn += 11;
-
 		k4q = rodriguez(k3q, h*COEF['b12'])@(rodriguez(k2q, h*COEF['b11'])@(rodriguez(k10q, h*COEF['b10'])@(
 			rodriguez(k9q, h*COEF['b9'])@(rodriguez(k8q, h*COEF['b8'])@(rodriguez(k7q, h*COEF['b7'])@(rodriguez(k6q, h*COEF['b6'])@rodriguez(k1q, h*COEF['b1'])))))))
 		k5q = k4q@y #k4 is the rotation matrix
@@ -745,6 +754,7 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 				xout = x;
 				particle['s'] = y[:]
 				particle['n_spin_steps'] += nstep
+				particle['last_spin_step_size'] = outh
 				return particle
 		else:
 			# step rejected
@@ -756,6 +766,7 @@ def DOP853Rotation(particle, intOPT, physOPT, BField, EField):
 		h = hnew;
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -767,7 +778,7 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	COEF = __DOP853Coefs()
+	COEF = __DOP853Coefs
 	idid = 0
 	iasti = 0
 	iord = 0
@@ -805,7 +816,8 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 	xout = 0.0
 	x = t0
 	xf = tf
-	h = np.float64(intOPT['h'])
+	h = particle['last_spin_step_size']
+	outh = h
 	i = 0
 	n = 3
 	last  = 0
@@ -819,17 +831,20 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 	xold = x
 	while 1:
 		nstep+=1
+		outh = h
 		if nstep > np.float64(intOPT['nmax']):
 			xout = x
 			hout = h
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 		if 0.1 * abs(h) <= abs(x) * np.float64(intOPT['uround']):
 			xout = x
 			hout = h;
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 		if (x + 1.01*h - xf) * posneg > 0.0 :
 			h = xf - x
@@ -900,29 +915,15 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 		err = 0.0;
 		err2 = 0.0;
 		sk = atoli + rtoli * max_d3(np.abs(y), np.abs(k5q));
-		#erri = k4 - COEF['bhh1']*k1 - COEF['bhh2']*k9 - COEF['bhh3']*k3
-		#This one is a different method of finding the endpoint based on previously calculated values
-		#erri = k5q - appCross(appCross(appCross(y, k1q, COEF['bhh1']*h), k9q, COEF['bhh2']*h), k3q, COEF['bhh3']*h)
 		erri = qv_mult(k4q, y) - qv_mult(qMult(qMult(rodriguezQuat(k3q, COEF['bhh3']*h), rodriguezQuat(k9q, COEF['bhh2']*h)), rodriguezQuat(k1q, COEF['bhh1']*h)), y)
-		#erri = k4@y - (rodriguez(k1, COEF['bhh1']*h)@(rodriguez(k9, COEF['bhh2']*h)@(rodriguez(k3, COEF['bhh3']*h))))@y;
-		#print(erri)
 		erri = np.max(np.square(erri))
 		sqr = erri / sk;
 		err2 += sum(sqr*sqr);
-		#erri = COEF['er1']*k1 + COEF['er6']*k6 + COEF['er7']*k7 + COEF['er8']*k8 + COEF['er9']*k9 + COEF['er10']*k10 + COEF['er11']*k2 + COEF['er12']*k3;
-		#erri = (np.identity(3) - rodriguez(k1q, COEF['er1']*h)@(rodriguez(k6q, COEF['er6']*h)@(rodriguez(k7q, COEF['er7']*h)@(\
-		#	rodriguez(k8q, COEF['er8']*h)@(rodriguez(k9q, COEF['er9']*h)@(rodriguez(k10q, COEF['er10']*h)@(rodriguez(k2q, COEF['er11']*h)@(rodriguez(k3q, COEF['er12']*h)))))))))@y
-		#erri = appCross(appCross(appCross(appCross(appCross(appCross(appCross(appCross(
-		#	y, k3q, COEF['er12']*h), k2q, COEF['er11']*h), k10q, COEF['er10']*h), k9q, COEF['er9']*h), k8q, COEF['er8']*h), 
-		#								  k7q, COEF['er7']*h), k6q, COEF['er6']*h), k1q, COEF['er1']*h)
-		
 		erri = qv_mult(qMult(qMult(qMult(qMult(qMult(qMult(qMult(rodriguezQuat(k1q, COEF['er1']*h), rodriguezQuat(k6q, COEF['er6']*h)), rodriguezQuat(k7q, COEF['er7']*h)),
 										 rodriguezQuat(k8q, COEF['er8']*h)), rodriguezQuat(k9q, COEF['er9']*h)), rodriguezQuat(k10q, COEF['er10']*h)),
 										 rodriguezQuat(k2q, COEF['er11']*h)), rodriguezQuat(k3q, COEF['er12']*h)), y)
 		erri = y-erri
-		#print(erri)
 		erri = np.max(np.square(erri));
-		#print(erri)
 		sqr = erri / sk;
 		err += sum(sqr*sqr);
 		deno = err + 0.01 * err2;
@@ -945,6 +946,7 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 			if last:
 				particle['s'] = y[:]
 				particle['n_spin_steps'] += nstep
+				particle['last_spin_step_size'] = outh
 				return particle
 			# final preparation for dense output 
 			xold = x;
@@ -959,6 +961,7 @@ def DOP853Quaternion(particle, intOPT, physOPT, BField, EField):
 		h = hnew;
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -970,17 +973,18 @@ def RK45(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
-	rk45COEF = __rkParamDef()
+	h = particle['last_spin_step_size']
+	outh = h
+	rk45COEF = __rk45Coefs
 	t = t0
 	out = False
 	stop = False
-	hmin = 1.0E-9
 	nstep = 0
 	while(1):
 		nstep+=1
 		h = min(h, intOPT['max_step']) #whichever is smaller use that
 		h = max(h, intOPT['min_step']) 
+		outh = h
 		endOfSimulDt = tf - t #how long until the end of the simulation
 		if endOfSimulDt <= h:
 			stop = True
@@ -1012,9 +1016,11 @@ def RK45(particle, intOPT, physOPT, BField, EField):
 		if stop:
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -1026,15 +1032,17 @@ def RK45Rotation(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
-	rk45COEF = __rkParamDef()
+	h = particle['last_spin_step_size']
+	rk45COEF = __rk45Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
 	nstep = 0
+	outh = particle['last_spin_step_size']
 	while(1):
 		nstep+=1
 		endOfSimulDt = tf - t #how long until the end of the simulation
+		outh = h
 		if endOfSimulDt <= h:
 			stop = True
 			h = endOfSimulDt
@@ -1071,9 +1079,11 @@ def RK45Rotation(particle, intOPT, physOPT, BField, EField):
 		if stop:
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -1085,17 +1095,19 @@ def RK45Quaternion(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
-	rk45COEF = __rkParamDef()
+	h = particle['last_spin_step_size']
+	rk45COEF = __rk45Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
 	nstep = 0
+	outh = h
 	while(1):
 		nstep+=1
 		endOfSimulDt = tf - t #how long until the end of the simulation
 		h = min(h, intOPT['max_step']) #whichever is smaller use that
 		h = max(h, intOPT['min_step']) 
+		outh = h
 		if endOfSimulDt <= h and endOfSimulDt <= h:
 			stop = True
 			h = endOfSimulDt
@@ -1137,9 +1149,11 @@ def RK45Quaternion(particle, intOPT, physOPT, BField, EField):
 		if stop:
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -1151,15 +1165,17 @@ def RK75109(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
-	coefs = __RK75109Coefs()
+	h = particle['last_spin_step_size']
+	coefs = __RK75109Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
 	nstep = 0
+	outh = h
 	while(1):
 		nstep+=1
 		endOfSimulDt = tf - t #how long until the end of the simulation
+		outh = h
 		if endOfSimulDt <= h:
 			stop = True
 			h = endOfSimulDt
@@ -1202,6 +1218,7 @@ def RK75109(particle, intOPT, physOPT, BField, EField):
 			return particle
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -1213,15 +1230,17 @@ def RK75109Rotation(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
-	coefs = __RK75109Coefs()
+	h = particle['last_spin_step_size']
+	coefs = __RK75109Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
 	nstep = 0
+	outh = h
 	while(1):
 		nstep+=1
 		endOfSimulDt = tf - t #how long until the end of the simulation
+		outh = h
 		if endOfSimulDt <= h:
 			stop = True
 			h = endOfSimulDt
@@ -1274,9 +1293,11 @@ def RK75109Rotation(particle, intOPT, physOPT, BField, EField):
 		if stop:
 			particle['s'] = y[:]
 			particle['n_spin_steps'] += nstep
+			particle['last_spin_step_size'] = outh
 			return particle
 	particle['s'] = y[:]
 	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
 	return particle
 
 @numba.jit
@@ -1288,13 +1309,12 @@ def ImplicitEuler(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
+	h = np.float64(intOPT['h']) #for this integrator, just always use the fixed step size
 	t = t0
 	stop = False
 	nstep = 0
 	while not stop:
 		nstep+=1
-		h = np.float64(intOPT['h']) #reset to the base h value at the beginning each time
 		endOfSimulDt = tf - t #how long until the end of the simulation
 		if endOfSimulDt <= h:
 			stop = True
@@ -1319,13 +1339,12 @@ def CrankNicolson(particle, intOPT, physOPT, BField, EField):
 	v_old = particle['v_old']
 	v_new = particle['v']
 	y = particle['s'][:]
-	h = np.float64(intOPT['h'])
+	h = np.float64(intOPT['h']) #for this integrator, just always use the fixed step size
 	t = t0
 	stop = False
 	nstep = 0
 	while not stop:
 		nstep+=1
-		h = np.float64(intOPT['h']) #reset to the base h value at the beginning each time 
 		endOfSimulDt = tf - t #how long until the end of the simulation
 		if endOfSimulDt <= h:
 			stop = True
@@ -1345,6 +1364,8 @@ def CrankNicolson(particle, intOPT, physOPT, BField, EField):
 
 @numba.jit
 def integrateSpin(particle, simulationOptions, spinOptions, BField, EField):
+	if particle['last_spin_step_size'] <= 1.0e-9: #if the last step size was less than 1 nanosecond, basically it probably hadn't gone yet
+		particle['last_spin_step_size'] = spinOptions['h']
 	if spinOptions['integrator'] == 0:#traditional DOP853 method
 		particle = DOP853(particle, spinOptions, simulationOptions, BField, EField)
 	elif spinOptions['integrator'] == 1:

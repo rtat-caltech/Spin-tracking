@@ -6,6 +6,7 @@ import numpy as np
 import numba
 import rng
 import spinIntegrators as spin
+import math
 
 __G_CONST = -9.8
 __K_CONST = 1.380649e-23
@@ -55,13 +56,13 @@ def defineSimulation(cell= (0.07, 0.1, 0.4), t0 = 0.0, tf = 1.0,
 		('t0', np.float64),
 		('tf', np.float64),
 		('output_interval', np.float64),
+		('max_step', np.float64), 
+		('temperature', np.float64),
+		('vel', np.float64),
+		('velocity_dist', np.int32),
 		('gas_coll', np.int32),
 		('diffuse', np.int32),
 		('gravity', np.int32),
-		('max_step', np.float64), 
-		('velocity_dist', np.int32),
-		('vel', np.float64),
-		('temperature', np.float64),
 		('position_dist', np.int32),
 	])
 	options = np.zeros(1, dtype=dtype)[0]
@@ -132,7 +133,6 @@ def spinIntegratorOptions(integrator = 0, rtol = 1e-12, atol=1e-12, beta = 0.0, 
 		numpy np.ndarray type containing the integrator options
 	"""
 	dtype = np.dtype([
-		('integrator', np.int32),
 		('rtol', np.float64),
 		('atol', np.float64),
 		('beta', np.float64),
@@ -141,10 +141,11 @@ def spinIntegratorOptions(integrator = 0, rtol = 1e-12, atol=1e-12, beta = 0.0, 
 		('fac1', np.float64),
 		('fac2', np.float64),
 		('hmax', np.float64),
-		('nmax', np.uint32),
 		('max_step', np.float64),
 		('min_step', np.float64),
 		('h', np.float64),
+		('integrator', np.int32),
+		('nmax', np.uint32),
 	])
 	options = np.zeros(1, dtype=dtype)[0]
 	options['integrator'] = integrator
@@ -176,13 +177,14 @@ particleDtype = np.dtype([
 	('gamma', np.float64), #gyromagnetic ratio
 	('tc', np.float64), #collision time constant
 	('next_gas_coll_time', np.float64), #next time for a gas collision
-	('coll_type', np.int8), #collision type, 0 is no collision, 1 is wall, 2 is gas
-	('wall_hit', np.int8), #which wall it hit
-	('finished', np.int8), #is the simulation for this particle done
 	('n_bounce', np.int64), #number of wall bounces
 	('n_coll', np.int64), #number of collisions
 	('n_steps', np.int64), #number of steps total
 	('n_spin_steps', np.int64), #number of spin integration steps total
+	('last_spin_step_size', np.float64), #used to keep track of last step size of spin integration
+	('coll_type', np.int8), #collision type, 0 is no collision, 1 is wall, 2 is gas
+	('wall_hit', np.int8), #which wall it hit
+	('finished', np.int8), #is the simulation for this particle done
 ])
 
 @numba.jit
@@ -223,17 +225,17 @@ def createParticle(simulationParameters, mass=2.2*5e-27, gamma = -2.078e8, spin=
 		particle['x'][:] = (0.0, 0.0, 0.0)
 	#determine the starting velocity
 	if simulationParameters['velocity_dist'] == 0:
-		tx = rng.uniform(particle['rng'])
-		ty = rng.uniform(particle['rng'])
-		tz = rng.uniform(particle['rng'])
-		tv = np.sqrt(tx**2.0 + ty**2.0 + tz**2.0)
+		tx = rng.uniform(particle['rng'], 0, 1)
+		ty = rng.uniform(particle['rng'], 0, 1)
+		tz = rng.uniform(particle['rng'], 0, 1)
+		tv = math.sqrt(tx**2.0 + ty**2.0 + tz**2.0)
 		scale = simulationParameters['vel']/tv
 		particle['v'][:] = (scale*tx, scale*ty, scale*tz)
 	elif simulationParameters['velocity_dist'] == 1:
-		sqrtKT_m = np.sqrt(__K_CONST*simulationParameters['temperature']/mass)
-		tx = rng.normal(particle['rng'])*sqrtKT_m
-		ty = rng.normal(particle['rng'])*sqrtKT_m
-		tz = rng.normal(particle['rng'])*sqrtKT_m
+		sqrtKT_m = math.sqrt(__K_CONST*simulationParameters['temperature']/mass)
+		tx = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
+		ty = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
+		tz = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
 		particle['v'][:] = (tx, ty, tz)
 	else:
 		particle['v'][:] = (0, 0, 0)
@@ -254,6 +256,7 @@ def createParticle(simulationParameters, mass=2.2*5e-27, gamma = -2.078e8, spin=
 	particle['dt'] = 0.0
 	particle['n_steps'] = 0.0
 	particle['n_spin_steps'] = 0
+	particle['last_spin_step_size'] = 0.0 #used to keep track of the last spin tracking step size between instances
 	return particle
 
 @numba.jit
@@ -302,7 +305,7 @@ def calc_next_collision_time(particle, options):
 		y2 = v[1] * v[1];
 		if sgn(v[1]) <= 0.0: #if the particle has negative y velocity
 			dy = x[1] + L[1]*0.5;
-			sqr = np.sqrt(-2.0*__G_CONST*dy+y2);
+			sqr = math.sqrt(-2.0*__G_CONST*dy+y2);
 			temp1 = -(sqr+v[1])/__G_CONST;
 			temp2 = (sqr-v[1])/__G_CONST;
 			dty = min(abs(temp1), abs(temp2))
@@ -310,21 +313,21 @@ def calc_next_collision_time(particle, options):
 			maxHeight = -0.5 * y2/__G_CONST + x[1];
 			if maxHeight < 0.5 * L[1]: #in this case it can't hit the ceiling
 				dy = x[1]+L[1]*0.5;
-				sqr = np.sqrt(-2.0*__G_CONST*dy+y2);
+				sqr = math.sqrt(-2.0*__G_CONST*dy+y2);
 				temp1 = -(sqr+v[1])/__G_CONST;
 				temp2 = (sqr-v[1])/__G_CONST;
 				dty = max(temp1, temp2);
 			else:
 				dy = L[1]*0.5 - x[1]; #how far to ceiling
-				sqr = np.sqrt(-2.0*__G_CONST*dy+y2);
+				sqr = math.sqrt(-2.0*__G_CONST*dy+y2);
 				temp1 = -(sqr+v[1])/__G_CONST;
 				temp2 = (sqr-v[1])/__G_CONST;
 				dty = min(abs(temp1), abs(temp2));
-		if dtx < 1e-16 or np.isnan(dtx):
+		if dtx < 1e-16 or math.isnan(dtx):
 			dtx = 1e6;
-		elif dty < 1e-16 or np.isnan(dty):
+		elif dty < 1e-16 or math.isnan(dty):
 			dty = 1e6;
-		elif dtz < 1e-16 or np.isnan(dtz):
+		elif dtz < 1e-16 or math.isnan(dtz):
 			dtz = 1e6;
 	else:
 		dx = sgn(v[0]) * L[0] / 2.0 - x[0];
@@ -382,7 +385,7 @@ def calc_next_collision_time(particle, options):
 def new_velocities(particle, options):
 	v = particle['v'][:]
 	particle['v_old'] = v[:]
-	Vel = np.sqrt(v[0]**2.0+v[1]**2.0+v[2]**2.0);
+	Vel = math.sqrt(v[0]**2.0+v[1]**2.0+v[2]**2.0);
 	if particle['coll_type'] == 0:
 		return particle
 	elif particle['coll_type'] == 0 and options['diffuse'] == 0:
@@ -393,30 +396,30 @@ def new_velocities(particle, options):
 		elif particle['wall_hit'] == 2:
 			v[2] *= -1.0;
 	elif particle['coll_type'] == 1 and options['diffuse'] == 1:
-		phi = np.arccos(np.sqrt(rng.uniform(particle['rng'])));
-		theta = rng.uniform(particle['rng'])*np.pi*2.0;
+		phi = math.acos(math.sqrt(rng.uniform(particle['rng'], 0, 1)));
+		theta = rng.uniform(particle['rng'], 0, np.pi*2.0);
 		if particle['wall_hit'] == 0:
-			v[0] = -1 * sgn(v[0]) * Vel * np.cos(phi);
-			v[1] = -Vel * np.sin(phi) * np.cos(theta);
-			v[2] = Vel * np.sin(phi) * np.sin(theta);
+			v[0] = -1 * sgn(v[0]) * Vel * math.cos(phi);
+			v[1] = -Vel * math.sin(phi) * math.cos(theta);
+			v[2] = Vel * math.sin(phi) * math.sin(theta);
 		elif particle['wall_hit'] == 1:
-			v[0] = Vel * np.sin(phi) * np.cos(theta);
-			v[1] = -1 * sgn(v[1]) * Vel * np.cos(phi);
-			v[2] = Vel * np.sin(phi) * np.sin(theta);
+			v[0] = Vel * math.sin(phi) * math.cos(theta);
+			v[1] = -1 * sgn(v[1]) * Vel * math.cos(phi);
+			v[2] = Vel * math.sin(phi) * math.sin(theta);
 		elif particle['wall_hit'] == 2:
-			v[0] = Vel * np.sin(phi) * np.cos(theta);
-			v[1] = Vel * np.sin(phi) * np.sin(theta);
-			v[2] = -1 * sgn(v[2]) * Vel * np.cos(phi);
+			v[0] = Vel * math.sin(phi) * math.cos(theta);
+			v[1] = Vel * math.sin(phi) * math.sin(theta);
+			v[2] = -1 * sgn(v[2]) * Vel * math.cos(phi);
 	elif particle['coll_type'] == 2 and options['velocity_dist'] == 1:
-		sqrtKT_m = np.sqrt(__K_CONST*options['temperature']/particle['mass'])
-		v[0] = rng.normal(particle['rng'])*sqrtKT_m
-		v[1] = rng.normal(particle['rng'])*sqrtKT_m
-		v[2] = rng.normal(particle['rng'])*sqrtKT_m
+		sqrtKT_m = math.sqrt(__K_CONST*options['temperature']/particle['mass'])
+		v[0] = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
+		v[1] = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
+		v[2] = rng.normal(particle['rng'], 0, 1)*sqrtKT_m
 	elif particle['coll_type'] == 2 and options['velocity_dist'] == 0:
-		tx = rng.normal(particle['rng'])
-		ty = rng.normal(particle['rng'])
-		tz = rng.normal(particle['rng'])
-		vec_norm = np.sqrt(tx**2.0 + ty**2.0 + tz**2.0)
+		tx = rng.normal(particle['rng'], 0, 1)
+		ty = rng.normal(particle['rng'], 0, 1)
+		tz = rng.normal(particle['rng'], 0, 1)
+		vec_norm = math.sqrt(tx**2.0 + ty**2.0 + tz**2.0)
 		scale = Vel/vec_norm
 		v[0] = tx*scale
 		v[1] = ty*scale
@@ -430,7 +433,9 @@ def move(particle, options):
 	particle['t'] += particle['dt'] #update now time
 	particle['x_old'] = particle['x'][:] #update the old position
 	particle['v_old'] = particle['v'][:] #update the old velocity
-	particle['x'][:] = particle['x_old'] +  particle['v'] * particle['dt']
+	particle['x'][0] = particle['x_old'][0] +  particle['v'][0]*particle['dt']
+	particle['x'][1] = particle['x_old'][1] +  particle['v'][1]*particle['dt']
+	particle['x'][2] = particle['x_old'][2] +  particle['v'][2]*particle['dt']
 	if options['gravity'] == 1:
 		particle['x'][1] += 0.5 *__G_CONST*particle['dt']*particle['dt']
 		particle['v'][1] += __G_CONST*particle['dt']

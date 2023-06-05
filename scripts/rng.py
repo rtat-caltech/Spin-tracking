@@ -9,6 +9,7 @@ This is based on the method described here: https://en.wikipedia.org/wiki/Xorshi
 
 import numba
 import numpy as np
+import math
 
 @numba.jit(locals={'result': numba.uint64, 'seed': numba.uint64})
 def initialize_splitmix64(seed):
@@ -113,7 +114,7 @@ def normal(state, mean=0.0, std=1.0):
 		u = uniform(state, -1.0, 1.0)
 		v = uniform(state, -1.0, 1.0)
 		s = u*u + v*v
-	s = np.sqrt(-2.0*np.log(s)/s)
+	s = math.sqrt(-2.0*math.log(s)/s)
 	return mean + std * u * s
 
 @numba.jit
@@ -122,4 +123,4 @@ def maxboltz(state, sqrtkT_m):
 
 @numba.jit
 def exponential(state, tc):
-	return -tc * np.log(1.0 - uniform(state))
+	return -tc * math.log(1.0 - uniform(state, 0.0, 1.0))
