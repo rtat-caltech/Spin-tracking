@@ -1,0 +1,20 @@
+dist, C
+T, 4.2
+iout, 2
+gas_coll, true
+diffuse, true
+rtol, 1.0e-14
+gravity, true
+B0, 0, 0, 3.0e-6
+E, 0, 0, 75.0e5,
+h, 0.1
+numParticles, 6300
+numPerGPUBlock, 256
+t0, 0.0
+tf, 2000.0
+integratorType, 1
+output, h
+ioutInt, 1.0
+numPhiBins, 2000
+numThetaBins, 1000
+posHistBins, 10, 7, 40

@@ -10,7 +10,7 @@ struct options{
 	double3 B0 = {0.0, 0.0, 3e-6};
 	double3 E = {0, 0, 75e5};
 	double3 L = {0.07, 0.1, 0.4};
-	double3 yi = {1.0, 0.0, 0.0};
+	double3 yi = {0.0, 0.0, 1.0};
 	double3 posHistBins = {7, 10, 40};
 	
 	double m = 2.2*5e-27;
