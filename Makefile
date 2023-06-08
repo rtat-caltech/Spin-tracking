@@ -3,8 +3,8 @@ vpath %.h include/
 # CC compiler options:
 
 ##This is the CPU compilation section
-CC = g++ 
-CC_FLAGS= -g -w -O3 -std=c++17 -fPIC #-fopenmp 
+#CC = g++ 
+#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC #-fopenmp 
 
 #AMD GPU Compilation Section
 #CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
@@ -24,17 +24,7 @@ CC_FLAGS= -g -w -O3 -std=c++17 -fPIC #-fopenmp
 #CC_INCLUDES = -I $(BASEGPUPATH)/include
 #LIBRARY_PATH = -L $(BASEGPUPATH)/lib64 
 #LIBRARIES = -lcudart -lcurand
-
-#BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/22.11
-#CC = $(BASEGPUPATH)/compilers/bin/nvc++
-#SM = 86
-#NVCC_FLAGS = -fPIC
-#TYPE_FLAG = -x cu
-#CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
-#CC_INCLUDES = -I $(BASEGPUPATH)/math_libs/include
-#LIBRARY_PATH = -L $(BASEGPUPATH)/math_libs/lib64 
-#LIBRARIES = -lcudart -lcurand
-#end nvidia GPU compilation section
+#end nvidia gpu section
 
 
 ## Project file structure ##

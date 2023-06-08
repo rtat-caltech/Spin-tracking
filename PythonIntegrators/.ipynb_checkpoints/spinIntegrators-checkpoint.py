@@ -6,227 +6,8 @@ All of these should be defined so they are interchangeable if possible.
 
 import numpy as np
 import numba
-import DOP853Coefs as DOP
-
-#@numba.jit
-def __DefineDOP853Coefs():
-	COEF = {
-		"c2" : 0.526001519587677318785587544488E-01,
-		"c3" : 0.789002279381515978178381316732E-01,
-		"c4" : 0.118350341907227396726757197510E+00,
-		"c5" : 0.281649658092772603273242802490E+00,
-		"c6" : 0.333333333333333333333333333333E+00,
-		"c7" : 0.25E+00,
-		"c8" : 0.307692307692307692307692307692E+00,
-		"c9" : 0.651282051282051282051282051282E+00,
-		"c10" : 0.6E+00,
-		"c11" : 0.857142857142857142857142857142E+00,
-		"c14" : 0.1E+00,
-		"c15" : 0.2E+00,
-		"c16" : 0.777777777777777777777777777778E+00,
-
-		"b1" :   5.42937341165687622380535766363E-2,
-		"b6" :   4.45031289275240888144113950566E0,
-		"b7" :   1.89151789931450038304281599044E0,
-		"b8" :  -5.8012039600105847814672114227E0,
-		"b9" :   3.1116436695781989440891606237E-1,
-		"b10" : -1.52160949662516078556178806805E-1,
-		"b11" :  2.01365400804030348374776537501E-1,
-		"b12" :  4.47106157277725905176885569043E-2,
-
-		"bhh1" : 0.244094488188976377952755905512E+00,
-		"bhh2" : 0.733846688281611857341361741547E+00,
-		"bhh3" : 0.220588235294117647058823529412E-01,
-
-		"er1" :  0.1312004499419488073250102996E-01,
-		"er6" : -0.1225156446376204440720569753E+01,
-		"er7" : -0.4957589496572501915214079952E+00,
-		"er8" :  0.1664377182454986536961530415E+01,
-		"er9" : -0.3503288487499736816886487290E+00,
-		"er10" :  0.3341791187130174790297318841E+00,
-		"er11" :  0.8192320648511571246570742613E-01,
-		"er12" : -0.2235530786388629525884427845E-01,
-
-		"a21" :    5.26001519587677318785587544488E-2,
-		"a31" :    1.97250569845378994544595329183E-2,
-		"a32" :    5.91751709536136983633785987549E-2,
-		"a41" :    2.95875854768068491816892993775E-2,
-		"a43" :    8.87627564304205475450678981324E-2,
-		"a51" :    2.41365134159266685502369798665E-1,
-		"a53" :   -8.84549479328286085344864962717E-1,
-		"a54" :    9.24834003261792003115737966543E-1,
-		"a61" :    3.7037037037037037037037037037E-2,
-		"a64" :    1.70828608729473871279604482173E-1,
-		"a65" :    1.25467687566822425016691814123E-1,
-		"a71" :    3.7109375E-2,
-		"a74" :    1.70252211019544039314978060272E-1,
-		"a75" :    6.02165389804559606850219397283E-2,
-		"a76" :   -1.7578125E-2,
-
-		"a81" :    3.70920001185047927108779319836E-2,
-		"a84" :    1.70383925712239993810214054705E-1,
-		"a85" :    1.07262030446373284651809199168E-1,
-		"a86" :   -1.53194377486244017527936158236E-2,
-		"a87" :    8.27378916381402288758473766002E-3,
-		"a91" :    6.24110958716075717114429577812E-1,
-		"a94" :   -3.36089262944694129406857109825E0,
-		"a95" :   -8.68219346841726006818189891453E-1,
-		"a96" :    2.75920996994467083049415600797E1,
-		"a97" :    2.01540675504778934086186788979E1,
-		"a98" :   -4.34898841810699588477366255144E1,
-		"a101" :   4.77662536438264365890433908527E-1,
-		"a104" :  -2.48811461997166764192642586468E0,
-		"a105" :  -5.90290826836842996371446475743E-1,
-		"a106" :   2.12300514481811942347288949897E1,
-		"a107" :   1.52792336328824235832596922938E1,
-		"a108" :  -3.32882109689848629194453265587E1,
-		"a109" :  -2.03312017085086261358222928593E-2,
-
-		"a111" :  -9.3714243008598732571704021658E-1,
-		"a114" :   5.18637242884406370830023853209E0,
-		"a115" :   1.09143734899672957818500254654E0,
-		"a116" :  -8.14978701074692612513997267357E0,
-		"a117" :  -1.85200656599969598641566180701E1,
-		"a118" :   2.27394870993505042818970056734E1,
-		"a119" :   2.49360555267965238987089396762E0,
-		"a1110" : -3.0467644718982195003823669022E0,
-		"a121" :   2.27331014751653820792359768449E0,
-		"a124" :  -1.05344954667372501984066689879E1,
-		"a125" :  -2.00087205822486249909675718444E0,
-		"a126" :  -1.79589318631187989172765950534E1,
-		"a127" :   2.79488845294199600508499808837E1,
-		"a128" :  -2.85899827713502369474065508674E0,
-		"a129" :  -8.87285693353062954433549289258E0,
-		"a1210" :  1.23605671757943030647266201528E1,
-		"a1211" :  6.43392746015763530355970484046E-1,
-
-		"a141" :  5.61675022830479523392909219681E-2,
-		"a147" :  2.53500210216624811088794765333E-1,
-		"a148" : -2.46239037470802489917441475441E-1,
-		"a149": -1.24191423263816360469010140626E-1,
-		"a1410" :  1.5329179827876569731206322685E-1,
-		"a1411" :  8.20105229563468988491666602057E-3,
-		"a1412" :  7.56789766054569976138603589584E-3,
-		"a1413" : -8.298E-3,
-
-		"a151" :  3.18346481635021405060768473261E-2,
-		"a156" :  2.83009096723667755288322961402E-2,
-		"a157" :  5.35419883074385676223797384372E-2,
-		"a158" : -5.49237485713909884646569340306E-2,
-		"a1511" : -1.08347328697249322858509316994E-4,
-		"a1512" :  3.82571090835658412954920192323E-4,
-		"a1513" : -3.40465008687404560802977114492E-4,
-		"a1514" :  1.41312443674632500278074618366E-1,
-		"a161" : -4.28896301583791923408573538692E-1,
-		"a166" : -4.69762141536116384314449447206E0,
-		"a167" :  7.68342119606259904184240953878E0,
-		"a168" :  4.06898981839711007970213554331E0,
-		"a169" :  3.56727187455281109270669543021E-1,
-		"a1613" : -1.39902416515901462129418009734E-3,
-		"a1614" :  2.9475147891527723389556272149E0,
-		"a1615" : -9.15095847217987001081870187138E0,
-
-		"d41" : -0.84289382761090128651353491142E+01,
-		"d46" :  0.56671495351937776962531783590E+00,
-		"d47" : -0.30689499459498916912797304727E+01,
-		"d48" :  0.23846676565120698287728149680E+01,
-		"d49" :  0.21170345824450282767155149946E+01,
-		"d410" : -0.87139158377797299206789907490E+00,
-		"d411" :  0.22404374302607882758541771650E+01,
-		"d412" :  0.63157877876946881815570249290E+00,
-		"d413" : -0.88990336451333310820698117400E-01,
-		"d414" :  0.18148505520854727256656404962E+02,
-		"d415" : -0.91946323924783554000451984436E+01,
-		"d416" : -0.44360363875948939664310572000E+01,
-
-		"d51" :  0.10427508642579134603413151009E+02,
-		"d56" :  0.24228349177525818288430175319E+03,
-		"d57" :  0.16520045171727028198505394887E+03,
-		"d58" : -0.37454675472269020279518312152E+03,
-		"d59" : -0.22113666853125306036270938578E+02,
-		"d510" :  0.77334326684722638389603898808E+01,
-		"d511" : -0.30674084731089398182061213626E+02,
-		"d512" : -0.93321305264302278729567221706E+01,
-		"d513" :  0.15697238121770843886131091075E+02,
-		"d514" : -0.31139403219565177677282850411E+02,
-		"d515" : -0.93529243588444783865713862664E+01,
-		"d516" :  0.35816841486394083752465898540E+02,
-
-		"d61" :  0.19985053242002433820987653617E+02,
-		"d66" : -0.38703730874935176555105901742E+03,
-		"d67" : -0.18917813819516756882830838328E+03,
-		"d68" :  0.52780815920542364900561016686E+03,
-		"d69" : -0.11573902539959630126141871134E+02,
-		"d610" :  0.68812326946963000169666922661E+01,
-		"d611" : -0.10006050966910838403183860980E+01,
-		"d612" :  0.77771377980534432092869265740E+00,
-		"d613" : -0.27782057523535084065932004339E+01,
-		"d614" : -0.60196695231264120758267380846E+02,
-		"d615" :  0.84320405506677161018159903784E+02,
-		"d616" :  0.11992291136182789328035130030E+02,
-
-		"d71" : -0.25693933462703749003312586129E+02,
-		"d76" : -0.15418974869023643374053993627E+03,
-		"d77" : -0.23152937917604549567536039109E+03,
-		"d78":  0.35763911791061412378285349910E+03,
-		"d79":  0.93405324183624310003907691704E+02,
-		"d710" : -0.37458323136451633156875139351E+02,
-		"d711" :  0.10409964950896230045147246184E+03,
-		"d712" :  0.29840293426660503123344363579E+02,
-		"d713" : -0.43533456590011143754432175058E+02,
-		"d714" :  0.96324553959188282948394950600E+02,
-		"d715" : -0.39177261675615439165231486172E+02,
-		"d716" : -0.14972683625798562581422125276E+03
-	}
-	return COEF
-
-__DOP853Coefs = __DefineDOP853Coefs()
-
-#@numba.jit
-def __DefineRK45Coefs():
-	rk45COEF = {
-		'A1': 0.0,
-		'A2': 2.0/9.0,
-		'A3': 1.0/3.0,
-		'A4': 3.0/4.0,
-		'A5': 1.0,
-		'A6': 5.0/6.0,
-		'B21': 2.0/9.0,
-		'B31': 1.0/12.0,
-		'B32': 1.0/4.0,
-		'B41': 69/128,
-		'B42': -243/128,
-		'B43': 135/64,
-		'B51': -17/12,
-		'B52': 27/4,
-		'B53': -27/5,
-		'B54': 16/15,
-		'B61': 65/432,
-		'B62': -5/16,
-		'B63': 13/16,
-		'B64': 4/27,
-		'B65': 5/144,
-		'C1': 1/9,
-		'C2': 0,
-		'C3': 9/20,
-		'C4': 16/45,
-		'C5': 1/12,
-		'CH1': 47/450,
-		'CH2': 0,
-		'CH3': 12/25,
-		'CH4': 32/225,
-		'CH5': 1/30,
-		'CH6': 6/25,
-		'CT1': 1/150,
-		'CT2': 0,
-		'CT3': -3/100,
-		'CT4': 16/75,
-		'CT5': 1/20,
-		'CT6':-6/25,
-	}
-	return rk45COEF
-
-__rk45Coefs = __DefineRK45Coefs()
+import DOP853Coefs as DOPCoefs
+import RK45Coefs as RK45Coefs
 
 #@numba.jit
 def __DefineRK75109Coefs():
@@ -464,7 +245,6 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 	hlamb = 0.0
 	iasti = 0
 	k1 = Bloch(x, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
-
 	hmax = np.abs(np.float64(intOPT['hmax']))
 	iord = 8
 	nfcn += 2
@@ -491,55 +271,55 @@ def DOP853(particle, intOPT, physOPT, BField, EField):
 			h = xf - x
 			last = 1
 		nstep+=1
-		yy1 = y + h * DOP.a21 * k1;
-		k2 = Bloch(x+DOP.c2*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * DOPCoefs.a21 * k1;
+		k2 = Bloch(x+DOPCoefs.c2*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a31*k1 + DOP.a32*k2);
-		k3 = Bloch(x+DOP.c3*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a31*k1 + DOPCoefs.a32*k2);
+		k3 = Bloch(x+DOPCoefs.c3*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a41*k1 + DOP.a43*k3);
-		k4 = Bloch(x+DOP.c4*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a41*k1 + DOPCoefs.a43*k3);
+		k4 = Bloch(x+DOPCoefs.c4*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a51*k1 + DOP.a53*k3 + DOP.a54*k4);
-		k5 = Bloch(x+DOP.c5*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a51*k1 + DOPCoefs.a53*k3 + DOPCoefs.a54*k4);
+		k5 = Bloch(x+DOPCoefs.c5*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a61*k1 + DOP.a64*k4 + DOP.a65*k5);
-		k6 = Bloch(x+DOP.c6*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a61*k1 + DOPCoefs.a64*k4 + DOPCoefs.a65*k5);
+		k6 = Bloch(x+DOPCoefs.c6*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a71*k1 + DOP.a74*k4 + DOP.a75*k5 + DOP.a76*k6);
-		k7 = Bloch(x+DOP.c7*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a71*k1 + DOPCoefs.a74*k4 + DOPCoefs.a75*k5 + DOPCoefs.a76*k6);
+		k7 = Bloch(x+DOPCoefs.c7*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a81*k1 + DOP.a84*k4 + DOP.a85*k5 + DOP.a86*k6 + DOP.a87*k7);
-		k8 = Bloch(x+DOP.c8*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a81*k1 + DOPCoefs.a84*k4 + DOPCoefs.a85*k5 + DOPCoefs.a86*k6 + DOPCoefs.a87*k7);
+		k8 = Bloch(x+DOPCoefs.c8*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a91*k1 + DOP.a94*k4 + DOP.a95*k5 + DOP.a96*k6 + DOP.a97*k7 + DOP.a98*k8);
-		k9 = Bloch(x+DOP.c9*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a91*k1 + DOPCoefs.a94*k4 + DOPCoefs.a95*k5 + DOPCoefs.a96*k6 + DOPCoefs.a97*k7 + DOPCoefs.a98*k8);
+		k9 = Bloch(x+DOPCoefs.c9*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a101*k1 + DOP.a104*k4 + DOP.a105*k5 + DOP.a106*k6 + DOP.a107*k7 + DOP.a108*k8 + DOP.a109*k9);
-		k10 = Bloch(x+DOP.c10*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		yy1 = y + h * (DOPCoefs.a101*k1 + DOPCoefs.a104*k4 + DOPCoefs.a105*k5 + DOPCoefs.a106*k6 + DOPCoefs.a107*k7 + DOPCoefs.a108*k8 + DOPCoefs.a109*k9);
+		k10 = Bloch(x+DOPCoefs.c10*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 
-		yy1 = y + h * (DOP.a111*k1 + DOP.a114*k4 + DOP.a115*k5 + DOP.a116*k6 + DOP.a117*k7 + DOP.a118*k8 + DOP.a119*k9 + DOP.a1110*k10);
+		yy1 = y + h * (DOPCoefs.a111*k1 + DOPCoefs.a114*k4 + DOPCoefs.a115*k5 + DOPCoefs.a116*k6 + DOPCoefs.a117*k7 + DOPCoefs.a118*k8 + DOPCoefs.a119*k9 + DOPCoefs.a1110*k10);
 
-		k2 = Bloch(x+DOP.c11*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
+		k2 = Bloch(x+DOPCoefs.c11*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		xph = x + h;
 
-		yy1 = y + h * (DOP.a121*k1 + DOP.a124*k4 + DOP.a125*k5 + DOP.a126*k6 + DOP.a127*k7 + DOP.a128*k8 + DOP.a129*k9 + DOP.a1210*k10 + DOP.a1211*k2);
+		yy1 = y + h * (DOPCoefs.a121*k1 + DOPCoefs.a124*k4 + DOPCoefs.a125*k5 + DOPCoefs.a126*k6 + DOPCoefs.a127*k7 + DOPCoefs.a128*k8 + DOPCoefs.a129*k9 + DOPCoefs.a1210*k10 + DOPCoefs.a1211*k2);
 
 		k3 = Bloch(xph, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new);
 		nfcn += 11;
 
-		k4 = DOP.b1*k1 + DOP.b6*k6 + DOP.b7*k7 + DOP.b8*k8 + DOP.b9*k9 + DOP.b10*k10 + DOP.b11*k2 + DOP.b12*k3;
+		k4 = DOPCoefs.b1*k1 + DOPCoefs.b6*k6 + DOPCoefs.b7*k7 + DOPCoefs.b8*k8 + DOPCoefs.b9*k9 + DOPCoefs.b10*k10 + DOPCoefs.b11*k2 + DOPCoefs.b12*k3;
 		k5 = y + h * k4;
 
 		# error estimation 
 		err = 0.0;
 		err2 = 0.0;
 		sk = atoli + rtoli * max_d3(np.abs(y), np.abs(k5));
-		erri = k4 - np.float64(DOP.bhh1)*k1 - np.float64(DOP.bhh2)*k9 - np.float64(DOP.bhh3)*k3;
+		erri = k4 - np.float64(DOPCoefs.bhh1)*k1 - np.float64(DOPCoefs.bhh2)*k9 - np.float64(DOPCoefs.bhh3)*k3;
 		sqr = erri / sk;
 		err2 += sum(sqr*sqr);
-		erri = np.float64(DOP.er1)*k1 + np.float64(DOP.er6)*k6 + np.float64(DOP.er7)*k7 + np.float64(DOP.er8)*k8 +\
-			np.float64(DOP.er9)*k9 + np.float64(DOP.er10)*k10 + np.float64(DOP.er11)*k2 + np.float64(DOP.er12)*k3;
+		erri = np.float64(DOPCoefs.er1)*k1 + np.float64(DOPCoefs.er6)*k6 + np.float64(DOPCoefs.er7)*k7 + np.float64(DOPCoefs.er8)*k8 +\
+			np.float64(DOPCoefs.er9)*k9 + np.float64(DOPCoefs.er10)*k10 + np.float64(DOPCoefs.er11)*k2 + np.float64(DOPCoefs.er12)*k3;
 		sqr = erri / sk;
 		err += sum(sqr*sqr);
 		deno = err + 0.01 * err2;
@@ -975,7 +755,6 @@ def RK45(particle, intOPT, physOPT, BField, EField):
 	y = particle['s'][:]
 	h = particle['last_spin_step_size']
 	outh = h
-	rk45COEF = __rk45Coefs
 	t = t0
 	out = False
 	stop = False
@@ -991,18 +770,18 @@ def RK45(particle, intOPT, physOPT, BField, EField):
 			h = endOfSimulDt
 		#with the step size that is desired known, try to compute the step
 		k1 = h*Bloch(t, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		yy1 = y + rk45COEF['B21']*k1
-		k2 = h*Bloch(t+rk45COEF['A2']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		yy1 = y + rk45COEF['B31']*k1 + rk45COEF['B32']*k2
-		k3 = h*Bloch(t+rk45COEF['A3']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		yy1 = y + rk45COEF['B41']*k1 + rk45COEF['B42']*k2 + rk45COEF['B43']*k3
-		k4 = h*Bloch(t+rk45COEF['A4']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		yy1 = y + rk45COEF['B51']*k1 + rk45COEF['B52']*k2 + rk45COEF['B53']*k3 + rk45COEF['B54']*k4
-		k5 = h*Bloch(t+rk45COEF['A5']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		yy1 = y + rk45COEF['B61']*k1 + rk45COEF['B62']*k2 + rk45COEF['B63']*k3 + rk45COEF['B64']*k4 + rk45COEF['B65']*k5
-		k6 = h*Bloch(t+rk45COEF['A6']*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		weightedStep = y + k1*rk45COEF['CH1'] + k2*rk45COEF['CH2'] + k3*rk45COEF['CH3']+k4*rk45COEF['CH4'] + k5*rk45COEF['CH5'] + k6*rk45COEF['CH6']
-		TE2 = np.abs(rk45COEF['CT1']*k1 + rk45COEF['CT2']*k2 + rk45COEF['CT3']*k3 + rk45COEF['CT4']*k4 + rk45COEF['CT5']*k5 + rk45COEF['CT6']*k6)
+		yy1 = y + RK45Coefs.B21*k1
+		k2 = h*Bloch(t+RK45Coefs.A2*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		yy1 = y + RK45Coefs.B31*k1 + RK45Coefs.B32*k2
+		k3 = h*Bloch(t+RK45Coefs.A3*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		yy1 = y + RK45Coefs.B41*k1 + RK45Coefs.B42*k2 + RK45Coefs.B43*k3
+		k4 = h*Bloch(t+RK45Coefs.A4*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		yy1 = y + RK45Coefs.B51*k1 + RK45Coefs.B52*k2 + RK45Coefs.B53*k3 + RK45Coefs.B54*k4
+		k5 = h*Bloch(t+RK45Coefs.A5*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		yy1 = y + RK45Coefs.B61*k1 + RK45Coefs.B62*k2 + RK45Coefs.B63*k3 + RK45Coefs.B64*k4 + RK45Coefs.B65*k5
+		k6 = h*Bloch(t+RK45Coefs.A6*h, yy1, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		weightedStep = y + k1*RK45Coefs.CH1 + k2*RK45Coefs.CH2 + k3*RK45Coefs.CH3+k4*RK45Coefs.CH4 + k5*RK45Coefs.CH5 + k6*RK45Coefs.CH6
+		TE2 = np.abs(RK45Coefs.CT1*k1 + RK45Coefs.CT2*k2 + RK45Coefs.CT3*k3 + RK45Coefs.CT4*k4 + RK45Coefs.CT5*k5 + RK45Coefs.CT6*k6)
 		absErr = np.max(np.abs(TE2))
 		#print(t, h, y, weightedStep)
 		if absErr  <= np.float64(intOPT['rtol']): #accept the step and move on to the next one
@@ -1033,7 +812,6 @@ def RK45Rotation(particle, intOPT, physOPT, BField, EField):
 	v_new = particle['v']
 	y = particle['s'][:]
 	h = particle['last_spin_step_size']
-	rk45COEF = __rk45Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
@@ -1048,24 +826,24 @@ def RK45Rotation(particle, intOPT, physOPT, BField, EField):
 			h = endOfSimulDt
 		#with the step size that is desired known, try to compute the step
 		k1 = findCrossTerm(t, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		k2 = findCrossTerm(t+rk45COEF['A2']*h, appCross(y, k1, rk45COEF['B21']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		k3 = findCrossTerm(t+rk45COEF['A3']*h, appCross(appCross(y, k1, rk45COEF['B31']*h), k2, rk45COEF['B32']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		k4 = findCrossTerm(t+rk45COEF['A4']*h, appCross(appCross(appCross(y, k1, rk45COEF['B41']*h), k2, rk45COEF['B42']*h), k3, rk45COEF['B43']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		k5 = findCrossTerm(t+rk45COEF['A5']*h, appCross(appCross(appCross(appCross(y, k1, rk45COEF['B51']*h), k2, rk45COEF['B52']*h), 
-																	   k3, rk45COEF['B53']*h), k4, rk45COEF['B54']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		k6 = findCrossTerm(t+rk45COEF['A6']*h, appCross(appCross(appCross(appCross(appCross(y, k1, rk45COEF['B61']*h), k2, rk45COEF['B62']*h), 
-																	   k3, rk45COEF['B63']*h), k4, rk45COEF['B64']*h), k5, rk45COEF['B65']*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		k2 = findCrossTerm(t+RK45Coefs.A2*h, appCross(y, k1, RK45Coefs.B21*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		k3 = findCrossTerm(t+RK45Coefs.A3*h, appCross(appCross(y, k1, RK45Coefs.B31*h), k2, RK45Coefs.B32*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		k4 = findCrossTerm(t+RK45Coefs.A4*h, appCross(appCross(appCross(y, k1, RK45Coefs.B41*h), k2, RK45Coefs.B42*h), k3, RK45Coefs.B43*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		k5 = findCrossTerm(t+RK45Coefs.A5*h, appCross(appCross(appCross(appCross(y, k1, RK45Coefs.B51*h), k2, RK45Coefs.B52*h), 
+																	   k3, RK45Coefs.B53*h), k4, RK45Coefs.B54*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		k6 = findCrossTerm(t+RK45Coefs.A6*h, appCross(appCross(appCross(appCross(appCross(y, k1, RK45Coefs.B61*h), k2, RK45Coefs.B62*h), 
+																	   k3, RK45Coefs.B63*h), k4, RK45Coefs.B64*h), k5, RK45Coefs.B65*h), BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		weightedStep = appCross(appCross(appCross(appCross(appCross(appCross(
-			y, k1, h*rk45COEF['CH1']), k2, h*rk45COEF['CH2']), k3, h*rk45COEF['CH3']),
-				k4, h*rk45COEF['CH4']), k5, h*rk45COEF['CH5']), k6, h*rk45COEF['CH6'])
+			y, k1, h*RK45Coefs.CH1), k2, h*RK45Coefs.CH2), k3, h*RK45Coefs.CH3),
+				k4, h*RK45Coefs.CH4), k5, h*RK45Coefs.CH5), k6, h*RK45Coefs.CH6)
 		
 		TE1 = appCross(appCross(appCross(appCross(appCross(
-			y, k1, h*rk45COEF['C1']), k2, h*rk45COEF['C2']), k3, h*rk45COEF['C3']),
-				k4, h*rk45COEF['C4']), k5, h*rk45COEF['C5'])
+			y, k1, h*RK45Coefs.C1), k2, h*RK45Coefs.C2), k3, h*RK45Coefs.C3),
+				k4, h*RK45Coefs.C4), k5, h*RK45Coefs.C5)
 		
 		TE2 = weightedStep - TE1
-		#TE2 = np.identity(3) - rodriguez(k6, rk45COEF['CT6']*h)@(rodriguez(k5, rk45COEF['CT5']*h)@(rodriguez(k4, rk45COEF['CT4']*h)@(\
-		#						rodriguez(k3, rk45COEF['CT3']*h)@(rodriguez(k2, rk45COEF['CT2']*h)@rodriguez(k1, rk45COEF['CT1']*h)))))
+		#TE2 = np.identity(3) - rodriguez(k6, RK45Coefs.CT6*h)@(rodriguez(k5, RK45Coefs.CT5*h)@(rodriguez(k4, RK45Coefs.CT4*h)@(\
+		#						rodriguez(k3, RK45Coefs.CT3*h)@(rodriguez(k2, RK45Coefs.CT2*h)@rodriguez(k1, RK45Coefs.CT1*h)))))
 		#TE2 is meant to be equivalent to the null operation, basically the closer this is to the identity, the smaller the error
 		#print(h, TE2)
 		absErr = np.max(np.abs(TE2))
@@ -1096,7 +874,6 @@ def RK45Quaternion(particle, intOPT, physOPT, BField, EField):
 	v_new = particle['v']
 	y = particle['s'][:]
 	h = particle['last_spin_step_size']
-	rk45COEF = __rk45Coefs
 	t = t0
 	stop = False
 	hmin = 1.0E-9
@@ -1114,29 +891,29 @@ def RK45Quaternion(particle, intOPT, physOPT, BField, EField):
 		#with the step size that is desired known, try to compute the step
 		k1q = findCrossTerm(t, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		
-		temp = qv_mult(rodriguezQuat(k1q, rk45COEF['B21']*h), y)
-		k2q = findCrossTerm(t+rk45COEF['A2']*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		temp = qv_mult(rodriguezQuat(k1q, RK45Coefs.B21*h), y)
+		k2q = findCrossTerm(t+RK45Coefs.A2*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		
-		temp = qv_mult(qMult(rodriguezQuat(k2q, rk45COEF['B32']*h), rodriguezQuat(k1q, rk45COEF['B31']*h)), y)
-		k3q = findCrossTerm(t+rk45COEF['A3']*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		temp = qv_mult(qMult(rodriguezQuat(k2q, RK45Coefs.B32*h), rodriguezQuat(k1q, RK45Coefs.B31*h)), y)
+		k3q = findCrossTerm(t+RK45Coefs.A3*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		
-		temp = qv_mult(qMult(rodriguezQuat(k3q, rk45COEF['B43']*h), qMult(rodriguezQuat(k2q, rk45COEF['B42']*h), rodriguezQuat(k1q, rk45COEF['B41']*h))), y)
-		k4q = findCrossTerm(t+rk45COEF['A4']*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		temp = qv_mult(qMult(rodriguezQuat(k3q, RK45Coefs.B43*h), qMult(rodriguezQuat(k2q, RK45Coefs.B42*h), rodriguezQuat(k1q, RK45Coefs.B41*h))), y)
+		k4q = findCrossTerm(t+RK45Coefs.A4*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		
-		temp = qv_mult(qMult(rodriguezQuat(k4q, rk45COEF['B54']*h), qMult(rodriguezQuat(k3q, rk45COEF['B53']*h), 
-				qMult(rodriguezQuat(k2q, rk45COEF['B52']*h), rodriguezQuat(k1q, rk45COEF['B51']*h)))), y)
-		k5q = findCrossTerm(t+rk45COEF['A5']*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		temp = qv_mult(qMult(rodriguezQuat(k4q, RK45Coefs.B54*h), qMult(rodriguezQuat(k3q, RK45Coefs.B53*h), 
+				qMult(rodriguezQuat(k2q, RK45Coefs.B52*h), rodriguezQuat(k1q, RK45Coefs.B51*h)))), y)
+		k5q = findCrossTerm(t+RK45Coefs.A5*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
 		
-		temp = qv_mult(qMult(rodriguezQuat(k5q, rk45COEF['B65']*h), qMult(rodriguezQuat(k4q, rk45COEF['B64']*h), 
-				qMult(rodriguezQuat(k3q, rk45COEF['B63']*h), qMult(rodriguezQuat(k2q, rk45COEF['B62']*h), rodriguezQuat(k1q, rk45COEF['B61']*h))))), y)
-		k6q = findCrossTerm(t+rk45COEF['A6']*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
-		weightedStepq = qv_mult(qMult(rodriguezQuat(k6q, h*rk45COEF['CH6']), qMult(rodriguezQuat(k5q, h*rk45COEF['CH5']), 
-			qMult(rodriguezQuat(k4q, h*rk45COEF['CH4']), qMult(rodriguezQuat(k3q, h*rk45COEF['CH3']),
-			qMult(rodriguezQuat(k2q, h*rk45COEF['CH2']), rodriguezQuat(k1q, h*rk45COEF['CH1'])))))), y)
+		temp = qv_mult(qMult(rodriguezQuat(k5q, RK45Coefs.B65*h), qMult(rodriguezQuat(k4q, RK45Coefs.B64*h), 
+				qMult(rodriguezQuat(k3q, RK45Coefs.B63*h), qMult(rodriguezQuat(k2q, RK45Coefs.B62*h), rodriguezQuat(k1q, RK45Coefs.B61*h))))), y)
+		k6q = findCrossTerm(t+RK45Coefs.A6*h, temp, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		weightedStepq = qv_mult(qMult(rodriguezQuat(k6q, h*RK45Coefs.CH6), qMult(rodriguezQuat(k5q, h*RK45Coefs.CH5), 
+			qMult(rodriguezQuat(k4q, h*RK45Coefs.CH4), qMult(rodriguezQuat(k3q, h*RK45Coefs.CH3),
+			qMult(rodriguezQuat(k2q, h*RK45Coefs.CH2), rodriguezQuat(k1q, h*RK45Coefs.CH1)))))), y)
 		
-		TE1 = qv_mult(qMult(rodriguezQuat(k5q, h*rk45COEF['C5']), qMult(rodriguezQuat(k4q, h*rk45COEF['C4']), 
-							qMult(rodriguezQuat(k3q, h*rk45COEF['C3']), qMult(rodriguezQuat(k2q, h*rk45COEF['C2']), 
-								rodriguezQuat(k1q, h*rk45COEF['C1']))))), y)
+		TE1 = qv_mult(qMult(rodriguezQuat(k5q, h*RK45Coefs.C5), qMult(rodriguezQuat(k4q, h*RK45Coefs.C4), 
+							qMult(rodriguezQuat(k3q, h*RK45Coefs.C3), qMult(rodriguezQuat(k2q, h*RK45Coefs.C2), 
+								rodriguezQuat(k1q, h*RK45Coefs.C1))))), y)
 		TE2 = weightedStepq - TE1
 		absErr = np.max(np.abs(TE2))
 		if absErr  <= np.float64(intOPT['rtol']): #accept the step and move on to the next one
@@ -1363,6 +1140,58 @@ def CrankNicolson(particle, intOPT, physOPT, BField, EField):
 	return particle
 
 @numba.jit
+def perturbativeIntegratorRK45(particle, intOPT, physOPT, BField, EField):
+	t0 = particle['t_old']
+	tf = particle['t']
+	p_old = particle['x_old']
+	p_new = particle['x']
+	v_old = particle['v_old']
+	v_new = particle['v']
+	y = particle['s'][:]
+	h = particle['last_spin_step_size']
+	t = t0
+	stop = False
+	hmin = 1.0E-9
+	nstep = 0
+	outh = particle['last_spin_step_size']
+	stop = False
+	while not stop:
+		nstep+=1
+		#print(t, h
+		endOfSimulDt = tf - t #how long until the end of the simulation
+		outh = h
+		if endOfSimulDt <= h:
+			stop = True
+			h = endOfSimulDt
+		#with the step size that is desired known, try to compute the step
+		#first calculate where the particle will end up based on assuming no particle parameters change
+		initialCrossTerm = findCrossTerm(t, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		finalStateInitGuess = appCross(y, initialCrossTerm, h)
+		
+		perturbation = findCrossTerm(t+h, y, BField, EField, physOPT, t0, tf, p_old, p_new, v_old, v_new)
+		deviation = initialCrossTerm - perturbation
+		matrix = rodriguez(deviation, h)
+		if np.any(np.isnan(matrix)):
+			y = finalStateInitGuess[:]
+			t = t + h
+			h = h * 1.1
+		else:
+			corrected = matrix@finalStateInitGuess
+			error = np.max(np.abs(corrected - finalStateInitGuess))
+			print(t, h, matrix)
+			if error < intOPT['rtol']:
+				#step is accepted
+				y = corrected[:]
+				t = t + h
+				h = h * 1.1
+			else:
+				h = h/2.0
+	particle['s'] = y[:]
+	particle['n_spin_steps'] += nstep
+	particle['last_spin_step_size'] = outh
+	return particle
+
+@numba.jit
 def integrateSpin(particle, simulationOptions, spinOptions, BField, EField):
 	if particle['last_spin_step_size'] <= 1.0e-9: #if the last step size was less than 1 nanosecond, basically it probably hadn't gone yet
 		particle['last_spin_step_size'] = spinOptions['h']
@@ -1388,6 +1217,6 @@ def integrateSpin(particle, simulationOptions, spinOptions, BField, EField):
 		particle = ImplicitEuler(particle, spinOptions, simulationOptions, BField, EField)
 	elif spinOptions['integrator'] == 10:
 		particle = CrankNicolson(particle, spinOptions, simulationOptions, BField, EField)
-	else:
-		None
+	elif spinOptions['integrator'] == 11:
+		particle = perturbativeIntegratorRK45(particle, spinOptions, simulationOptions, BField, EField)
 	return particle
