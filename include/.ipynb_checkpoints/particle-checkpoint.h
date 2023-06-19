@@ -36,8 +36,7 @@ public:
 	unsigned int lastIndex = 0;
 	
 	__PREPROCD__ particle(double3 y0, options OPT, unsigned long seed, unsigned int ipart) :
-		L(OPT.L), m(OPT.m), tc(OPT.tc), 
-		dist(OPT.dist), V_init(OPT.V), t0(OPT.t0), tf(OPT.tf), 
+		L(OPT.L), m(OPT.m), dist(OPT.dist), V_init(OPT.V), t0(OPT.t0), tf(OPT.tf), 
 		diffuse(OPT.diffuse), gas_coll(OPT.gas_coll), 
 		gravity(OPT.gravity), pos(), sqrtKT_m(sqrt(k*OPT.T/opt.m)), max_step(OPT.hmax),
 		pos_old(), v(), v_old(), B0(OPT.B0), p_interp(), v_interp(), 
@@ -54,6 +53,9 @@ public:
 		#endif
 		// printf("%u\n", &thread_data);
 		S = y0;
+
+		//calculate the collision time
+		tc = 1.6e-4*m/(k*pow(OPT.T, 8));
 
 		pos.x = uniform()*L.x-L.x/2.0;
 		pos.y = uniform()*L.y-L.y/2.0;

@@ -33,68 +33,15 @@ __PREPROC__ double max_d(double a, double b)
 }
 
 __PREPROC__ double3 pulse(const double t){
-	// return {19.1026874e-6*cos(3000*t), 0.0, 0.0};
-	return {0.0, 0.0, 0.0};
+	return {38.7511230e-6*cos(6000.0*t), 0.0, 0.0};
+	// return {19.1026874e-6*cos(3000.0*t), 0.0, 0.0};
+	//return {0.0, 0.0, 0.0};
 }
 
 __PREPROC__ double3 grad(double3& pos){
-	return {0.0, 0.0, pos.x*1.0e-9};
+	//return {0.0, 0.0, pos.x*1.0e-9};
+	return {0.0, 0.0, 0.0};
 }
-
-/*
-
-__PREPROC__ void obs_dense(long nr, double xold, double x, double3 y, double3 pos_old, double3 v_old, int* irtrn, options opts, 
-		double* lastOutput, unsigned int *lastIndex, outputDtype* outputArray, double hout, double3& rcont1, double3& rcont2, 
-        double3& rcont3, double3& rcont4, double3& rcont5, double3& rcont6, double3& rcont7, double3& rcont8){
-	////("%ld %lf %lf %lf %lf\n", nr, x, y.x, y.y, y.z);
-	////("%lf %lf %lf %lf\n", *lastOutput, xold, x, opts.ioutInt);
-	double s;
-	double s1;
-	double3 dense_out;
-	
-	while(*lastOutput < x){
-		s = (*lastOutput - xold)/hout;
-		s1 = 1.0 - s;
-		dense_out = rcont1+s*(rcont2+s1*(rcont3+s*(rcont4+s1*(rcont5+s*(rcont6+s1*(rcont7+s*rcont8))))));
-		////("\t %ld %lf\n", *lastIndex, *lastOutput);
-		////("%d %d %d %d\n", *lastIndex, *lastIndex+1, *lastIndex+2, *lastIndex+3);
-		double3 a = (double3){0.0, G_CONST, 0.0};
-		double3 outPos = pos_old + v_old * (x-xold) + 0.5*a*(x-xold)*(x-xold);
-		outputDtype temp;
-		temp.t = *lastOutput;
-		temp.x.x = outPos.x;
-		temp.x.y = outPos.y;
-		temp.x.z = outPos.z;
-		temp.s.x = dense_out.x;
-		temp.s.y = dense_out.y;
-		temp.s.z = dense_out.z;
-		outputArray[*lastIndex] = temp;
-		*lastIndex += 1;
-		*lastOutput += opts.ioutInt;
-	}
-}
-
-__PREPROC__ void obs(long nr, double xold, double x, double3 y, double3 pos, int* irtrn, options opts, 
-		double* lastOutput, unsigned int *lastIndex, outputDtype* outputArray){
-	////("%ld %lf %lf %lf %lf\n", nr, x, y.x, y.y, y.z);
-	////("%lf %lf %lf %lf\n", *lastOutput, xold, x, opts.ioutInt);
-	
-	while(*lastOutput < x){
-		////("\t %ld %lf\n", *lastIndex, *lastOutput);
-		////("%d %d %d %d\n", *lastIndex, *lastIndex+1, *lastIndex+2, *lastIndex+3);
-		outputDtype temp;
-		temp.t = x;
-		temp.x.x = pos.x;
-		temp.x.y = pos.y;
-		temp.x.z = pos.z;
-		temp.s.x = y.x;
-		temp.s.y = y.y;
-		temp.s.z = y.z;
-		outputArray[*lastIndex] = temp;
-		*lastOutput += opts.ioutInt;
-	}
-}
-*/
 
 __PREPROC__ void interpolate(const double t, const double t0, const double tf, 
 		const double3& p_old, const double3& p_new, const double3& v_old, 
@@ -180,7 +127,6 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
 		options OPT){
 
     double3 yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
-    //double3 rcont1, rcont2, rcont3, rcont4, rcont5, rcont6, rcont7, rcont8;
     //int arret, idid;
     //int iasti, iord, irtrn, reject, last, nonsti;
     int reject, last;
@@ -317,71 +263,10 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
             naccpt++;
             Bloch(xph, k5, k4, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
             nfcn++;
-			/*
-			// final preparation for dense output
-			if (OPT.iout == 2)
-			{
-				//save the first function evaluations
-				rcont1 = y;
-				ydiff = k5 - y;
-				rcont2 = ydiff;
-				bspl = h * k1 - ydiff;
-				rcont3 = bspl;
-				rcont4 = ydiff - h*k4 - bspl;
-				rcont5 = COEF::d41*k1 + COEF::d46*k6 + COEF::d47*k7 + COEF::d48*k8 +
-					COEF::d49*k9 + COEF::d410*k10 + COEF::d411*k2 + COEF::d412*k3;
-				rcont6 = COEF::d51*k1 + COEF::d56*k6 + COEF::d57*k7 + COEF::d58*k8 +
-					COEF::d59*k9 + COEF::d510*k10 + COEF::d511*k2 + COEF::d512*k3;
-				rcont7 = COEF::d61*k1 + COEF::d66*k6 + COEF::d67*k7 + COEF::d68*k8 +
-					COEF::d69*k9 + COEF::d610*k10 + COEF::d611*k2 + COEF::d612*k3;
-				rcont8 = COEF::d71*k1 + COEF::d76*k6 + COEF::d77*k7 + COEF::d78*k8 +
-					COEF::d79*k9 + COEF::d710*k10 + COEF::d711*k2 + COEF::d712*k3;
-
-				//the next three function evaluations 
-			   yy1 = y + h * (COEF::a141*k1 + COEF::a147*k7 + COEF::a148*k8 +
-					COEF::a149*k9 + COEF::a1410*k10 + COEF::a1411*k2 +
-					COEF::a1412*k3 + COEF::a1413*k4);
-				Bloch(x+COEF::c14*h, yy1, k10, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-				yy1 = y + h * (COEF::a151*k1 + COEF::a156*k6 + COEF::a157*k7 + COEF::a158*k8 +
-					COEF::a1511*k2 + COEF::a1512*k3 + COEF::a1513*k4 +
-					COEF::a1514*k10);
-				Bloch(x+COEF::c15*h, yy1, k2, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-				yy1 = y + h * (COEF::a161*k1 + COEF::a166*k6 + COEF::a167*k7 + COEF::a168*k8 +
-							COEF::a169*k9 + COEF::a1613*k4 + COEF::a1614*k10 +
-							COEF::a1615*k2);
-				Bloch(x+COEF::c16*h, yy1, k3, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-				nfcn += 3;
-
-				//final preparation
-
-				rcont5 = h * (rcont5 + COEF::d413*k4 + COEF::d414*k10 +
-						COEF::d415*k2 + COEF::d416*k3);
-				rcont6 = h * (rcont6 + COEF::d513*k4 + COEF::d514*k10 +
-						COEF::d515*k2 + COEF::d516*k3);
-				rcont7 = h * (rcont7 + COEF::d613*k4 + COEF::d614*k10 +
-						COEF::d615*k2 + COEF::d616*k3);
-				rcont8 = h * (rcont8 + COEF::d713*k4 + COEF::d714*k10 +
-						COEF::d715*k2 + COEF::d716*k3);
-			}
-			*/
 			k1 = k4;
 			y = k5;
 			x = xph;
-			/*
-			if (OPT.iout == 1){
-				hout = h;
-				xout = x;
-				obs(naccpt+1, xold, x, y, p_old, &irtrn, OPT, &lastOutput, &lastIndex, outputArray);
-				if (irtrn < 0)
-					return 2;
-			} else if (OPT.iout == 2){
-				hout = h;
-				xout = x;
-				obs_dense(naccpt+1, xold, x, y, p_old, v_old, &irtrn, OPT, &lastOutput, &lastIndex, outputArray, hout, rcont1, rcont2, rcont3, rcont4, rcont5, rcont6, rcont7, rcont8);
-				if (irtrn < 0)
-					return 2;
-			}*/
-
+			
             // normal exit
             if (last)
             {
@@ -403,7 +288,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
 				nrejct=nrejct + 1;
             last = 0;
         }
-
+	//printf("%lf %lf %lf\n", x, h, hnew);
         h = hnew;
     }
 

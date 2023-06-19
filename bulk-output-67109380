@@ -1,0 +1,44 @@
+/var/spool/slurmd/job67109380/slurm_script: line 14: cd: Spin-tracking/: No such file or directory
+INFO:    underlay of /usr/bin/nvidia-smi required more than 50 (425) bind mounts
+INFO:    underlay of /usr/bin/nvidia-smi required more than 50 (425) bind mounts
+INFO:    underlay of /usr/bin/nvidia-smi required more than 50 (425) bind mounts
+INFO:    underlay of /usr/bin/nvidia-smi required more than 50 (425) bind mounts
+
+====================
+== NVIDIA HPC SDK ==
+====================
+ 
+NVIDIA HPC SDK version 23.1
+ 
+Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+====================
+== NVIDIA HPC SDK ==
+====================
+ 
+NVIDIA HPC SDK version 23.1
+ 
+Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+====================
+== NVIDIA HPC SDK ==
+====================
+ 
+NVIDIA HPC SDK version 23.1
+ 
+Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+====================
+== NVIDIA HPC SDK ==
+====================
+ 
+NVIDIA HPC SDK version 23.1
+ 
+Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+
+
+
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd-frozone3: error: *** JOB 67109380 ON frozone3 CANCELLED AT 2023-05-19T15:22:20 ***
+slurmstepd-frozone3: error: *** STEP 67109380.0 ON frozone3 CANCELLED AT 2023-05-19T15:22:20 ***

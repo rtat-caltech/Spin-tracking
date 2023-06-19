@@ -274,17 +274,9 @@ Performs one particle and spin integration step.
 */
 
 __PREPROCD__ void particle::step() {
-	//printf("t = %f, tf = %f, dt = %f, v = %f %f %f, pos = %f %f %f\n", t, tf, dt, v.x, v.y, v.z, pos.x, pos.y, pos.z);
-	//printf("determining collision time\n");
 	calc_next_collision_time(); //when do we hit something next?
-	//printf("moving forward\n");
-	move(); //move the particle forward that amount of time
-	//printf("%f %f %f %f\n", t, pos.x, pos.y, pos.z);
-	//printf("t = %f dt = %f, v = %f %f %f, pos = %f %f %f\n", t, dt, v.x, v.y, v.z, pos.x, pos.y, pos.z);
-	//printf("updating velocities\n");
-	new_velocities(); //update the velocity based on the collision type
-	//printf("h before = %lf, startTime = %lf, stopTime = %lf, lastOutput = %lf\n", h, t_old, t, lastOutput);
-	//printf("integrating with type %d\n", integrationType);
+	move();
+	new_velocities(); 
 	if(integrationType == 0){
 		//use the DOP853 algorithm for spin tracking
 		integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt);

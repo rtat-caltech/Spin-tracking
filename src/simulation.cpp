@@ -156,7 +156,7 @@ void histogramPos(int length, outputBuffers &buffers, options opt){
 	double3 bins;
 	int bin;
 	for(int i = 0; i < length; i++){
-		bins = (buffers.particleStatesCPU[i].x+opt.L/2.0)/opt.L*double3{buffers.numx, buffers.numy, buffers.numz};
+		bins = (buffers.particleStatesCPU[i].x+opt.L/2.0)/opt.L*double3{(double)buffers.numx, (double)buffers.numy, (double)buffers.numz};
 		bin = (int)bins.x + (int)bins.y*buffers.numx + (int)bins.z*buffers.numx*buffers.numy;
 		buffers.posHist[bin] += 1;
 	}
