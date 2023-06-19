@@ -171,3 +171,11 @@ __PREPROC__ quaternion rodriguezQuat(const double3 k, const double dt){
 	norm = norm * -sin(h/2.0);
 	return {cos(h/2.0), norm.x, norm.y, norm.z};
 }
+
+__PREPROC__ double3 rodriguez(const double3 k, const double3 v1){
+	double angle = len(k);
+	double s =  sin(angle);
+	double c = cos(angle);
+	return v1 * c + (cross(v1, k) * (s/angle)) + k * (dot(k, v1) * (1.0 - c)/(angle * angle));
+}
+
