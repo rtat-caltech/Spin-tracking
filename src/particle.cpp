@@ -300,6 +300,7 @@ __PREPROCD__ outputDtype particle::getState(){
 	outputDtype out;
 	out.t = t;
 	out.x = pos;
+	out.v = v;
 	out.s = S;
 	return out;
 }

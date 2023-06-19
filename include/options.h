@@ -3,17 +3,17 @@
 
 #include "double3.h"
 
-const double G_CONST = -9.8;
+const double G_CONST = -9.81;
 const double c2 = 299792458.0 * 299792458.0;
 
 struct options{
-	double3 B0 = {0.0, 0.0, 3e-6};
-	double3 E = {0, 0, 75e5};
+	double3 B0 = {3e-6, 0.0, 0.0};
+	double3 E = {75e5, 0.0, 0.0};
 	double3 L = {0.07, 0.1, 0.4};
 	double3 yi = {0.0, 0.0, 1.0};
 	double3 posHistBins = {7, 10, 40};
 	
-	double m = 2.2*5e-27;
+	double m = 1.20239e-26; //2.2*5e-27; 
 	double t0 = 0.0;
 	double tf = 10.0;
 	double rtol = 1e-12;
@@ -26,7 +26,7 @@ struct options{
 	double hmax = 1.0;
 	double h = 0.001;
 	double T = 4.2;
-	double gamma = -2.078e8;
+	double gamma = -2.038e8; //based on vince's documentation
 	double V = 5.0;
 	double swapStepSize = 1.0-4; //above this use rotations, below this use standard RK techniques
 	double ioutInt = 0.05; // how frequently to output the state data
