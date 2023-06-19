@@ -286,7 +286,7 @@ __PREPROCD__ void particle::step() {
 		integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, h);
 	}
 	else if(integrationType == 2){
-		integrateMagnusCFET(t_old, tf, S, p_old, p_new, v_old, v_new, opt);
+		integrateMagnusCFET(t_old, tf, S, pos_old, pos, v_old, v, opt);
 	}
 	else{
 		//this is an unrecognized option so just don't integrate the spin in this case
