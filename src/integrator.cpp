@@ -33,9 +33,9 @@ __PREPROC__ double max_d(double a, double b)
 }
 
 __PREPROC__ double3 pulse(const double t){
-	//return {38.7511230e-6*cos(6000.0*t), 0.0, 0.0};
+	return {38.7511230e-6*cos(6000.0*t), 0.0, 0.0};
 	// return {19.1026874e-6*cos(3000.0*t), 0.0, 0.0};
-	return {0.0, 0.0, 0.0};
+	//return {0.0, 0.0, 0.0};
 }
 
 __PREPROC__ double3 grad(double3& pos){
@@ -418,7 +418,7 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 						options OPT){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
 	double t = t0;
-	double dt = 1e-4;
+	double dt = OPT.h;
 
 	double3 k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
 	double3 B1, B2, B3, B4, B5;
@@ -431,7 +431,9 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 	double prev_ratio = 1.0;
 
 	double q, tol, error, ratio;
+	unsigned int nstep = 0;
 	while (t < tf) {
+		nstep++;
 		B1 = findCrossTerm(t+GL5::X1*dt, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
 		B2 = findCrossTerm(t+GL5::X2*dt, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
 		B3 = findCrossTerm(t+GL5::X3*dt, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
