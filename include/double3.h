@@ -42,6 +42,7 @@ __PREPROC__ double3 operator/(const double3, const double);
 __PREPROC__ double3 operator/(const double3, const double3);
 __PREPROC__ double3 cross(const double3, const double3);
 __PREPROC__ double sum(const double3);
+__PREPROC__ double dot(const double3, const double3);
 __PREPROC__ double len(const double3);
 __PREPROC__ double3 norm(const double3);
 __PREPROC__ double3 fabs3(const double3);

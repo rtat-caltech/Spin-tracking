@@ -83,6 +83,10 @@ __PREPROC__ double3 cross(const double3 a, const double3 b){
 	return out;
 }
 
+__PREPROC__ double dot(const double3 a, const double3 b){
+	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
 __PREPROC__ double sum(const double3 a){
 	return a.x+a.y+a.z;
 }
