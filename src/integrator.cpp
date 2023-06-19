@@ -33,9 +33,9 @@ __PREPROC__ double max_d(double a, double b)
 }
 
 __PREPROC__ double3 pulse(const double t){
-	return {38.7511230e-6*cos(6000.0*t), 0.0, 0.0};
+	//return {38.7511230e-6*cos(6000.0*t), 0.0, 0.0};
 	// return {19.1026874e-6*cos(3000.0*t), 0.0, 0.0};
-	//return {0.0, 0.0, 0.0};
+	return {0.0, 0.0, 0.0};
 }
 
 __PREPROC__ double3 grad(double3& pos){
@@ -51,7 +51,7 @@ __PREPROC__ void interpolate(const double t, const double t0, const double tf,
 	v_out = v_old;
 }
 
-__PREPROC__ double3 findCrossTerm(const double t, const double3 y, const double3 B0, const double3 E, 
+__PREPROC__ double3 findCrossTerm(const double t, const double3 B0, const double3 E, 
 					 const double gamma, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
 	double3 p, v, G, B;
@@ -65,7 +65,7 @@ __PREPROC__ void Bloch(const double t, const double3& y, double3& f, const doubl
 			const double gamma, const double t0, const double tf , const double3& p_old,
 			const double3& p_new, const double3& v_old, const double3& v_new){
 	double3 temp;
-	temp = findCrossTerm(t, y, B0, E, gamma, t0, tf, p_old, p_new, v_old, v_new);
+	temp = findCrossTerm(t, B0, E, gamma, t0, tf, p_old, p_new, v_old, v_new);
 	f = cross(y, temp);
 }
 
@@ -353,20 +353,20 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 		}
 		else{
 			//printf("using rotations\n");
-			k1 = findCrossTerm(x, y, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			k1 = findCrossTerm(x, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
 			quaternion temp2 = rodriguezQuat(k1, RK45COEF::B21*h);
-			yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
-			k2 = findCrossTerm(x+RK45COEF::A2*h, yy1, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);
-			k3 = findCrossTerm(x+RK45COEF::A3*h, yy1, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = qv_mult(qMult(rodriguezQuat(k3, RK45COEF::B43*h), qMult(rodriguezQuat(k2, RK45COEF::B42*h), rodriguezQuat(k1, RK45COEF::B41*h))), y);
-			k4 = findCrossTerm(x+RK45COEF::A4*h, yy1, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = qv_mult(qMult(rodriguezQuat(k4, RK45COEF::B54*h), qMult(rodriguezQuat(k3, RK45COEF::B53*h), 
-					qMult(rodriguezQuat(k2, RK45COEF::B52*h), rodriguezQuat(k1, RK45COEF::B51*h)))), y);
-			k5 = findCrossTerm(x+RK45COEF::A5*h, yy1, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = qv_mult(qMult(rodriguezQuat(k5, RK45COEF::B65*h), qMult(rodriguezQuat(k4, RK45COEF::B64*h), 
-					qMult(rodriguezQuat(k3, RK45COEF::B63*h), qMult(rodriguezQuat(k2, RK45COEF::B62*h), rodriguezQuat(k1, RK45COEF::B61*h))))), y);
-			k6 = findCrossTerm(x+RK45COEF::A6*h, yy1, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			//yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
+			k2 = findCrossTerm(x+RK45COEF::A2*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			//yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);
+			k3 = findCrossTerm(x+RK45COEF::A3*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			//yy1 = qv_mult(qMult(rodriguezQuat(k3, RK45COEF::B43*h), qMult(rodriguezQuat(k2, RK45COEF::B42*h), rodriguezQuat(k1, RK45COEF::B41*h))), y);
+			k4 = findCrossTerm(x+RK45COEF::A4*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			//yy1 = qv_mult(qMult(rodriguezQuat(k4, RK45COEF::B54*h), qMult(rodriguezQuat(k3, RK45COEF::B53*h), 
+					//qMult(rodriguezQuat(k2, RK45COEF::B52*h), rodriguezQuat(k1, RK45COEF::B51*h)))), y);
+			k5 = findCrossTerm(x+RK45COEF::A5*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
+			//yy1 = qv_mult(qMult(rodriguezQuat(k5, RK45COEF::B65*h), qMult(rodriguezQuat(k4, RK45COEF::B64*h), 
+					//qMult(rodriguezQuat(k3, RK45COEF::B63*h), qMult(rodriguezQuat(k2, RK45COEF::B62*h), rodriguezQuat(k1, RK45COEF::B61*h))))), y);
+			k6 = findCrossTerm(x+RK45COEF::A6*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
 			weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RK45COEF::CH6), qMult(rodriguezQuat(k5, h*RK45COEF::CH5), 
 				qMult(rodriguezQuat(k4, h*RK45COEF::CH4), qMult(rodriguezQuat(k3, h*RK45COEF::CH3),
 				qMult(rodriguezQuat(k2, h*RK45COEF::CH2), rodriguezQuat(k1, h*RK45COEF::CH1)))))), y);
@@ -396,6 +396,9 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 				lastOutput += OPT.ioutInt;
 				out = false; //now reset this so we don't automatically output it again
 			}*/
+		}
+		else{
+			stop = false;
 		}
 		//now update the time step for the next calculation
 		if(absErr < 1.0E-16)

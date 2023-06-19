@@ -27,6 +27,7 @@ struct float3 {
 struct outputDtype {
 	double t = 0.0;
 	double3 x;
+	double3 v;
 	double3 s;
 };
 
