@@ -276,21 +276,23 @@ Performs one particle and spin integration step.
 __PREPROCD__ void particle::step() {
 	calc_next_collision_time(); //when do we hit something next?
 	move();
-	new_velocities(); 
+	new_velocities();
+	int spinSteps = 0; 
 	if(integrationType == 0){
 		//use the DOP853 algorithm for spin tracking
-		integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt);
+		spinSteps = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt);
 	}
 	else if(integrationType == 1){
 		//use the hybrid RK45 method
-		integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, h);
+		spinSteps = integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, h);
 	}
 	else if(integrationType == 2){
-		integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt);
+		spinSteps = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, h);
 	}
 	else{
 		//this is an unrecognized option so just don't integrate the spin in this case
 	}
+	//printf("%d \n", spinSteps);
 	//printf("h after = %lf, lastOutput = %lf\n", h, lastOutput);
 	n_steps += 1;
 }

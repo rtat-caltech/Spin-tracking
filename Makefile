@@ -3,9 +3,9 @@ vpath %.h include/
 # CC compiler options:
 
 ##This is the CPU compilation section
-CC = g++ 
-LIBRARY_PATH= 
-CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp 
+#CC = g++ 
+#LIBRARY_PATH= 
+#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp 
 
 #AMD GPU Compilation Section#CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
 #CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
@@ -16,15 +16,15 @@ CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp
 
 #Nvidia GPU Compilation Section
 #using NVCC
-#BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/cuda-11.6.0-u4jzhgn5buvcnkwuqrep25mluzkhzi3j
-#CC = $(BASEGPUPATH)/bin/nvcc
-#SM = 70
-#NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
-#TYPE_FLAG = -x cu
-#CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
-#CC_INCLUDES = -I $(BASEGPUPATH)/include
-#LIBRARY_PATH = -L $(BASEGPUPATH)/lib64
-#LIBRARIES = -lcudart -lcurand
+BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/cuda-11.6.0-u4jzhgn5buvcnkwuqrep25mluzkhzi3j
+CC = $(BASEGPUPATH)/bin/nvcc
+SM = 80
+NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
+TYPE_FLAG = -x cu
+CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
+CC_INCLUDES = -I $(BASEGPUPATH)/include
+LIBRARY_PATH = -L $(BASEGPUPATH)/lib64
+LIBRARIES = -lcudart -lcurand
 #end nvidia GPU compilation section
 
 
@@ -35,7 +35,7 @@ SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.c
 INCLUDES = $(SOURCES:.cpp=.h)
 OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
 BUILD = build/
-EXECS = cpuTestFree
+EXECS = gpuTestFree
 
 all: $(MAIN)
 
@@ -48,7 +48,7 @@ $(MAIN).o : $(MAIN).cpp $(INCLUDES)
 %.o : %.cpp %.h
 	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
-$(shell mkdir -p $(BUILD) $(EXECS))  
+#$(shell mkdir -p $(BUILD) $(EXECS))  
 
 clean:
 	rm -f bin/* *.o $(MAIN)

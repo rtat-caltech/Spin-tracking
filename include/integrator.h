@@ -44,8 +44,7 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 	const double3& v_old, const double3& v_new, options OPT, double& h);
 
 __PREPROC__ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new,
-						options OPT);
+						const double3& p_new, const double3& v_old, const double3& v_new, options OPT, double& h);
 
 __PREPROC__ double sign(double, double);
 
