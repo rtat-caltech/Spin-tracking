@@ -215,7 +215,7 @@ namespace RK45COEF
 	constexpr double CT6 = -6.0/25.0;
 };
 
-namespace CFET8
+namespace CFET85
 {
 	constexpr double G11 = -0.005984812750244602;
 	constexpr double G12 = 0.020217897716672675;
@@ -249,8 +249,9 @@ namespace CFET8
 	constexpr double G65 = -0.03404916849487304;
 };
 
-namespace CFET6
+namespace CFET65
 {
+	// 6th order CFET, 5 exponentials, 5 evaluations
 	constexpr double H11 = -0.007431519425246311;
 	constexpr double H12 = 0.022452824849980513;
 	constexpr double H13 = -0.03620393417193995;
@@ -268,6 +269,56 @@ namespace CFET6
 	constexpr double H35 = -0.0010724438829253797;
 };
 
+namespace CFET64
+{	
+	// 6th order CFET, 5 exponentials, 5 evaluations
+	constexpr double G11 = -0.0025014052514920095;
+	constexpr double G12 = 0.008639029922663216;
+	constexpr double G13 = -0.024100720255084626;
+	constexpr double G14 = 0.18936309558391398;
+	constexpr double G21 = 0.011812550087752866;
+	constexpr double G22 = -0.052478095443491635;
+	constexpr double G23 = 0.4364266743440707;
+	constexpr double G24 = -0.02079738578886907;
+	constexpr double G31 = -0.003949432062578388;
+	constexpr double G32 = -0.04241431113688392;
+	constexpr double G33 = -0.042414311136884014;
+	constexpr double G34 = -0.0039494320625784035;
+};
+
+namespace CFET44
+{
+	// 4th order CFET, 3 exponentials, 4 evaluations
+	constexpr double H11 = 0.01908791249877604;
+	constexpr double H12 = -0.06133530168179788;
+	constexpr double H13 = 0.09157296750370314;
+	constexpr double H14 = 0.22567442167931961;
+	constexpr double H21 = -0.07083491160936817;
+	constexpr double H22 = 0.2958349116093678;
+	constexpr double H23 = 0.2958349116093686;
+	constexpr double H24 = -0.07083491160936835;
+};
+
+namespace CFET43
+{
+	// 4th order CFET, 3 exponentials, 3 evaluation
+	constexpr double G11 = 0.005776500145309754;
+	constexpr double G12 = -0.033333333333333326;
+	constexpr double G13 = 0.30255683318802384;
+	constexpr double G21 = -0.030555555555555725;
+	constexpr double G22 = 0.5111111111111111;
+	constexpr double G23 = -0.030555555555555586;s
+};
+
+namespace CFET23
+{
+	// 2nd order CFET, 1 exponential, 3 evaluations
+	// Wait, this is just midpoint rule with extra steps
+	constexpr double H11 = 0.27777777777777785;
+	constexpr double H12 = 0.4444444444444444;
+	constexpr double H13 = 0.27777777777777796;
+};
+
 namespace GL5
 {
 	// 5-point Gauss Quadrature Collocation Points
@@ -279,5 +330,22 @@ namespace GL5
 	constexpr double X5 = 0.9530899229693319;
 };
 
+namespace GL4
+{
+  	// 4-point Gauss Quadrature Collocation Points
+	// The weights have already been folded into the CFET coefficients	
+    constexpr double X1 = 0.0694318442029736;
+    constexpr double X2 = 0.33000947820757165;
+	constexpr double X3 = 0.6699905217924282;
+	constexpr double X4 = 0.9305681557970263;
+};
 
+namespace GL3
+{
+	// 3-point Gauss Quadrature Collocation Points
+	// The weights have already been folded into the CFET coefficients	
+	constexpr double X1 = 0.11270166537925824;
+	constexpr double X2 = 0.5;
+	constexpr double X3 = 0.8872983346207417;
+};
 #endif
