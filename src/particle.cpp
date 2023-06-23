@@ -289,7 +289,13 @@ __PREPROCD__ void particle::step() {
 	else if(integrationType == 2){
 		spinSteps = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, h);
 	}
-	else{
+	else if(integrationType == 3){
+		spinSteps = integrateMagnusCFET6(t_old, t, S, pos_old, pos, v_old, v, opt, h);
+	}
+	else if(integrationType == 4){
+		spinSteps = integrateMagnusCFET4(t_old, t, S, pos_old, pos, v_old, v, opt, h);
+	}
+	else {
 		//this is an unrecognized option so just don't integrate the spin in this case
 	}
 	//printf("%d \n", spinSteps);
