@@ -354,25 +354,25 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 		else{
 			//printf("using rotations\n");
 			k1 = findCrossTerm(x, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			quaternion temp2 = rodriguezQuat(k1, RK45COEF::B21*h);
-			//yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
+			quaternion temp2 = rodriguesQuat(k1, RK45COEF::B21*h);
+			//yy1 = qv_mult(rodriguesQuat(k1, RK45COEF::B21*h), y);
 			k2 = findCrossTerm(x+RK45COEF::A2*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);
+			//yy1 = qv_mult(qMult(rodriguesQuat(k2, RK45COEF::B32*h), rodriguesQuat(k1, RK45COEF::B31*h)), y);
 			k3 = findCrossTerm(x+RK45COEF::A3*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k3, RK45COEF::B43*h), qMult(rodriguezQuat(k2, RK45COEF::B42*h), rodriguezQuat(k1, RK45COEF::B41*h))), y);
+			//yy1 = qv_mult(qMult(rodriguesQuat(k3, RK45COEF::B43*h), qMult(rodriguesQuat(k2, RK45COEF::B42*h), rodriguesQuat(k1, RK45COEF::B41*h))), y);
 			k4 = findCrossTerm(x+RK45COEF::A4*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k4, RK45COEF::B54*h), qMult(rodriguezQuat(k3, RK45COEF::B53*h), 
-					//qMult(rodriguezQuat(k2, RK45COEF::B52*h), rodriguezQuat(k1, RK45COEF::B51*h)))), y);
+			//yy1 = qv_mult(qMult(rodriguesQuat(k4, RK45COEF::B54*h), qMult(rodriguesQuat(k3, RK45COEF::B53*h), 
+					//qMult(rodriguesQuat(k2, RK45COEF::B52*h), rodriguesQuat(k1, RK45COEF::B51*h)))), y);
 			k5 = findCrossTerm(x+RK45COEF::A5*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k5, RK45COEF::B65*h), qMult(rodriguezQuat(k4, RK45COEF::B64*h), 
-					//qMult(rodriguezQuat(k3, RK45COEF::B63*h), qMult(rodriguezQuat(k2, RK45COEF::B62*h), rodriguezQuat(k1, RK45COEF::B61*h))))), y);
+			//yy1 = qv_mult(qMult(rodriguesQuat(k5, RK45COEF::B65*h), qMult(rodriguesQuat(k4, RK45COEF::B64*h), 
+					//qMult(rodriguesQuat(k3, RK45COEF::B63*h), qMult(rodriguesQuat(k2, RK45COEF::B62*h), rodriguesQuat(k1, RK45COEF::B61*h))))), y);
 			k6 = findCrossTerm(x+RK45COEF::A6*h, OPT.B0, OPT.E, OPT.gamma, t0, tf, p_old, p_new, v_old, v_new);
-			weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RK45COEF::CH6), qMult(rodriguezQuat(k5, h*RK45COEF::CH5), 
-				qMult(rodriguezQuat(k4, h*RK45COEF::CH4), qMult(rodriguezQuat(k3, h*RK45COEF::CH3),
-				qMult(rodriguezQuat(k2, h*RK45COEF::CH2), rodriguezQuat(k1, h*RK45COEF::CH1)))))), y);
-			TE2 = qv_mult(qMult(rodriguezQuat(k5, h*RK45COEF::C5), qMult(rodriguezQuat(k4, h*RK45COEF::C4), 
-								qMult(rodriguezQuat(k3, h*RK45COEF::C3), qMult(rodriguezQuat(k2, h*RK45COEF::C2), 
-									rodriguezQuat(k1, h*RK45COEF::C1))))), y);
+			weightedStep = qv_mult(qMult(rodriguesQuat(k6, h*RK45COEF::CH6), qMult(rodriguesQuat(k5, h*RK45COEF::CH5), 
+				qMult(rodriguesQuat(k4, h*RK45COEF::CH4), qMult(rodriguesQuat(k3, h*RK45COEF::CH3),
+				qMult(rodriguesQuat(k2, h*RK45COEF::CH2), rodriguesQuat(k1, h*RK45COEF::CH1)))))), y);
+			TE2 = qv_mult(qMult(rodriguesQuat(k5, h*RK45COEF::C5), qMult(rodriguesQuat(k4, h*RK45COEF::C4), 
+								qMult(rodriguesQuat(k3, h*RK45COEF::C3), qMult(rodriguesQuat(k2, h*RK45COEF::C2), 
+									rodriguesQuat(k1, h*RK45COEF::C1))))), y);
 			TE2 = weightedStep - TE2;
 		}
 		absErr = len(TE2);
@@ -460,7 +460,7 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 		k2 = (CFET85::G21 * B1 + CFET85::G22 * B2 + CFET85::G23 * B3 + CFET85::G24 * B4 + CFET85::G25 * B5) * h;
 		k1 = (CFET85::G11 * B1 + CFET85::G12 * B2 + CFET85::G13 * B3 + CFET85::G14 * B4 + CFET85::G15 * B5) * h;
 
-		y8 = rodriguez(k1, rodriguez(k2, rodriguez(k3, rodriguez(k4, rodriguez(k5, rodriguez(k6, rodriguez(k7, rodriguez(k8, rodriguez(k9, rodriguez(k10, rodriguez(k11, y)))))))))));
+		y8 = rodrigues(k1, rodrigues(k2, rodrigues(k3, rodrigues(k4, rodrigues(k5, rodrigues(k6, rodrigues(k7, rodrigues(k8, rodrigues(k9, rodrigues(k10, rodrigues(k11, y)))))))))));
 
 		k5 = (CFET65::H15 * B1 + CFET65::H14 * B2 + CFET65::H13 * B3 + CFET65::H12 * B4 + CFET65::H11 * B5) * h;
 		k4 = (CFET65::H25 * B1 + CFET65::H24 * B2 + CFET65::H23 * B3 + CFET65::H22 * B4 + CFET65::H21 * B5) * h;
@@ -468,7 +468,7 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 		k2 = (CFET65::H21 * B1 + CFET65::H22 * B2 + CFET65::H23 * B3 + CFET65::H24 * B4 + CFET65::H25 * B5) * h;
 		k1 = (CFET65::H11 * B1 + CFET65::H12 * B2 + CFET65::H13 * B3 + CFET65::H14 * B4 + CFET65::H15 * B5) * h;
 
-		y6 = rodriguez(k1, rodriguez(k2, rodriguez(k3, rodriguez(k4, rodriguez(k5, y)))));
+		y6 = rodrigues(k1, rodrigues(k2, rodrigues(k3, rodrigues(k4, rodrigues(k5, y)))));
 
 		error = len(y8 - y6);
 
@@ -536,13 +536,13 @@ int integrateMagnusCFET6(double t0, double tf, double3& y, const double3& p_old,
 		k2 = CFET64::G21 * B1 + CFET64::G22 * B2 + CFET64::G23 * B3 + CFET64::G24 * B4;
 		k1 = CFET64::G11 * B1 + CFET64::G12 * B2 + CFET64::G13 * B3 + CFET64::G14 * B4;
 		
-		y6 = rodriguez(k1, rodriguez(k2, rodriguez(k3, rodriguez(k4, rodriguez(k5, y)))));
+		y6 = rodrigues(k1, rodrigues(k2, rodrigues(k3, rodrigues(k4, rodrigues(k5, y)))));
 
 		k3 = CFET44::H14 * B1 + CFET44::H13 * B2 + CFET44::H12 * B3 + CFET44::H11 * B4;
 		k2 = CFET44::H21 * B1 + CFET44::H22 * B2 + CFET44::H23 * B3 + CFET44::H24 * B4;
 		k1 = CFET44::H11 * B1 + CFET44::H12 * B2 + CFET44::H13 * B3 + CFET44::H14 * B4;
 
-		y4 = rodriguez(k1, rodriguez(k2, rodriguez(k3, y)));
+		y4 = rodrigues(k1, rodrigues(k2, rodrigues(k3, y)));
 
 		error = len(y6 - y4);
 
@@ -607,11 +607,11 @@ int integrateMagnusCFET4(double t0, double tf, double3& y, const double3& p_old,
 		k2 = CFET43::G21 * B1 + CFET43::G22 * B2 + CFET43::G23 * B3;
 		k1 = CFET43::G11 * B1 + CFET43::G12 * B2 + CFET43::G13 * B3;
 		
-		y4 = rodriguez(k1, rodriguez(k2, rodriguez(k3, y)));
+		y4 = rodrigues(k1, rodrigues(k2, rodrigues(k3, y)));
 
 		k1 = CFET23::H11 * B1 + CFET23::H12 * B2 + CFET23::H13 * B3;
 
-		y2 = rodriguez(k1, y);
+		y2 = rodrigues(k1, y);
 
 		error = len(y4 - y2);
 

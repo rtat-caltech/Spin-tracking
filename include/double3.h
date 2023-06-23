@@ -61,7 +61,7 @@ __PREPROC__ quaternion operator*(const quaternion, const quaternion);
 __PREPROC__ quaternion conjugate(const quaternion);
 __PREPROC__ quaternion qMult(const quaternion, const quaternion);
 __PREPROC__ double3 qv_mult(const quaternion, const double3);
-__PREPROC__ quaternion rodriguezQuat(const double3, const double);
-__PREPROC__ double3 rodriguez(const double3, const double3);
+__PREPROC__ quaternion rodriguesQuat(const double3, const double);
+__PREPROC__ double3 rodrigues(const double3, const double3);
 
 #endif
