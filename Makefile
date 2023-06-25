@@ -1,5 +1,5 @@
 vpath %.cpp src/
-vpath %.cpp boost_tests/
+vpath %.cpp tests/
 vpath %.h include/
 
 .PHONY: all clean test
@@ -47,8 +47,9 @@ OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
 BUILD = build/
 EXECS = gpuA100
 
-TEST = boost_tests/
-TEST_SOURCES  = integrator_validation.cpp
+TEST = tests/
+TEST_MAIN = test_main
+TEST_SOURCES = integrator_validation.cpp particle_validation.cpp
 EXECS = simple
 
 all: $(MAIN)
@@ -56,16 +57,16 @@ all: $(MAIN)
 $(MAIN): $(OBJECTS)
 	$(CC) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) $(addprefix $(BUILD),$(SOURCES:.cpp=.o)) -o $(EXECS)$@ $(BUILD)$(MAIN).o $(LIBRARIES)
 
-test: test.o $(SOURCES:.cpp=.o)
-	$(CC) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) $(addprefix $(BUILD),$(SOURCES:.cpp=.o)) $(BUILD)test.o -o $(EXECS)$@ $(LIBRARIES)
+test: $(TEST_MAIN).o $(SOURCES:.cpp=.o) $(TEST_SOURCES:.cpp=.o)
+	$(CC) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) $(addprefix $(BUILD),$(SOURCES:.cpp=.o)) $(addprefix $(BUILD),$(TEST_SOURCES:.cpp=.o)) -o $(EXECS)$@ $(BUILD)$(TEST_MAIN).o $(LIBRARIES)
 
-test.o: $(TEST_SOURCES) $(INCLUDES)
+$(TEST_MAIN).o: $(TEST_MAIN).cpp $(INCLUDES)
 	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
 $(MAIN).o : $(MAIN).cpp $(INCLUDES)
 	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
-%.o : %.cpp %.h
+%.o : %.cpp
 	$(CC) $(TYPE_FLAG) $(CC_FLAGS) $(CC_INCLUDES) $(LIBRARY_PATH) -c $< -o $(BUILD)$@
 
 #$(shell mkdir -p $(BUILD) $(EXECS))
