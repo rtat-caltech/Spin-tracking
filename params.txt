@@ -10,7 +10,7 @@ h, 0.0001
 numParticles, 16384
 numPerGPUBlock, 256
 t0, 0.0
-tf, 10
-ioutInt, 2.0
-integratorType, 1
+tf, 1000
+ioutInt, 0.5
+integratorType, 0
 output, n

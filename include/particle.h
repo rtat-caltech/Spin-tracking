@@ -4,6 +4,8 @@
 #include <math.h>
 #include <algorithm>
 #include <random>
+#include <iostream>
+#include <stdint.h>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -31,7 +33,7 @@ public:
 	size_t n_coll = 0;
 	size_t n_steps = 0;
 	bool finished = false;
-	bool bad = true;
+	bool stopParticle = false;
 	double lastOutput = 0.0;
 	unsigned int lastIndex = 0;
 	
@@ -43,27 +45,15 @@ public:
 		gamma(OPT.gamma), G(), opt(OPT), ipart(ipart), seed(seed),
 		integrationType(OPT.integratorType), h(OPT.h)
 	{
-		// First do the RNG initialization. This will depend heavily on the compiler being used
-		#if defined(__HIPCC__)
-		hiprand_init(seed, ipart, 0, &rngState);
-		#elif defined(__NVCOMPILER) || defined(__NVCC__)
-		curand_init(seed, ipart, 0, &rngState);
-		#else
-		gen64.seed(seed + ipart);
-		#endif
-		// printf("%u\n", &thread_data);
+		// First do the RNG initialization
+		xorshift128_init(seed + ipart);
+        uniform(); //initial RNG to get things going, otherwise they all share the same first value which is very strange to me still
 		S = y0;
-
 		//calculate the collision time
 		tc = 1.6e-4*m/(k*pow(OPT.T, 8));
-
 		pos.x = uniform()*L.x-L.x/2.0;
 		pos.y = uniform()*L.y-L.y/2.0;
 		pos.z = uniform()*L.z-L.z/2.0;
-		
-		// printf("%f\n", pos.x);
-		// printf("%f\n", pos.y);
-		
 		pos_old = pos;
 		t = t0;
 		if (gas_coll == true){
@@ -72,11 +62,10 @@ public:
 		else
 			next_gas_coll_time = tf + 1.0;
 		if (dist == 'C') {
-
 			double3 vec;
-			vec.x = normal01();
-			vec.y = normal01();
-			vec.z = normal01();
+			vec.x = normal(0.0, 1.0);
+			vec.y = normal(0.0, 1.0);
+			vec.z = normal(0.0, 1.0);
 
 			double vec_norm = len(vec);
 			v = V_init * vec/vec_norm;
@@ -87,7 +76,6 @@ public:
 			v.z = maxboltz(sqrtKT_m);
 		}
 		
-		// printf("%f\t %f\t %f\n", v.x, v.y, v.z);
 		Vel = len(v);
 		v_old = v;
 	}
@@ -99,13 +87,20 @@ public:
 	__PREPROCD__ void move();
 	__PREPROCD__ void step();
 	__PREPROCD__ void run();
-	__PREPROCD__ double uniform();
-	__PREPROCD__ double normal01();
-	__PREPROCD__ double maxboltz(const double);
-	__PREPROCD__ double unif02pi();
-	__PREPROCD__ double exponential(const double);
 	__PREPROCD__ outputDtype getState();
 	__PREPROCD__ void updateTF(double);
+    //rng related functions
+    __PREPROCD__ uint64_t rol64(uint64_t, int);
+    __PREPROCD__ uint64_t splitmix64();
+    __PREPROCD__ void xorshift128_init(uint64_t);
+    __PREPROCD__ uint64_t xoshiro256p();
+    __PREPROCD__ double uniform();
+    __PREPROCD__ double uniform(double, double);
+    __PREPROCD__ double normal(double, double);
+    __PREPROCD__ double maxboltz(const double);
+    __PREPROCD__ double unif02pi();
+    __PREPROCD__ double exponential(const double);
+    
 
 private:
 	options opt;
@@ -156,17 +151,11 @@ private:
 	double h;//keep track of hte step size in the particle;
 	
 	//all the various RNG related things
-	unsigned long seed = 0;
-	#if defined(__HIPCC__)
-	hiprandStateXORWOW_t rngState;
-	#elif defined(__NVCOMPILER) || defined(__NVCC__)
-	curandStateXORWOW_t rngState;
-	#else
-	//std::random_device dev;
-	std::mt19937_64 gen64;
-	std::normal_distribution<double> dist_normal{0.0, 1.0};
-	std::uniform_real_distribution<double> dist_uniform{0.0, 1.0};
-	#endif
+	uint64_t seed = 0;
+    uint64_t splitmix64_state;
+    uint64_t rngState[4];
+    double spareRng;
+    bool hasSpare = false;
 };
 
 #endif

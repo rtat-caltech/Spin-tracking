@@ -1,8 +1,14 @@
 #include "../include/particle.h"
 #include <unistd.h>
+#include <float.h>
+#include <stdint.h>
+
 /*
 Outputs the sign of a number.
 */
+
+#define UNI_32BIT_INV 2.3283064365386962890625e-10
+#define UNI_64BIT_INV 5.42101086242752217003726400434970e-20
 
 #if defined(__HIPCC__)
 #define __PREPROCD__ __device__
@@ -10,7 +16,7 @@ Outputs the sign of a number.
 #define __PREPROCD__ __device__
 #else
 #include <random>
-#define __PREPROCD__
+#define __PREPROCD__ 
 #endif
 
 using namespace std;
@@ -24,70 +30,92 @@ __PREPROCD__ double particle::sgn(T val) {
 	//return (T(0) < val) - (val < T(0)); //we don't want the 0 case
 }
 
-/*
-Calculates the timestep based on the next wall or gas collision.
-*/
-
-#if defined(__HIPCC__)
-__PREPROCD__ double particle::uniform(){
-	return hiprand_uniform_double(&rngState);
+__PREPROCD__ uint64_t particle::rol64(uint64_t x, int k)
+{
+	return (x << k) | (x >> (64 - k));
 }
 
-__PREPROCD__ double particle::normal01(){
-	return hiprand_normal_double(&rngState);
+__PREPROCD__ uint64_t particle::splitmix64() {
+	uint64_t result = (splitmix64_state += 0x9E3779B97f4A7C15);
+	result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
+	result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
+	return result ^ (result >> 31);
+}
+
+__PREPROCD__ void particle::xorshift128_init(uint64_t seed) {
+    splitmix64_state = seed; //apply the seed to that generator
+	uint64_t tmp = splitmix64();
+	rngState[0] = (uint32_t)tmp;
+	rngState[1] = (uint32_t)(tmp >> 32);
+
+	tmp = splitmix64();
+	rngState[2] = (uint32_t)tmp;
+	rngState[3] = (uint32_t)(tmp >> 32);
+}
+
+__PREPROCD__ uint64_t particle::xoshiro256p()
+{
+   //using this https://en.wikipedia.org/wiki/Xorshift#xoshiro256+
+	const uint64_t result = rngState[0] + rngState[3];
+	const uint64_t t = rngState[1] << 17;
+	rngState[2] ^= rngState[0];
+	rngState[3] ^= rngState[1];
+	rngState[1] ^= rngState[2];
+	rngState[0] ^= rngState[3];
+	rngState[2] ^= t;
+	rngState[3] = rol64(rngState[3], 45);
+	return result;
+}
+
+__PREPROCD__ static inline double DoubleFromBits(const uint64_t i){
+    return (i >> 11) * 0x1.0p-53;
+}
+
+__PREPROCD__ double particle::uniform(){
+    //A random number between low and high based on the xoshiro256** algorithm
+	//https://en.wikipedia.org/wiki/Xorshift#xoshiro256**
+    //https://prng.di.unimi.it/
+    uint64_t temp = xoshiro256p();
+    double out = DoubleFromBits(temp);
+    return out;
+}
+
+__PREPROCD__ double particle::uniform(double low, double high){
+    return uniform()*(high-low)+low;
+}
+
+__PREPROCD__ double particle::normal(double mean, double std){
+    //Generates a random value from a normal distribution using the Marsaglia Polar Method.
+	//https://en.wikipedia.org/wiki/Marsaglia_polar_method
+    if(hasSpare){
+        hasSpare = false;
+        return spareRng * std + mean;
+    }
+    else{
+        double ts, tu, tv;
+        do {
+            tu = uniform(-1.0, 1.0);
+            tv = uniform(-1.0, 1.0);
+            ts = tu*tu + tv*tv;
+        } while (ts >= 1.0 || ts == 0.0);
+        ts = sqrt(-2.0*log(ts)/ts);
+        spareRng = tv * ts;
+        hasSpare = true;
+        return mean + std * tu * ts;
+    }
 }
 
 __PREPROCD__ double particle::maxboltz(const double sqrtkT_m){
-    return normal01() * sqrtkT_m;
+    return normal(0.0, 1.0) * sqrtkT_m;
 }
 
 __PREPROCD__ double particle::unif02pi(){
-    return hiprand_uniform_double(&rngState) * 2.0 * M_PI;
+    return uniform() * 2.0 * M_PI;
 }
 
 __PREPROCD__ double particle::exponential(const double tc){
-    return - tc * log(1.0 - hiprand_uniform_double(&rngState));
+    return - tc * log(1.0 - uniform());
 }
-#elif defined(__NVCOMPILER) || defined(__NVCC__)
-__PREPROCD__ double particle::uniform(){
-	return curand_uniform_double(&rngState);
-}
-
-__PREPROCD__ double particle::normal01(){
-	return curand_normal_double(&rngState);
-}
-
-__PREPROCD__ double particle::maxboltz(const double sqrtkT_m){
-    return normal01() * sqrtkT_m;
-}
-
-__PREPROCD__ double particle::unif02pi(){
-    return curand_uniform_double(&rngState) * 2.0 * M_PI;
-}
-
-__PREPROCD__ double particle::exponential(const double tc){
-    return - tc * log(1.0 - curand_uniform_double(&rngState));
-}
-#else
-__PREPROCD__ double particle::uniform(){
-	return dist_uniform(gen64);
-}
-__PREPROCD__ double particle::normal01(){
-	return dist_normal(gen64);
-}
-
-__PREPROCD__ double particle::maxboltz(const double sqrtkT_m){
-    return normal01() * sqrtkT_m;
-}
-
-__PREPROCD__ double particle::unif02pi(){
-    return dist_uniform(gen64) * 2.0 * M_PI;
-}
-
-__PREPROCD__ double particle::exponential(const double tc){
-    return - tc * log(1.0 - dist_uniform(gen64));
-}
-#endif
 
 __PREPROCD__ void particle::calc_next_collision_time() {
 	if(gravity){
@@ -104,7 +132,6 @@ __PREPROCD__ void particle::calc_next_collision_time() {
 				double sqr = sqrt(-2.0*G_CONST*dy+y2);
 				double temp1 = -(sqr+v.y)/G_CONST;
 				double temp2 = (sqr-v.y)/G_CONST;
-				//printf("temp1 = %f, temp2 = %f\n", temp1, temp2);
 				dty = min(std::abs(temp1), std::abs(temp2));
 		}
 		else{
@@ -130,7 +157,6 @@ __PREPROCD__ void particle::calc_next_collision_time() {
 			dty = 1e6;
 		else if (dtz < 1e-16 || std::isnan(dtz))
 			dtz = 1e6;
-		//printf("pos = %f, %f, %f, vel = %f %f %f, dt = %f %f %f\n", pos.x, pos.y, pos.z, v.x, v.y, v.z, dtx, dty, dtz);
 	}
 	else{
 		
@@ -163,7 +189,6 @@ __PREPROCD__ void particle::calc_next_collision_time() {
 		min_elm = 2;
 	}
 	double timeToNextGas = next_gas_coll_time - t;
-	//printf("t=%f v: %f %f %f, p = %f %f %f, tBounce = %f, minT = %f\n", t, v.x, v.y, v.z, pos.x, pos.y, pos.z, tbounce, max_step);
 	if(max_step <= timeToNextGas && max_step <= tbounce && t + max_step < tf){ //check if the max step size is smaller than the next collision times
 		//if so then just say we don't collide and keep going
 		dt = max_step;
@@ -187,7 +212,6 @@ __PREPROCD__ void particle::calc_next_collision_time() {
 		n_coll += 1;
 	}
 	else { //in this case it reached the end of the simulation
-		//printf("huh?");
 		coll_type = 'N';
 		dt = tf - t;
 		finished = true;
@@ -201,7 +225,6 @@ Calculates the new velocities after a wall or gas collision.
 __PREPROCD__ void particle::new_velocities() {
 	v_old = v;
 	Vel = len(v);
-	//printf("%c\n", coll_type);
 	if (coll_type == 'N'){
 		//in this case we don't have a wall collision and it's just iterating through space still
 		//don't update the velocities they're fine
@@ -242,9 +265,9 @@ __PREPROCD__ void particle::new_velocities() {
 	}
 	else if (coll_type == 'G' && dist == 'C') {
 		double3 vec;
-		vec.x = normal01();
-		vec.y = normal01();
-		vec.z = normal01();
+		vec.x = normal(0.0, 1.0);
+		vec.y = normal(0.0, 1.0);
+		vec.z = normal(0.0, 1.0);
 		double vec_norm = len(vec);
 		v = Vel * vec/vec_norm;
 		Vel = len(v);
@@ -277,23 +300,32 @@ __PREPROCD__ void particle::step() {
 	calc_next_collision_time(); //when do we hit something next?
 	move();
 	new_velocities();
-	int spinSteps = 0; 
+	int spinResult = 0;
+    double tempH = h;
 	if(integrationType == 0){
 		//use the DOP853 algorithm for spin tracking
-		spinSteps = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt);
+		spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 	}
 	else if(integrationType == 1){
 		//use the hybrid RK45 method
-		spinSteps = integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, h);
+		spinResult = integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 	}
 	else if(integrationType == 2){
-		spinSteps = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, h);
+		spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 	}
 	else{
 		//this is an unrecognized option so just don't integrate the spin in this case
 	}
-	//printf("%d \n", spinSteps);
-	//printf("h after = %lf, lastOutput = %lf\n", h, lastOutput);
+    if(opt.keepStepSize)
+        h = tempH;
+    if (spinResult < 0){
+        printf("%d %d\n", ipart, spinResult);
+        stopParticle = true;
+        t = nan("");
+        pos = (double3){nan(""), nan(""), nan("")};
+        v = (double3){nan(""), nan(""), nan("")};
+        S = (double3){nan(""), nan(""), nan("")};
+    }
 	n_steps += 1;
 }
 
@@ -319,8 +351,8 @@ __PREPROCD__ void particle::updateTF(double tfNew){
 
 __PREPROCD__ void particle::run(){
 	finished = false;
-	while (finished != true) {
-		//sleep(1);
+	while (finished == false && stopParticle == false){
 		step();
 	}
 }
+

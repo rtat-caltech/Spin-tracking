@@ -28,14 +28,13 @@ LIBRARIES = -lcudart -lcurand
 #end nvidia GPU compilation section
 
 
-
 ## Project file structure ##
 MAIN = main
 SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.cpp
 INCLUDES = $(SOURCES:.cpp=.h)
 OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
-BUILD = build/
-EXECS = gpuTestFree
+#BUILD = build/
+EXECS = gpuTest
 
 all: $(MAIN)
 
