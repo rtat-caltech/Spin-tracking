@@ -280,9 +280,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		FILE* f = fopen(outputName, "wb");
 		fwrite(&opt, sizeof(options), 1, f);//write the options that were used to create the simulation
 		//now initialize all of the particles in the system
-        printf("initializing\n");
 		initializeParticles<<<numBlocks, numPartsPerBlock>>>(particles, opt.numParticles, opt, buffers, seed);
-        printf("initialized\n");
 		handleOutput(f, particles, opt, buffers); //save the initial states
 		unsigned int numIterations = int(floor(double(opt.tf - opt.t0)/opt.ioutInt));
 		
@@ -295,7 +293,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			runSimulation<<<numBlocks, numPartsPerBlock>>>(particles, opt.numParticles, opt, buffers, nextTime);
 			handleOutput(f, particles, opt, buffers);
 			stop = std::chrono::high_resolution_clock::now();
-        		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+            auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		fclose(f);
@@ -312,9 +310,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		FILE* f = fopen(outputName, "wb");
 		fwrite(&opt, sizeof(options), 1, f);//write the options that were used to create the simulation
 		//initialize the particles and save their states
-        printf("initializing\n");
 		initializeParticles(particles, opt.numParticles, opt, buffers, seed);
-        printf("initialized\n");
 		handleOutput(f, particles, opt, buffers); //save the initial states
 		
 		unsigned int numIterations = int(floor(double(opt.tf - opt.t0)/opt.ioutInt));

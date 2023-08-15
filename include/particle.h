@@ -75,7 +75,6 @@ public:
 			v.y = maxboltz(sqrtKT_m);
 			v.z = maxboltz(sqrtKT_m);
 		}
-		
 		Vel = len(v);
 		v_old = v;
 	}

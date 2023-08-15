@@ -167,21 +167,19 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
     }*/
 
     while (1){
-
+        //printf("x = %0.17f, h = %0.17f\n", x, h);
         if (nstep > OPT.nmax){
             return -1;
         }
-        if(!OPT.fixedStepSize){//if we want to adapt the step size, do this
-            if (0.1 * std::abs(h) <= std::abs(x) * OPT.uround){
-                return -3;
-            }
-            if ((x + 1.01*h - xf) * posneg > 0.0){
-                h = xf - x;
-                last = 1;
-            }
-            if (h < OPT.hmin && last != 1){
-                h = OPT.hmin;
-            }
+        if (0.1 * std::abs(h) <= std::abs(x) * OPT.uround){
+            return -3;
+        }
+        if ((x + 1.01*h - xf) * posneg > 0.0){
+            h = xf - x;
+            last = 1;
+        }
+        if (h < OPT.hmin && last != 1){
+            h = OPT.hmin;
         }
         nstep++;
 

@@ -35,6 +35,7 @@ struct options{
 	double ioutInt = 0.05; // how frequently to output the state data
 	
 	unsigned int nmax = 10000000;
+	unsigned int seed = 0;//random number seed
 	int integratorType = 0; //0 means DOP853, 1 means hybrid RK45 approach
 	int numParticles = 1000;
 	int numPerGPUBlock = 128;
