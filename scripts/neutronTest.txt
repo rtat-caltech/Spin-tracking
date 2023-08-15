@@ -10,13 +10,13 @@ E, 75.0e5, 0, 0
 numParticles, 32
 t0, 0.0
 tf, 1.0
-ioutInt, 0.1
-a, 38.7511230e-6
-w, 6000.0
+ioutInt, 0.001
+a, 0.0
+w, 0.0
 h, 1.0e-7
 swapStepSize, 1.0e-9
 keepStepSize, false
-fixedStepSize, true
+fixedStepSize, false
 dist, C
 rtol, 1.0e-14
 atol, 1.0e-14

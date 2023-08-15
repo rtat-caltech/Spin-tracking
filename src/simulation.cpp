@@ -93,7 +93,7 @@ void destroyOutputBuffers(outputBuffers buffers, options opt){
 __global__ void initializeParticles(particle* particles, int numParticles, options OPT, outputBuffers buffers, unsigned long seed){
 	unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid < numParticles){
-		particles[tid] = particle(OPT.yi, OPT, seed, tid); //save the particle to the array
+		particles[tid] = particle(OPT, seed, tid); //save the particle to the array
 		buffers.particleStatesGPU[tid] = particles[tid].getState(); //save the state of the particle for the CPU to handle the output
 		//printf("%d \n", tid);
 	}
@@ -102,9 +102,11 @@ __global__ void initializeParticles(particle* particles, int numParticles, optio
 __global__ void runSimulation(particle* particles, int numParticles, options OPT, outputBuffers buffers, double nextTOut){
 	unsigned int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid < numParticles){
-		particles[tid].updateTF(nextTOut);
-		particles[tid].run();
-		buffers.particleStatesGPU[tid] = particles[tid].getState(); //save the state of the particle for the CPU to handle the output
+        particle p = particles[tid];
+		p.updateTF(nextTOut);
+		p.run(OPT);
+		buffers.particleStatesGPU[tid] = p.getState(); //save the state of the particle for the CPU to handle the output
+        particles[tid] = p;
 	}
 }
 
@@ -114,7 +116,7 @@ void initializeParticles(particle* particles, int numParticles, options OPT, out
 	#pragma omp parallel for
 	#endif
 	for(unsigned int tid = 0; tid < numParticles; tid++){
-		particles[tid] = particle(OPT.yi, OPT, seed, tid);
+		particles[tid] = particle(OPT, seed, tid);
 		buffers.particleStatesCPU[tid] = particles[tid].getState();
 	}
 }
@@ -125,7 +127,7 @@ void runSimulation(particle* particles, int numParticles, options OPT, outputBuf
 	#endif
 	for(unsigned int tid = 0; tid < numParticles; tid++){
 		particles[tid].updateTF(nextTOut);
-		particles[tid].run();
+		particles[tid].run(OPT);
 		buffers.particleStatesCPU[tid] = particles[tid].getState(); 
 	}
 }

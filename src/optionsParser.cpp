@@ -194,5 +194,9 @@ options optionParser(char * filename){
 	}
 	
 	file.close();
+    double k = 1.380649e-23;
+    opts.tc = 1.6e-4*opts.m/(k*pow(opts.T, 8.0));
+    opts.sqrtKT_m = sqrt(k*opts.T/opts.m);
+    
 	return opts;
 }
