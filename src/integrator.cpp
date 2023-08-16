@@ -55,18 +55,17 @@ __PREPROC__ void interpolate(const double t, const double t0, const double tf,
 
 __PREPROC__ double3 findCrossTerm(const double t, const options OPT, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
-	double3 p, v, G, B;
+	double3 p, v;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
-	G = grad(p);
-	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
+	const double3 G = grad(p);
+	const double3 B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
 	return OPT.gamma * B;
 }
 
 __PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, 
 			const double t0, const double tf , const double3& p_old,
 			const double3& p_new, const double3& v_old, const double3& v_new){
-	double3 temp;
-	temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+	const double3 temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
 	f = cross(y, temp);
 }
 
@@ -123,9 +122,9 @@ __PREPROC__ void Bloch(const double t, const double3& y, double3& f, const optio
 
 // }
 
-__PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_old, 
+__PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const double3& p_old, 
 		const double3& p_new, const double3& v_old, const double3& v_new, 
-		options OPT, double &h){
+		const options OPT, double &h){
     double3 yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
     //int arret, idid;
     //int iasti, iord, irtrn, reject, last, nonsti;
@@ -133,7 +132,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
     double facold, expo1, fac, facc1, facc2, fac11, posneg, xph;
     double err2, deno;
     double3 erri, sqr, sk;
-    double atoli, rtoli, hlamb, err, hnew;
+    double err, hnew;
     unsigned int nfcn = 0, nstep = 0, naccpt = 0, nrejct = 0;
     double x = t0;
     double xf = tf;
@@ -145,15 +144,10 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
     posneg = sign(1.0, tf-t0);
 
     /* initial preparations */
-    atoli = OPT.atol;
-    rtoli = OPT.rtol;
     last  = 0;
-    hlamb = 0.0;
     ////("k1 prior = %lf %lf %lf\n", k1.x, k1.y, k1.z);
     Bloch(x, y, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
     ////("k1 post = %lf %lf %lf\n", k1.x, k1.y, k1.z);
-
-    double hmax = std::abs(OPT.hmax);
     // if (OPT.h == 0.0)
     //     h = hinit(fcn, x0, y, posneg, k1, k2, k3, iord, hmax, OPT.atol, OPT.rtol);
     nfcn += 2;
@@ -230,7 +224,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
         /* error estimation */
         err = 0.0;
         err2 = 0.0;
-		sk = atoli + rtoli * max_d3(fabs3(y), fabs3(k5));
+		sk = OPT.atol + OPT.rtol * max_d3(fabs3(y), fabs3(k5));
 		erri = k4 - COEF::bhh1*k1 - COEF::bhh2*k9 - COEF::bhh3*k3;
         sqr = erri / sk;
         err2 += sum(sqr*sqr);
@@ -268,8 +262,8 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
                 return 1;
             }
 
-            if (std::abs(hnew) > hmax)
-                hnew = posneg * hmax;
+            if (std::abs(hnew) > OPT.hmax)
+                hnew = posneg * OPT.hmax;
             if (reject)
                 hnew = posneg * min_d (std::abs(hnew), std::abs(h));
             reject = 0;
@@ -288,12 +282,11 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
 
 }
 
-__PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const double3& p_old, 
+__PREPROC__ int integrateRK45Hybrid(const double t0, const double tf, double3& y, const double3& p_old, 
 		const double3& p_new, const double3& v_old, const double3& v_new, 
-		options OPT, double &h){
+		const options OPT, double &h){
 	double t = t0;
 	bool stop = false;
-	double hmin = OPT.hmin;
 	int nstep = 0;
 	double endOfSimulDt;
 	double lastH = h;
@@ -396,8 +389,8 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 	return 0;
 }
 
-int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new, options OPT, double& h){
+int integrateMagnusCFET(const double t0, const double tf, double3& y, const double3& p_old,
+						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
 	double t = t0;
 	bool stop = false;

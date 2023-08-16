@@ -55,18 +55,15 @@ struct outputBuffers{
 };
 
 
-void createOutputBuffers(options opt, void** buffers);
-void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int seed);
+void createOutputBuffers(const options opt, void** buffers);
+void mainAnalysis(const options opt, int totalTime, char* outputName, unsigned int seed);
 
-#if defined(__HIPCC__)
-__global__ void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
-#elif defined(__NVCOMPILER) || defined(__NVCC__)
-__global__ void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+__global__ void runSimulation(particle * particles, outputBuffers* buffers, const options OPT);
+__global__ void initializeParticles(particle * particles, const int numParticles, const options OPT, const unsigned long seed, const double3 yi);
 #else
-void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+void runSimulation(particle * particles, outputBuffers* buffers, const options OPT);
+void initializeParticles(particle * particles, int numParticles, const options OPT, const unsigned long seed, const double3 yi);
 #endif
 
 #endif

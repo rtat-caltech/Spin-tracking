@@ -27,7 +27,7 @@
 class particle
 {
 public:
-	__PREPROCD__ particle(options OPT, unsigned long seed, unsigned int ipart):
+	__PREPROCD__ particle(const options OPT, const unsigned long seed, const unsigned int ipart):
         partID(ipart), t(OPT.t0), S(OPT.yi), t_old(OPT.t0), tf(OPT.t0), dt(OPT.h),
         h(OPT.h), finished(false), stopParticle(false), coll_type('W'), hasSpare(false)
         {
@@ -74,22 +74,22 @@ public:
         v_old = v;
     }
     __PREPROCD__ ~particle() {};
-    __PREPROCD__ void calc_next_collision_time(options opt);
+    __PREPROCD__ void calc_next_collision_time(const options opt);
     template <typename T> __PREPROCD__ double sgn(T val);
-    __PREPROCD__ void new_velocities(options opt);
-    __PREPROCD__ void move(options opt);
-    __PREPROCD__ void step(options opt);
-    __PREPROCD__ void run(options opt);
+    __PREPROCD__ void new_velocities(const options opt);
+    __PREPROCD__ void move(const options opt);
+    __PREPROCD__ void step(const options opt);
+    __PREPROCD__ void run(const options opt);
     __PREPROCD__ outputDtype getState();
-    __PREPROCD__ void updateTF(double);
+    __PREPROCD__ void updateTF(const double);
     //rng related functions
-    __PREPROCD__ uint64_t rol64(uint64_t, int);
+    __PREPROCD__ uint64_t rol64(const uint64_t, const int);
     //__PREPROCD__ uint64_t splitmix64();
     //__PREPROCD__ void xorshift128_init(uint64_t);
     __PREPROCD__ uint64_t xoshiro256p();
     __PREPROCD__ double uniform();
-    __PREPROCD__ double uniform(double, double);
-    __PREPROCD__ double normal(double, double);
+    __PREPROCD__ double uniform(const double, const double);
+    __PREPROCD__ double normal(const double, const double);
     __PREPROCD__ double maxboltz(const double);
     __PREPROCD__ double unif02pi();
     __PREPROCD__ double exponential(const double);

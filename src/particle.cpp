@@ -22,7 +22,7 @@ Outputs the sign of a number.
 using namespace std;
 
 template <typename T>
-__PREPROCD__ double particle::sgn(T val) {
+__PREPROCD__ double particle::sgn(const T val) {
 	if(val<0)
 		return -1.0;
 	else
@@ -30,7 +30,7 @@ __PREPROCD__ double particle::sgn(T val) {
 	//return (T(0) < val) - (val < T(0)); //we don't want the 0 case
 }
 
-__PREPROCD__ uint64_t particle::rol64(uint64_t x, int k)
+__PREPROCD__ uint64_t particle::rol64(const uint64_t x, const int k)
 {
 	return (x << k) | (x >> (64 - k));
 }
@@ -80,15 +80,15 @@ __PREPROCD__ double particle::uniform(){
 	//https://en.wikipedia.org/wiki/Xorshift#xoshiro256**
     //https://prng.di.unimi.it/
     uint64_t temp = xoshiro256p();
-    double out = DoubleFromBits(temp);
+    const double out = DoubleFromBits(temp);
     return out;
 }
 
-__PREPROCD__ double particle::uniform(double low, double high){
+__PREPROCD__ double particle::uniform(const double low, const double high){
     return uniform()*(high-low)+low;
 }
 
-__PREPROCD__ double particle::normal(double mean, double std){
+__PREPROCD__ double particle::normal(const double mean, const double std){
     //Generates a random value from a normal distribution using the Marsaglia Polar Method.
 	//https://en.wikipedia.org/wiki/Marsaglia_polar_method
     if(hasSpare){
@@ -121,7 +121,7 @@ __PREPROCD__ double particle::exponential(const double tc){
     return - tc * log(1.0 - uniform());
 }
 
-__PREPROCD__ void particle::calc_next_collision_time(options opt) {
+__PREPROCD__ void particle::calc_next_collision_time(const options opt) {
     double dx, dy, dz, dtx, dty, dtz = 0.0;
 	if(opt.gravity){
 		//calculate distance to collision point
@@ -228,7 +228,7 @@ __PREPROCD__ void particle::calc_next_collision_time(options opt) {
 Calculates the new velocities after a wall or gas collision.
 */
 
-__PREPROCD__ void particle::new_velocities(options opt) {
+__PREPROCD__ void particle::new_velocities(const options opt) {
 	v_old = v;
     double Vel = len(v);
 	if (coll_type == 'N'){
@@ -282,7 +282,7 @@ __PREPROCD__ void particle::new_velocities(options opt) {
 /*
 Moves the particle based on the particle velocity and calcuated timestep.
 */
-__PREPROCD__ void particle::move(options opt) {
+__PREPROCD__ void particle::move(const options opt) {
 	t_old = t; // update the time
 	t += dt; //increment forward
 	pos_old = pos; //update old position
@@ -301,7 +301,7 @@ __PREPROCD__ void particle::move(options opt) {
 Performs one particle and spin integration step.
 */
 
-__PREPROCD__ void particle::step(options opt) {
+__PREPROCD__ void particle::step(const options opt) {
 	calc_next_collision_time(opt); //when do we hit something next?
 	move(opt);
 	new_velocities(opt);
@@ -347,14 +347,14 @@ __PREPROCD__ outputDtype particle::getState(){
 	return out;
 }
 
-__PREPROCD__ void particle::updateTF(double tfNew){
+__PREPROCD__ void particle::updateTF(const double tfNew){
 	dt = tfNew - tf;
 	tf = tfNew;
 	finished = false;
 	return;
 }
 
-__PREPROCD__ void particle::run(options opt){
+__PREPROCD__ void particle::run(const options opt){
 	finished = false;
 	while (finished == false && stopParticle == false){
 		step(opt);

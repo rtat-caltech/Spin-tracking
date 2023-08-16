@@ -7,10 +7,10 @@ diffuse, false
 gravity, true
 B0, 3.0e-6, 0, 0
 E, 75.0e5, 0, 0
-numParticles, 32
+numParticles, 65536
 t0, 0.0
-tf, 1.0
-ioutInt, 0.001
+tf, 100.0
+ioutInt, 1.0
 a, 0.0
 w, 0.0
 h, 1.0e-7
