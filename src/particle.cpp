@@ -211,7 +211,7 @@ __PREPROCD__ void particle::calc_next_collision_time(const options opt) {
 		else if (min_elm == 2)
 			wall_hit = 'z';
 	}
-	else if (t + tbounce > next_gas_coll_time && next_gas_coll_time < tf) { //is a gas collision next?
+	else if (next_gas_coll_time < tf) { //is a gas collision next?
 		dt = next_gas_coll_time - t;
 		next_gas_coll_time += exponential(opt.tc);
 		coll_type = 'G';

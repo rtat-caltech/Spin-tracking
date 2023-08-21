@@ -24,17 +24,17 @@ struct options{
 	double fac1 = 0.333;
 	double fac2 = 6.0;
 	double hmax = 1.0;
-    double hmin = 1.0e-8;
+	double hmin = 1.0e-8;
 	double h = 0.001;
 	double T = 4.2;
-    double sqrtKT_m = 0.0;
-    double tc = 0.0;
+    	double sqrtKT_m = 0.0;
+    	double tc = 0.0;
 	double gamma = -2.038e8; //based on vince's documentation
 	double V = 5.0;
 	double a = 0.0; //amplitude of the spin precession pulse
 	double w = 0.0; //frequency of the spin precession pulse
 	double swapStepSize = 1.0-4; //above this use rotations, below this use standard RK techniques
-    double maxPosStep = 0.1; //largest step size for position/velocity integration
+    	double maxPosStep = 0.1; //largest step size for position/velocity integration
 	double ioutInt = 0.05; // how frequently to output the state data
 	
 	unsigned int nmax = 10000000;
@@ -52,8 +52,8 @@ struct options{
 	bool gas_coll = true;
 	bool diffuse = true;
 	bool gravity = true;
-    bool fixedStepSize = false; //do we use adaptive step size or fixed
-    bool keepStepSize = false; //do we pass the last step size to the next step or reset each time
+	bool fixedStepSize = false; //do we use adaptive step size or fixed
+   	bool keepStepSize = false; //do we pass the last step size to the next step or reset each time
 	//these are x, y, z coordinates
 };
 

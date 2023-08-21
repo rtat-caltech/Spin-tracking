@@ -295,7 +295,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			runSimulation<<<numBlocks, numPartsPerBlock>>>(particles, opt.numParticles, opt, buffers, nextTime);
 			handleOutput(f, particles, opt, buffers);
 			stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+            		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		fclose(f);

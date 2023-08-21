@@ -340,7 +340,6 @@ __PREPROC__ int integrateRK45Hybrid(const double t0, const double tf, double3& y
 		}
 		else{
 			k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			quaternion temp2 = rodriguezQuat(k1, RK45COEF::B21*h);
 			//yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
 			k2 = findCrossTerm(t+RK45COEF::A2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
 			//yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);

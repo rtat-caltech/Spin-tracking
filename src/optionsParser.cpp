@@ -142,6 +142,9 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "seed"){
 		opt.seed = std::stoi(elements.at(1));	
 	}
+	else if(elements.at(0) == "maxPosStep"){
+		opt.seed = std::stod(elements.at(1));
+	}
 	else if(elements.at(0) == "integratorType"){
 		opt.integratorType = std::stoi(elements.at(1));
 	}

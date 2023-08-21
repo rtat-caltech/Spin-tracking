@@ -1,20 +1,20 @@
 gamma, -1.832471850e8
 m, 1.674927e-27
-V, 1.0
+V, 0.0
 T, 0.4
 gas_coll, false
 diffuse, false
 gravity, true
 B0, 3.0e-6, 0, 0
 E, 75.0e5, 0, 0
-numParticles, 65536
+numParticles, 1
 t0, 0.0
-tf, 100.0
-ioutInt, 1.0
-a, 0.0
-w, 0.0
+tf, 1.0
+ioutInt, 0.001
+a, 19.1024180e-6
+w, 3000.0
 h, 1.0e-7
-swapStepSize, 1.0e-9
+swapStepSize, 1.0e0
 keepStepSize, false
 fixedStepSize, false
 dist, C
@@ -25,4 +25,4 @@ hmin, 1.0e-9
 numPerGPUBlock, 256
 output, n
 seed, 0
-integratorType, 0
+integratorType, 2
