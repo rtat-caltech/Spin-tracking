@@ -76,8 +76,20 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "V"){
 		opt.V = std::stod(elements.at(1));
 	}
+	else if(elements.at(0) == "a"){
+		opt.a = std::stod(elements.at(1));
+	}
+	else if(elements.at(0) == "w"){
+		opt.w = std::stod(elements.at(1));
+	}
 	else if(elements.at(0) == "gravity"){
 		opt.gravity = to_bool(elements.at(1));
+	}
+    else if(elements.at(0) == "fixedStepSize"){
+		opt.fixedStepSize = to_bool(elements.at(1));
+	}
+    else if(elements.at(0) == "keepStepSize"){
+		opt.keepStepSize = to_bool(elements.at(1));
 	}
 	else if(elements.at(0) == "B0"){
 		opt.B0 = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
@@ -118,11 +130,17 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "hmax"){
 		opt.hmax = std::stod(elements.at(1));
 	}
+    else if(elements.at(0) == "hmin"){
+		opt.hmin = std::stod(elements.at(1));
+	}
 	else if(elements.at(0) == "h"){
 		opt.h = std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "nmax"){
 		opt.nmax = std::stoi(elements.at(1));
+	}
+	else if(elements.at(0) == "seed"){
+		opt.seed = std::stoi(elements.at(1));	
 	}
 	else if(elements.at(0) == "integratorType"){
 		opt.integratorType = std::stoi(elements.at(1));

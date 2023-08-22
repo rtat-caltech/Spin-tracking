@@ -17,9 +17,8 @@ int main(int argc, char* argv[]){
 	char * outputName;
 	options opt = parseUserInput(argc, argv, &outputName);
 	int totalTime = 3600; //total time allowed in seconds
-	unsigned int seed = 0;
 	auto start = high_resolution_clock::now();
-	mainAnalysis(opt, totalTime, outputName, seed);
+	mainAnalysis(opt, totalTime, outputName, opt.seed);
 	auto stop = high_resolution_clock::now();
 	auto duration = duration_cast<milliseconds>(stop-start).count();
 	std::cout<<duration<<std::endl;

@@ -33,7 +33,6 @@ CC_INCLUDES = -I /usr/include
 #end nvidia GPU compilation section
 
 
-
 ## Project file structure ##
 MAIN = main
 SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.cpp

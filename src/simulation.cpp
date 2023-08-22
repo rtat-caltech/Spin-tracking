@@ -1,5 +1,6 @@
 #include "../include/simulation.h"
 #include <unistd.h>
+#include <chrono>
 
 #if defined(__NVCC__) || defined(__NVCOMPILER)
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -123,12 +124,9 @@ void runSimulation(particle* particles, int numParticles, options OPT, outputBuf
 	#pragma omp parallel for
 	#endif
 	for(unsigned int tid = 0; tid < numParticles; tid++){
-		//printf("nextTOut = %f\n", nextTOut);
 		particles[tid].updateTF(nextTOut);
-		//printf("state = %.14f \n", particles[tid].getState().t);
 		particles[tid].run();
 		buffers.particleStatesCPU[tid] = particles[tid].getState(); 
-		//printf("state = %.14f \n", particles[tid].getState().t);
 	}
 }
 #endif
@@ -285,10 +283,18 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		initializeParticles<<<numBlocks, numPartsPerBlock>>>(particles, opt.numParticles, opt, buffers, seed);
 		handleOutput(f, particles, opt, buffers); //save the initial states
 		unsigned int numIterations = int(floor(double(opt.tf - opt.t0)/opt.ioutInt));
+		
+		auto start = std::chrono::high_resolution_clock::now();
+		auto stop = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count();
 		for(int i = 0; i < numIterations; i++){
 			double nextTime = ((double)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
+			start = std::chrono::high_resolution_clock::now();
 			runSimulation<<<numBlocks, numPartsPerBlock>>>(particles, opt.numParticles, opt, buffers, nextTime);
 			handleOutput(f, particles, opt, buffers);
+			stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+			std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		fclose(f);
 		destroyOutputBuffers(buffers, opt);
@@ -308,10 +314,17 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		handleOutput(f, particles, opt, buffers); //save the initial states
 		
 		unsigned int numIterations = int(floor(double(opt.tf - opt.t0)/opt.ioutInt));
+        auto start = std::chrono::high_resolution_clock::now();
+		auto stop = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count();
 		for(int i = 0; i < numIterations; i++){
 			double nextTime = ((double)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
+            start = std::chrono::high_resolution_clock::now();
 			runSimulation(particles, opt.numParticles, opt, buffers, nextTime);
 			handleOutput(f, particles, opt, buffers);
+            stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+            std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		fclose(f);
 		
