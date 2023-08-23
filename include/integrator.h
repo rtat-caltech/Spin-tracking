@@ -32,7 +32,7 @@ __PREPROC__ double3 findCrossTerm(const double t, const double3& y, const option
 
 __PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, const double t0, const double tf ,const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new);
 
-__PREPROC__ void interpolate(const double t, const double t0, const double tf, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, double3& p_out, double3& v_out);
+__PREPROC__ void interpolate(const double t, const double t0, const double tf, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, double3& p_out, double3& v_out, const options OPT);
 
 __PREPROC__ double3 grad(double3&);
 

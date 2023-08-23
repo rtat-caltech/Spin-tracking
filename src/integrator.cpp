@@ -47,16 +47,23 @@ __PREPROC__ double3 grad(double3& pos){
 
 __PREPROC__ void interpolate(const double t, const double t0, const double tf, 
 		const double3& p_old, const double3& p_new, const double3& v_old, 
-		const double3& v_new, double3& p_out, double3& v_out){
-	p_out = (p_old*(tf-t) + p_new*(t-t0))/(tf-t0);
-	// //("%f\t %f\t %f\n", p_old[0], p_out[0], p_new[0]);
-	v_out = v_old;
+		const double3& v_new, double3& p_out, double3& v_out, const options OPT){
+    if(OPT.gravity){
+        const double3 a = {0.0, G_CONST, 0.0};
+        p_out = p_old + v_old * (t-t0) + 0.5 * a * (t-t0)*(t-t0);
+        v_out = v_old + a * (t-t0);
+        
+    }
+    else{
+        p_out = p_old + v_old * (t-t0);
+        v_out = v_old;
+    }
 }
 
 __PREPROC__ double3 findCrossTerm(const double t, const options OPT, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
 	double3 p, v;
-	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
+	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
 	const double3 G = grad(p);
 	const double3 B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
 	return OPT.gamma * B;
