@@ -73,4 +73,4 @@ $(MAIN).o : $(MAIN).cpp $(INCLUDES)
 
 clean:
 	rm -f bin/* *.o $(MAIN)
-	rm -f build/*
+	rm -f $(BUILD)*.o $(MAIN)
