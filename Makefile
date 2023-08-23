@@ -64,4 +64,4 @@ $(MAIN).o : $(MAIN).cpp $(INCLUDES)
 #$(shell mkdir -p $(BUILD) $(EXECS))
 
 clean:
-	rm -f bin/* *.o $(MAIN)
+	rm -f $(BUILD)*.o $(MAIN)
