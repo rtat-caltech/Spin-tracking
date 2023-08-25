@@ -5,7 +5,7 @@ vpath %.h include/
 ##This is the CPU compilation section
 #CC = g++ 
 #LIBRARY_PATH= 
-#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp 
+#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC  #-fopenmp 
 
 #AMD GPU Compilation Section#CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
 #CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
@@ -17,7 +17,7 @@ vpath %.h include/
 #Nvidia GPU Compilation Section
 #using NVCC
 BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/cuda-11.6.0-u4jzhgn5buvcnkwuqrep25mluzkhzi3j
-BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/compilers
+#BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/compilers
 #BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.7/compilers
 
 CC = $(BASEGPUPATH)/bin/nvcc

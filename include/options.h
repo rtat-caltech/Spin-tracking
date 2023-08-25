@@ -27,8 +27,8 @@ struct options{
 	double hmin = 1.0e-8;
 	double h = 0.001;
 	double T = 4.2;
-    	double sqrtKT_m = 0.0;
-    	double tc = 0.0;
+    double sqrtKT_m = 0.0;
+    double tc = 0.0;
 	double gamma = -2.038e8; //based on vince's documentation
 	double V = 5.0;
 	double a = 0.0; //amplitude of the spin precession pulse

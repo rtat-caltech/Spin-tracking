@@ -168,13 +168,14 @@ __PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const
     }*/
 
     while (1){
-        //printf("x = %0.17f, h = %0.17f\n", x, h);
         if (nstep > OPT.nmax){
             return -1;
         }
+        /*
         if (0.1 * std::abs(h) <= std::abs(x) * OPT.uround){
             return -3;
         }
+        */
         if ((x + 1.01*h - xf) * posneg > 0.0){
             h = xf - x;
             last = 1;
