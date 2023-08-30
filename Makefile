@@ -21,7 +21,7 @@ BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/c
 #BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.7/compilers
 
 CC = $(BASEGPUPATH)/bin/nvcc
-SM = 80
+SM = 70
 NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
 TYPE_FLAG = -x cu
 CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)

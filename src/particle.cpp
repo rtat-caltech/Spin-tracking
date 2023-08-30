@@ -323,8 +323,9 @@ __global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v
         result = result ^ (result >> 31);
         rng.z = (uint32_t)result;
         rng.w = (uint32_t)(result >> 32);
+        uniform(rng);//scramble the state a few more times just to get things really going
+        uniform(rng);//yes this is highly recommended because otherwise the positions will be strongly correlated
         uniform(rng);
-
         
         //now handle the position and velocity information
         double3 tempos;
@@ -420,15 +421,16 @@ __global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 
             //printf("v_old = %lf %lf %lf, v = %lf %lf %lf\n", pos_old, pos);
             
             if(opt.integratorType == 0){
-                //use the DOP853 algorithm for spin tracking
                 spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 1){
-                //use the hybrid RK45 method
-                spinResult = integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 2){
                 spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            }
+            else if(opt.integratorType == 3){
+                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else{
                 //this is an unrecognized option so just don't integrate the spin in this case
@@ -490,6 +492,8 @@ void initParticlesCPU(options opt, double3 *S, double3 *v, double3 *v_old,
         result = result ^ (result >> 31);
         rng.z = (uint32_t)result;
         rng.w = (uint32_t)(result >> 32);
+        uniform(rng);//scramble the state a few more times just to get things really going
+        uniform(rng);//yes this is highly recommended because otherwise the positions will be strongly correlated
         uniform(rng);
 
 
