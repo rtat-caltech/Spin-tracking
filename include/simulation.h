@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "../include/double3.h"
+#include "../include/quaternion.h"
 #include "../include/options.h"
 #include "../include/coeff.h"
 #include "../include/particle.h"
@@ -67,6 +68,8 @@ __global__ void initializeParticles(particle * particles, int numParticles, opti
 #else
 void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
 void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+void aggregateSpectrum(particle*, spectrum&, int, int, options);
+
 #endif
 
 #endif

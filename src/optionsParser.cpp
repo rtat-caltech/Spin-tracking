@@ -1,17 +1,15 @@
 // This script is responsible for parsing the various option parameters that the user can pass in
 
-
-
 #include "../include/optionsParser.h"
 #include <iostream>
-#include<fstream>
-#include<sstream>
-#include<string>
-#include<vector>
-#include<algorithm>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <algorithm>
 
 std::string removeWhitespace(std::string s){
-	s.erase(remove_if(s.begin(), s.end(), isspace), s.end());
+	s.erase(remove_if(s.begin(), s.end(), [](char c){return isspace(c);}), s.end());
 	return s;
 }
 

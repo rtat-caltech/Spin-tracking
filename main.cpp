@@ -6,6 +6,7 @@
 #include "include/double3.h"
 #include "include/optionsParser.h"
 #include "include/simulation.h"
+#include "include/quaternion.h"
 
 using namespace std;
 using namespace std::chrono;

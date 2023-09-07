@@ -117,6 +117,14 @@ __PREPROCD__ double particle::exponential(const double tc){
     return - tc * log(1.0 - uniform());
 }
 
+__PREPROCD__ double3* particle::get_S1(){
+	return s1;
+}
+__PREPROCD__ double3* particle::get_S2(){
+	return s2;
+}
+
+
 __PREPROCD__ void particle::calc_next_collision_time() {
 	if(gravity){
 		//calculate distance to collision point
@@ -312,6 +320,9 @@ __PREPROCD__ void particle::step() {
 	}
 	else if(integrationType == 2){
 		spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+	}
+	else if(integrationType == 3){
+		spinResult = integrateSpectrum(t_old, t, s1, s2, w, NK, pos_old, pos, v_old, v, opt, tempH);
 	}
 	else{
 		//this is an unrecognized option so just don't integrate the spin in this case

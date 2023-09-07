@@ -22,6 +22,14 @@
 #include "integrator.h"
 #include "options.h"
 #include "double3.h"
+#include "quaternion.h"
+
+struct spectrum{
+	double frequencies[NK];
+	double3 power[NK];
+	int size;
+	int n_samples;
+};
 
 // typedef void (*GRAD)(const double* pos, double* G);
 class particle
@@ -36,6 +44,9 @@ public:
 	bool stopParticle = false;
 	double lastOutput = 0.0;
 	unsigned int lastIndex = 0;
+	double3 s1[NK];
+	double3 s2[NK];
+	double w[NK];
 	
 	__PREPROCD__ particle(double3 y0, options OPT, unsigned long seed, unsigned int ipart) :
 		L(OPT.L), m(OPT.m), dist(OPT.dist), V_init(OPT.V), t0(OPT.t0), tf(OPT.tf), 
@@ -88,6 +99,8 @@ public:
 	__PREPROCD__ void run();
 	__PREPROCD__ outputDtype getState();
 	__PREPROCD__ void updateTF(double);
+	__PREPROCD__ double3* get_S1();
+	__PREPROCD__ double3* get_S2();
     //rng related functions
     __PREPROCD__ uint64_t rol64(uint64_t, int);
     __PREPROCD__ uint64_t splitmix64();

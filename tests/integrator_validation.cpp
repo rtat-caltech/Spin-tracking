@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE(free_precession, * utf::tolerance(1e-9)) {
 	opts.atol = 1e-12;
 	opts.gravity = false;
 	int nsteps;
-	nsteps = integrateDOP(t0, tf, y, p_old, p_new, v_old, v_new, opts);
+	nsteps = integrateDOP(t0, tf, y, p_old, p_new, v_old, v_new, opts, opts.h);
 	BOOST_TEST(y.x == 0);
 	BOOST_TEST(y.y == sin(B0*opts.gamma*(tf-t0)));
 	BOOST_TEST(y.z == cos(B0*opts.gamma*(tf-t0)));

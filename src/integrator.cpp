@@ -32,6 +32,11 @@ __PREPROC__ double max_d(double a, double b)
   return (a > b)?a:b;
 }
 
+// Extra pulse used for testing purposes
+__PREPROC__ double3 testNoise(const double t, double3 a, double3 w) {
+	return a * ((double3) {sin(w.x * t), sin(w.y * t), sin(w.z * t)});
+}
+
 __PREPROC__ double3 pulse(const double t, double a, double w){
 	return {0.0, 0.0, a * cos(w*t)};
 	//return {0.0, 0.0, 64.7766232e-6*cos(10000.0*t)};
@@ -55,10 +60,11 @@ __PREPROC__ void interpolate(const double t, const double t0, const double tf,
 
 __PREPROC__ double3 findCrossTerm(const double t, const options OPT, const double t0, const double tf, const double3 p_old,
 					 const double3 p_new, const double3 v_old, const double3 v_new){
-	double3 p, v, G, B;
+	double3 p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
 	G = grad(p);
-	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
+	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
+	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G + N;
 	return OPT.gamma * B;
 }
 
@@ -490,6 +496,88 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
         if(!OPT.fixedStepSize)
             h = h*q;
 		prev_ratio = ratio;
+	}
+	return 0;
+}
+
+void goertzel_stage_1(const double3& x, double3& s1, double3& s2, double w, double dt) {
+	double angle = w * dt;
+	double3 new_s = x + 2 * cos(angle) * s1 - s2;
+	s2 = s1;
+	s1 = new_s;
+	return;
+}
+
+double3 goertzel_stage_2(const double3& s1, const double3& s2, double w, double dt) {
+	double angle = w * dt;
+	double3 a = s1 - cos(angle) * s2;
+	double3 b = sin(angle) * s2;
+	return a*a + b*b; // * T/N
+}
+
+double first_sample_point(double t0, double h) {
+	// Returns the first spectrum sample point for a time interval starting at t0.
+	// With sampling interval h
+	return (floor(t0/h)+1)*h; // The smallest multiple of h greater than t0
+}
+
+int integrateSpectrum(double t0, double tf, double3 *s1, double3 *s2, double* w, double n_freqs, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, options OPT, const double h) {
+	// I'm doing it this way because I'm worried about floating point error
+	double t = first_sample_point(t0, h);
+	double next_t = first_sample_point(tf, h);
+	int n_steps = 0;
+	while (t < next_t - (h/2)) {
+		double3 B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
+		for (int i = 0; i < NK; i++) {
+			goertzel_stage_1(B, s1[i], s2[i], w[i], OPT.h);
+		}
+		t += h;
+		n_steps++;
+	}
+	return n_steps;
+}
+
+int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, double h) {
+	double t = t0;
+	quaternion q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11;
+	double3 B1, B2, B3, B4, B5;
+	double3 p_old = {0.0, 0.0, 0.0};
+	double3 p_new = p_old;
+	double3 v_old = v_old;
+	double3 v_new = v_new;
+
+	double endOfSimulDt = 0.0;
+	unsigned int nstep = 0;
+	while (1){
+		nstep++;
+        if (nstep > OPT.nmax){
+            return -2;
+        }
+		endOfSimulDt = tf - t;
+		if(h >= endOfSimulDt){
+			h = endOfSimulDt;
+		}
+		
+		B1 = findCrossTerm(t+GL5::X1*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B2 = findCrossTerm(t+GL5::X2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B3 = findCrossTerm(t+GL5::X3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B4 = findCrossTerm(t+GL5::X4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B5 = findCrossTerm(t+GL5::X5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+
+		q11 = rodriguezQuat((CFET8::G15 * B1 + CFET8::G14 * B2 + CFET8::G13 * B3 + CFET8::G12 * B4 + CFET8::G11 * B5), h);
+		q10 = rodriguezQuat((CFET8::G25 * B1 + CFET8::G24 * B2 + CFET8::G23 * B3 + CFET8::G22 * B4 + CFET8::G21 * B5), h);
+		q9 = rodriguezQuat((CFET8::G35 * B1 + CFET8::G34 * B2 + CFET8::G33 * B3 + CFET8::G32 * B4 + CFET8::G31 * B5), h);
+		q8 = rodriguezQuat((CFET8::G45 * B1 + CFET8::G44 * B2 + CFET8::G43 * B3 + CFET8::G42 * B4 + CFET8::G41 * B5), h);
+		q7 = rodriguezQuat((CFET8::G55 * B1 + CFET8::G54 * B2 + CFET8::G53 * B3 + CFET8::G52 * B4 + CFET8::G51 * B5), h);
+		q6 = rodriguezQuat((CFET8::G61 * B1 + CFET8::G62 * B2 + CFET8::G63 * B3 + CFET8::G64 * B4 + CFET8::G65 * B5), h);
+		q5 = rodriguezQuat((CFET8::G51 * B1 + CFET8::G52 * B2 + CFET8::G53 * B3 + CFET8::G54 * B4 + CFET8::G55 * B5), h);
+		q4 = rodriguezQuat((CFET8::G41 * B1 + CFET8::G42 * B2 + CFET8::G43 * B3 + CFET8::G44 * B4 + CFET8::G45 * B5), h);
+		q3 = rodriguezQuat((CFET8::G31 * B1 + CFET8::G32 * B2 + CFET8::G33 * B3 + CFET8::G34 * B4 + CFET8::G35 * B5), h);
+		q2 = rodriguezQuat((CFET8::G21 * B1 + CFET8::G22 * B2 + CFET8::G23 * B3 + CFET8::G24 * B4 + CFET8::G25 * B5), h);
+		q1 = rodriguezQuat((CFET8::G11 * B1 + CFET8::G12 * B2 + CFET8::G13 * B3 + CFET8::G14 * B4 + CFET8::G15 * B5), h);
+
+		y = q11 * q10 * q9 * q8 * q7 * q6 * q5 * q4 * q3 * q2 * q1 * y;
+		t += h;			
 	}
 	return 0;
 }

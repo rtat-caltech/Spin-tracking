@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE(initialization) {
 	BOOST_TEST(abs(vsum.x/ntrial/sqrt(k * opts.T/opts.m)) < 2e-2); // This is around 7 sigma
 	BOOST_TEST(abs(vsum.y/ntrial/sqrt(k * opts.T/opts.m)) < 2e-2);
 	BOOST_TEST(abs(vsum.z/ntrial/sqrt(k * opts.T/opts.m)) < 2e-2);	
-	BOOST_TEST(sqrt(vsqsum/ntrial) - sqrt(3 * k * opts.T/opts.m) < 2e-2);
+	BOOST_TEST(abs(sqrt(vsqsum/ntrial)/sqrt(3 * k * opts.T/opts.m) - 1) < 2e-2);
 	//TODO: test 'C' distribution initialization	
 }
 
