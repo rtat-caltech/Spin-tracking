@@ -581,3 +581,7 @@ int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, doubl
 	}
 	return 0;
 }
+
+int integrateFloquetMarkov(double t0, double tf, quaternion& y, options OPT, double h) {
+	
+}
