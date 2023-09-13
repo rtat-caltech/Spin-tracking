@@ -235,47 +235,59 @@ __PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char &coll_type, ch
 		//in this case we don't have a wall collision and it's just iterating through space still
 		//don't update the velocities they're fine
 	}
-	else if (coll_type == 'W' && opt.diffuse == false) {
-		if (wall_hit == 'x')
-			v.x *= -1.0;
-		else if (wall_hit == 'y')
-			v.y *= -1.0;
-		else if (wall_hit == 'z')
-			v.z *= -1.0;
-	}
-	else if (coll_type == 'W' && opt.diffuse == true) {
-		//V = sqrt(vx * vx + vy * vy + vz * vz);
-        double phi,theta;
-		phi = acos(sqrt(uniform(state)));
-		theta = unif02pi(state);
-		if (wall_hit == 'x') {
-			v.x = -1 * sgn(v.x) * Vel * cos(phi);
-			v.y = -Vel * sin(phi) * cos(theta);
-			v.z = Vel * sin(phi) * sin(theta);
-		}
-		else if (wall_hit == 'y') {
-			v.x = Vel * sin(phi) * cos(theta);
-			v.y = -1 * sgn(v.y) * Vel * cos(phi);
-			v.z = Vel * sin(phi) * sin(theta);
-		}
-		else if (wall_hit == 'z') {
-			v.x = Vel * sin(phi) * cos(theta);
-			v.y = Vel * sin(phi) * sin(theta);
-			v.z = -1 * sgn(v.z) * Vel * cos(phi);
-		}
-	}
-	else if (coll_type == 'G' && opt.dist == 'M') {
-		v.x = maxboltz(state, opt.sqrtKT_m);
-		v.y = maxboltz(state, opt.sqrtKT_m);
-		v.z = maxboltz(state, opt.sqrtKT_m);
-	}
-	else if (coll_type == 'G' && opt.dist == 'C') {
-		double3 vec;
-		vec.x = normal(state, 0.0, 1.0);
-		vec.y = normal(state, 0.0, 1.0);
-		vec.z = normal(state, 0.0, 1.0);
-		double vec_norm = len(vec);
-		v = Vel * vec/vec_norm;
+    else if(coll_type == 'W'){
+        //if it's a wall collision, check to see if diffuse scattering is on or not
+        bool diffuse = false;
+        if(opt.diffuse > FLT_MIN){
+            //could maybe have diffuse scattering, so sample the RNG to see if it happens
+            //printf("%lf %lf %d\n", temp, (double)opt.diffuse, temp < (double)opt.diffuse);
+            diffuse = uniform(state) < (double)opt.diffuse;
+        }
+        if(diffuse){//if we want to do a diffuse collision, do this
+            //V = sqrt(vx * vx + vy * vy + vz * vz);
+            double phi,theta;
+            phi = acos(sqrt(uniform(state)));
+            theta = unif02pi(state);
+            if (wall_hit == 'x') {
+                v.x = -1 * sgn(v.x) * Vel * cos(phi);
+                v.y = -Vel * sin(phi) * cos(theta);
+                v.z = Vel * sin(phi) * sin(theta);
+            }
+            else if (wall_hit == 'y') {
+                v.x = Vel * sin(phi) * cos(theta);
+                v.y = -1 * sgn(v.y) * Vel * cos(phi);
+                v.z = Vel * sin(phi) * sin(theta);
+            }
+            else if (wall_hit == 'z') {
+                v.x = Vel * sin(phi) * cos(theta);
+                v.y = Vel * sin(phi) * sin(theta);
+                v.z = -1 * sgn(v.z) * Vel * cos(phi);
+            } 
+        }
+        else{//otehrwise just flip the velocities around and call it a day
+            if (wall_hit == 'x')
+                v.x *= -1.0;
+            else if (wall_hit == 'y')
+                v.y *= -1.0;
+            else if (wall_hit == 'z')
+                v.z *= -1.0;
+        }
+    }
+    else if(coll_type == 'G'){
+        //in this case it's a "gas"/phonon collision
+        if (opt.dist == 'M'){
+            v.x = maxboltz(state, opt.sqrtKT_m);
+            v.y = maxboltz(state, opt.sqrtKT_m);
+            v.z = maxboltz(state, opt.sqrtKT_m);
+        }
+        else if(opt.dist == 'C') {
+            double3 vec;
+            vec.x = normal(state, 0.0, 1.0);
+            vec.y = normal(state, 0.0, 1.0);
+            vec.z = normal(state, 0.0, 1.0);
+            double vec_norm = len(vec);
+            v = Vel * vec/vec_norm;
+        }
 	}
 }
 
@@ -419,22 +431,34 @@ __global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 
             //printf("t_old = %lf, t = %lf S = %lf %lf %lf\n", t_old, t, S.x, S.y, S.z);
             //printf("pos_old = %lf %lf %lf, pos = %lf %lf %lf\n", pos_old, pos);
             //printf("v_old = %lf %lf %lf, v = %lf %lf %lf\n", pos_old, pos);
-            
             if(opt.integratorType == 0){
+                //use the DOP853 algorithm for spin tracking
                 spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 1){
-                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                //use the default RK45 method, no quaternions or anything
+                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 2){
+                //use the MagnusCFET method
                 spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 3){
-                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                //rk45 method but with quaternions instead
+                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            }
+            else if(opt.integratorType == 4){
+                //different set of coefficients for RK45
+                spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            }
+            else if(opt.integratorType == 5){
+                //same as option 3 but for option 4's coefficients
+                spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else{
-                //this is an unrecognized option so just don't integrate the spin in this case
-            }
+                //do nothing
+                spinResult = 0;
+            }      
             if(opt.keepStepSize)
                 h = tempH;
             if (spinResult < 0){
@@ -584,15 +608,29 @@ void runSimulationCPU(options opt, double3 *S, double3 *v, double3 *v_old,
                 spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 1){
-                //use the hybrid RK45 method
-                spinResult = integrateRK45Hybrid(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                //use the default RK45 method, no quaternions or anything
+                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
             else if(opt.integratorType == 2){
+                //use the MagnusCFET method
                 spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
-            else{
-                //this is an unrecognized option so just don't integrate the spin in this case
+            else if(opt.integratorType == 3){
+                //rk45 method but with quaternions instead
+                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
             }
+            else if{opt.integratorType == 4){
+                //different set of coefficients for RK45
+                spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            }
+            else if{opt.integratorType == 5){
+                //same as option 3 but for option 4's coefficients
+                spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            }
+            else{
+                //do nothing
+                spinResult = 0;
+            }      
             if(opt.keepStepSize)
                 h = tempH;
             if (spinResult < 0){

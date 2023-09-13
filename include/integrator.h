@@ -49,6 +49,9 @@ __PREPROC__ int integrateRKF45(double t0, double tf, double3& y, const double3& 
 __PREPROC__ int integrateRK45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
                                         const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
 
+__PREPROC__ int integrateRKF45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
+                                        const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
+
 __PREPROC__ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
 

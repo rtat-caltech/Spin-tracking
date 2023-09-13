@@ -68,7 +68,7 @@ void parseLine(options& opt, std::string s){
 		opt.T = std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "diffuse"){
-		opt.diffuse = to_bool(elements.at(1));
+		opt.diffuse = std::stof(elements.at(1));
 	}
 	else if(elements.at(0) == "gamma"){
 		opt.gamma = std::stod(elements.at(1));

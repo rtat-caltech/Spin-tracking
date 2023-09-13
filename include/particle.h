@@ -6,6 +6,7 @@
 #include <random>
 #include <iostream>
 #include <stdint.h>
+#include <limits>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -371,7 +372,6 @@ private:
     options opt;
     int numPartsPerBlock;
     int numBlocks;
-    
     double3 *S;
     double3 *v;
     double3 *v_old;

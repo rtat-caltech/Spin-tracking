@@ -560,6 +560,101 @@ __PREPROC__ int integrateRK45Quaternion(const double t0, const double tf, double
 	return 0;
 }
 
+__PREPROC__ int integrateRKF45Quaternion(const double t0, const double tf, double3& y, const double3& p_old, 
+		const double3& p_new, const double3& v_old, const double3& v_new, 
+		const options OPT, double &h){
+    //traditional RK45 integrator
+	double t = t0;
+	bool stop = false;
+	int nstep = 0;
+	double endOfSimulDt;
+	double lastH = h;
+	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	double error, tol, ratio, q;
+    double beta1 = 0.7;
+	double beta2 = -0.4;
+	double accept_safety = 0.81;
+	double k = 7.0;
+	double prev_ratio = 1.0;
+	while(1){
+		nstep++;
+        if (nstep > OPT.nmax){
+            //if we have taken too many steps, we should stop the code
+            return -2;
+        }
+		endOfSimulDt = tf - t; //how long until the end of the simulation
+        lastH = h; //update our last time step that we took before we calculate the new step size
+        if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
+            h = OPT.h;
+        }
+        else{
+            //otherwise make sure h is in the valid range
+            //now check if h is too large for the amount of time left, if so make it the right size
+            if(h >= endOfSimulDt){
+                //end the simulation
+                h = endOfSimulDt;
+                stop = true; //tell the system to stop
+            }
+            else{
+                //otherwise we still think the system should be running and keep on going
+                lastH = h;
+                stop = false;
+                //make sure the new h value is allowed then
+                if(h > OPT.hmax)
+                    h = min(h, OPT.hmax);
+                else if(h < OPT.hmin)
+                    return -1;
+            }
+        }
+        k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(rodriguezQuat(k1, RKF45COEF::B21*h), y);
+        k2 = findCrossTerm(t+RKF45COEF::A2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k2, RKF45COEF::B32*h), rodriguezQuat(k1, RKF45COEF::B31*h)), y);
+        k3 = findCrossTerm(t+RKF45COEF::A3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k3, RKF45COEF::B43*h), qMult(rodriguezQuat(k2, RKF45COEF::B42*h), rodriguezQuat(k1, RKF45COEF::B41*h))), y);
+        k4 = findCrossTerm(t+RKF45COEF::A4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k4, RKF45COEF::B54*h), qMult(rodriguezQuat(k3, RKF45COEF::B53*h), 
+                //qMult(rodriguezQuat(k2, RKF45COEF::B52*h), rodriguezQuat(k1, RKF45COEF::B51*h)))), y);
+        k5 = findCrossTerm(t+RKF45COEF::A5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k5, RKF45COEF::B65*h), qMult(rodriguezQuat(k4, RKF45COEF::B64*h), 
+                //qMult(rodriguezQuat(k3, RKF45COEF::B63*h), qMult(rodriguezQuat(k2, RKF45COEF::B62*h), rodriguezQuat(k1, RKF45COEF::B61*h))))), y);
+        k6 = findCrossTerm(t+RKF45COEF::A6*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RKF45COEF::C6), qMult(rodriguezQuat(k5, h*RKF45COEF::C5), 
+            qMult(rodriguezQuat(k4, h*RKF45COEF::C4), qMult(rodriguezQuat(k3, h*RKF45COEF::C3),
+            qMult(rodriguezQuat(k2, h*RKF45COEF::C2), rodriguezQuat(k1, h*RKF45COEF::C1)))))), y);
+        TE2 = qv_mult(qMult(rodriguezQuat(k5, h*RKF45COEF::C5), qMult(rodriguezQuat(k4, h*RKF45COEF::C4), 
+                            qMult(rodriguezQuat(k3, h*RKF45COEF::C3), qMult(rodriguezQuat(k2, h*RKF45COEF::C2), 
+                                rodriguezQuat(k1, h*RKF45COEF::C1))))), y);
+        TE2 = weightedStep - TE2;
+		error = len(TE2);
+		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
+		tol = OPT.rtol; // TODO: incorporate abs and rel tols
+		ratio = tol/error;
+
+		q = pow(ratio, beta1/k) * pow(prev_ratio, beta2/k);
+		q = min(q,4.0); // control stepsize growth
+		if (q > accept_safety && error < 2 * tol || OPT.fixedStepSize) {
+			//in this case the step is accepted, or we're doing fixed step sizes anyways
+			y = weightedStep;
+			t += h;
+			if(stop){
+                h = lastH;
+				return 0;
+			}
+		}
+		else{
+			if(stop){ //in this case we wanted to output but the step wasn't accepted so try again
+				stop = false;
+			}
+		}
+        if(!OPT.fixedStepSize)
+            h = h*q;
+		prev_ratio = ratio;
+	}
+	return 0;
+}
+
 int integrateMagnusCFET(const double t0, const double tf, double3& y, const double3& p_old,
 						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
