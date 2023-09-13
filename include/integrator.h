@@ -24,7 +24,7 @@
 #endif
 
 __PREPROC__ void obs(long nr, double xold, double x, double3 y, double3 pos, int* irtrn, 
-	options OPT, double* lastOutput, unsigned int* lastIndex, outputDtype* outputArray);		
+	const options OPT, double* lastOutput, unsigned int* lastIndex, outputDtype* outputArray);		
 
 __PREPROC__ double3 pulse(const double t);
 
@@ -32,19 +32,28 @@ __PREPROC__ double3 findCrossTerm(const double t, const double3& y, const option
 
 __PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, const double t0, const double tf ,const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new);
 
-__PREPROC__ void interpolate(const double t, const double t0, const double tf, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, double3& p_out, double3& v_out);
+__PREPROC__ void interpolate(const double t, const double t0, const double tf, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, double3& p_out, double3& v_out, const options OPT);
 
 __PREPROC__ double3 grad(double3&);
 
 // double hinit(double, double*, double, double*, double*, double*, int, double, double, double);
 __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
-	const double3& v_old, const double3& v_new, options OPT, double& h);
+	const double3& v_old, const double3& v_new, const options OPT, double& h);
 
-__PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
-	const double3& v_old, const double3& v_new, options OPT, double& h);
+__PREPROC__ int integrateRK45(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
+	const double3& v_old, const double3& v_new, const options OPT, double& h);
+
+__PREPROC__ int integrateRKF45(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
+	const double3& v_old, const double3& v_new, const options OPT, double& h);
+
+__PREPROC__ int integrateRK45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
+                                        const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
+
+__PREPROC__ int integrateRKF45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
+                                        const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
 
 __PREPROC__ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new, options OPT, double& h);
+						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
 
 __PREPROC__ double sign(double, double);
 

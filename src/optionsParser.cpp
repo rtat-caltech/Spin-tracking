@@ -68,7 +68,7 @@ void parseLine(options& opt, std::string s){
 		opt.T = std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "diffuse"){
-		opt.diffuse = to_bool(elements.at(1));
+		opt.diffuse = std::stof(elements.at(1));
 	}
 	else if(elements.at(0) == "gamma"){
 		opt.gamma = std::stod(elements.at(1));
@@ -142,6 +142,9 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "seed"){
 		opt.seed = std::stoi(elements.at(1));	
 	}
+	else if(elements.at(0) == "maxPosStep"){
+		opt.seed = std::stod(elements.at(1));
+	}
 	else if(elements.at(0) == "integratorType"){
 		opt.integratorType = std::stoi(elements.at(1));
 	}
@@ -194,5 +197,9 @@ options optionParser(char * filename){
 	}
 	
 	file.close();
+    double k = 1.380649e-23;
+    opts.tc = 1.6e-4*opts.m/(k*pow(opts.T, 8.0));
+    opts.sqrtKT_m = sqrt(k*opts.T/opts.m);
+    
 	return opts;
 }

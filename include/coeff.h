@@ -215,6 +215,43 @@ namespace RK45COEF
 	constexpr double CT6 = -6.0/25.0;
 };
 
+namespace RKF45COEF
+{
+	constexpr double A1 = 0.0;
+	constexpr double A2 = 1.0/4.0;
+	constexpr double A3 = 3.0/8.0;
+	constexpr double A4 = 12.0/13.0;
+	constexpr double A5 = 1.0;
+	constexpr double A6 = 0.5;
+	constexpr double B21 = 0.25;
+	constexpr double B31 = 3.0/32.0;
+	constexpr double B32 = 9.0/32.0;
+	constexpr double B41 = 1932.0/2197.0;
+	constexpr double B42 = -7200.0/2197.0;
+	constexpr double B43 = 7296.0/2197;
+	constexpr double B51 = 439.0/216.0;
+	constexpr double B52 = -8.0;
+	constexpr double B53 = 3680.0/513.0;
+	constexpr double B54 = -845.0/4104.0;
+	constexpr double B61 = -8.0/27.0;
+	constexpr double B62 = 2.0;
+	constexpr double B63 = -3544.0/2565.0;
+	constexpr double B64 = 1859.0/4104.0;
+	constexpr double B65 = -11.0/40.0;
+	constexpr double C1 = 16.0/135.0;
+	constexpr double C2 = 0.0;
+	constexpr double C3 = 6656.0/12825.0;
+	constexpr double C4 = 28561.0/56430.0;
+	constexpr double C5 = -9.0/50.0;
+    constexpr double C6 = 2.0/55.0;
+	constexpr double CR1 = 25.0/216.0;
+    constexpr double CR2 = 0.0;
+    constexpr double CR3 = 1408.0/2565.0;
+    constexpr double CR4 = 2197.0/4104.0;
+    constexpr double CR5 = -0.2;
+    constexpr double CR6 = 0.0;
+};
+
 namespace CFET8
 {
 	constexpr double G11 = -0.005984812750244602;
