@@ -2,3 +2,5 @@
 build/
 *~
 *.o
+.ipynb_checkpoints/
+.vscode/
