@@ -35,7 +35,6 @@ CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
 CC_INCLUDES = -I $(BASEGPUPATH)/include
 LIBRARY_PATH = -L $(BASEGPUPATH)/lib64
 LIBRARIES = -lcudart -lcurand
-
 #end nvidia GPU compilation section
 
 
