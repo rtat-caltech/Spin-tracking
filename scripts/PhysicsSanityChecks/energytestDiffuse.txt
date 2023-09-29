@@ -3,14 +3,14 @@ m, 1.674927e-27
 dist, C
 T, 0.4
 gas_coll, false
-diffuse, 0
+diffuse, 0.1
 gravity, true
 B0, 3.0e-6, 0, 0
 numParticles, 65536
 numPerGPUBlock, 256
 t0, 0.0
 tf, 500.0
-ioutInt, 1.0
+ioutInt, 10.0
 a, 0
 w, 0
 h, 1e-5

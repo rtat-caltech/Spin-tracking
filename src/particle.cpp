@@ -22,7 +22,7 @@ Outputs the sign of a number.
 using namespace std;
 
 template <typename T>
-__PREPROCD__ double sgn(const T val) {
+__PREPROCD__ _PREC sgn(const T val) {
 	if(val<0)
 		return -1.0;
 	else
@@ -75,7 +75,7 @@ __PREPROCD__ static inline double DoubleFromBits(const uint64_t i){
     return (i >> 11) * 0x1.0p-53;
 }
 
-__PREPROCD__ double uniform(rngState& state){
+__PREPROCD__ _PREC uniform(rngState& state){
     //A random number between low and high based on the xoshiro256** algorithm
 	//https://en.wikipedia.org/wiki/Xorshift#xoshiro256**
     //https://prng.di.unimi.it/
@@ -84,11 +84,11 @@ __PREPROCD__ double uniform(rngState& state){
     return out;
 }
 
-__PREPROCD__ double uniform(rngState& state, const double low, const double high){
+__PREPROCD__ _PREC uniform(rngState& state, const _PREC low, const _PREC high){
     return uniform(state)*(high-low)+low;
 }
 
-__PREPROCD__ double normal(rngState& state, const double mean, const double std){
+__PREPROCD__ _PREC normal(rngState& state, const _PREC mean, const _PREC std){
     //Generates a random value from a normal distribution using the Marsaglia Polar Method.
 	//https://en.wikipedia.org/wiki/Marsaglia_polar_method
     if(state.hasSpare){
@@ -96,7 +96,7 @@ __PREPROCD__ double normal(rngState& state, const double mean, const double std)
         return state.spare * std + mean;
     }
     else{
-        double ts, tu, tv;
+        _PREC ts, tu, tv;
         do {
             tu = uniform(state, -1.0, 1.0);
             tv = uniform(state, -1.0, 1.0);
@@ -109,53 +109,55 @@ __PREPROCD__ double normal(rngState& state, const double mean, const double std)
     }
 }
 
-__PREPROCD__ double maxboltz(rngState& state, const double sqrtkT_m){
+__PREPROCD__ _PREC maxboltz(rngState& state, const _PREC sqrtkT_m){
     return normal(state, 0.0, 1.0) * sqrtkT_m;
 }
 
-__PREPROCD__ double unif02pi(rngState& state){
+__PREPROCD__ _PREC unif02pi(rngState& state){
     return uniform(state) * 2.0 * M_PI;
 }
 
-__PREPROCD__ double exponential(rngState& state, const double tc){
+__PREPROCD__ _PREC exponential(rngState& state, const _PREC tc){
     return - tc * log(1.0 - uniform(state));
 }
 
-__PREPROCD__ void calc_next_collision_time(double t, double tf, double3 v, double3 pos, double& next_gas_coll_time, double& dt, char& coll_type, size_t &n_bounce, size_t &n_coll, bool& finished, char& wall_hit, rngState& state, const options opt) {
-    double dx, dy, dz, dtx, dty, dtz = 0.0;
+__PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, _PREC& next_gas_coll_time, _PREC& dt, char& coll_type, size_t &n_bounce, size_t &n_coll, bool& finished, char& wall_hit, rngState& state, const options opt) {
+    _PREC dx, dy, dz, dtx, dty, dtz = (_PREC)0.0;
 	if(opt.gravity){
 		//calculate distance to collision point
-		dx = sgn(v.x) * opt.L.x / 2.0 - pos.x;
-		dz = sgn(v.z) * opt.L.z / 2.0 - pos.z;
+        //printf("%f %f %f %f %f %f %f\n", t, pos.x, pos.y, pos.z, v.x, v.y, v.z);
+		dx = sgn(v.x) * opt.L.x / (_PREC)2.0 - pos.x;
+		dz = sgn(v.z) * opt.L.z / (_PREC)2.0 - pos.z;
  
 		//time to wall for x and z coordinate
 		dtx = dx / v.x;
 		dtz = dz / v.z;
-		double y2 = v.y * v.y;
-		if(sgn(v.y) <= 0.0){ //if the particle has negative y velocity
+		_PREC y2 = v.y * v.y;
+		if(sgn(v.y) <= (_PREC)0.0){ //if the particle has negative y velocity
 				dy = pos.y + opt.L.y*0.5;
-				double sqr = sqrt(-2.0*G_CONST*dy+y2);
-				double temp1 = -(sqr+v.y)/G_CONST;
-				double temp2 = (sqr-v.y)/G_CONST;
+				_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
+				_PREC temp1 = -(sqr+v.y)/G_CONST;
+				_PREC temp2 = (sqr-v.y)/G_CONST;
 				dty = min(std::abs(temp1), std::abs(temp2));
 		}
 		else{
-				double maxHeight = -0.5 * y2/G_CONST + pos.y;
+				_PREC maxHeight = -0.5 * y2/G_CONST + pos.y;
 				if(maxHeight < 0.5 * opt.L.y){ //in this case it can't hit the ceiling
 						dy = pos.y+opt.L.y*0.5;
-						double sqr = sqrt(-2.0*G_CONST*dy+y2);
-						double temp1 = -(sqr+v.y)/G_CONST;
-						double temp2 = (sqr-v.y)/G_CONST;
+						_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
+						_PREC temp1 = -(sqr+v.y)/G_CONST;
+						_PREC temp2 = (sqr-v.y)/G_CONST;
 						dty = max(temp1, temp2);
 				}
 				else{
 						dy = opt.L.y*0.5 - pos.y; //how far to ceiling
-						double sqr = sqrt(-2.0*G_CONST*dy+y2);
-						double temp1 = -(sqr+v.y)/G_CONST;
-						double temp2 = (sqr-v.y)/G_CONST;
+						_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
+						_PREC temp1 = -(sqr+v.y)/G_CONST;
+						_PREC temp2 = (sqr-v.y)/G_CONST;
 						dty = min(std::abs(temp1), std::abs(temp2));
 				}
 		}
+        //printf("\t side walls: %f %f %f %f %f %f\n", dx, dtx, dy, dty, dz, dtz);
 		if (dtx < 1e-16 || std::isnan(dtx))
 			dtx = 1e6;
 		else if (dty < 1e-16 || std::isnan(dty))
@@ -180,89 +182,203 @@ __PREPROCD__ void calc_next_collision_time(double t, double tf, double3 v, doubl
 		else if (dtz < 1e-16)
 			dtz = 1e6;
 	}
-	int min_elm;
-    double tbounce;
-	if(dtx <= dty && dtx <= dtz){
+    _PREC tbounce;
+	if(dtx < dty && dtx < dtz){//if the time to hit the x wall is the smallest, do this
 		tbounce = dtx;
-		min_elm = 0;
+        wall_hit = 'x';
 	}
-	else if(dty <= dtx && dty <= dtz){
-		tbounce = dty;
-		min_elm = 1;
-	}
-	else if(dtz <= dtx && dtz <= dty){
-		tbounce = dtz;
-		min_elm = 2;
-	}
-	double timeToNextGas = next_gas_coll_time - t;
-	if(opt.maxPosStep <= timeToNextGas && opt.maxPosStep <= tbounce && t + opt.maxPosStep < tf){ //check if the max step size is smaller than the next collision times
-		//if so then just say we don't collide and keep going
-		dt = opt.maxPosStep;
-		coll_type = 'N';
-	}
-	else if(tbounce < timeToNextGas && t + tbounce < tf){ //is a wall bounce next
-		dt = tbounce;
-		n_bounce += 1;
-		coll_type = 'W';
-		if (min_elm == 0)
-			wall_hit = 'x';
-		else if (min_elm == 1)
-			wall_hit = 'y';
-		else if (min_elm == 2)
-			wall_hit = 'z';
-	}
-	else if (next_gas_coll_time < tf) { //is a gas collision next?
-		dt = next_gas_coll_time - t;
-		next_gas_coll_time += exponential(state, opt.tc);
-		coll_type = 'G';
-		n_coll += 1;
-	}
-	else { //in this case it reached the end of the simulation
-		coll_type = 'N';
-		dt = tf - t;
-		finished = true;
-	}
+    else if(dty < dtx && dty < dtz){ //if the time to hit the y wall is the smallest, do this
+        tbounce = dty;
+        wall_hit = 'y';
+    }
+    else if(dtz < dtx && dtz < dty){ //if the time to hit the z wall is the smallest, do this
+        tbounce = dtz;
+        wall_hit = 'z';
+    }
+    else{
+        //if we reach this, then we have hit a corner
+        if (dtx == dty && dtx == dtz){
+            tbounce = dtx;
+            wall_hit = 'a'; //a means we hit a corner
+        }
+        else{
+            if (dtx == dty){
+                tbounce = dtx;
+                wall_hit = 'b'; //b means we hit the x-y edge
+            }
+            else if(dtx == dtz){
+                tbounce = dtx;
+                wall_hit = 'c'; //c means we hit the x-z edge
+            }
+            else if(dty == dtz){
+                tbounce = dty;
+                wall_hit = 'd'; //c means we hit the x-z edge 
+            }
+        }
+    }
+    _PREC timeToNextGas = next_gas_coll_time - t; //calculate how long until the next gas collision
+    int nextCol = -1;
+    _PREC timeToNextCol = 0;
+    //check if it were to hit something, which it would hit first
+    if (timeToNextGas < tbounce){//is a gas collision sooner than a wall collision?
+        nextCol = 0; //gas collision next
+        timeToNextCol = timeToNextGas;
+    }
+    else if(timeToNextGas == tbounce){ //in the case they were to happen at the same time, just do the wall collision
+        //but also re-calculate the next time to the gas collision
+        next_gas_coll_time += exponential(state, opt.tc);
+        timeToNextCol = timeToNextGas;
+        nextCol = 1;
+    }
+    else{ //in this case the first collision is a wall bounce
+        nextCol = 1;
+        timeToNextCol = tbounce;
+    }
+    int nextNothing = -1;
+    //if it were to not hit something, do we reach the end of the simulation first or the max step size?
+    _PREC nextNoCol = 0;
+    if (tf - t <= opt.maxPosStep){ //if the amount of time left is the same or less than the max step
+        nextNothing = 0;
+        nextNoCol = tf-t;
+    }
+    else{//otherwise the next step is capped by the max step size
+        nextNothing = 1;
+        nextNoCol = opt.maxPosStep;
+    }
+    //okay now check and see if we hit something before we want to output stuff
+    if(timeToNextCol <= nextNoCol){
+        //if the shortest time is the collision, or if it's a tie, assume the collision case and do the updates
+        //in this case we specify what type of collision it was and do the normal collision behavior
+        dt = timeToNextCol;
+        if(nextCol == 0){ //this is a gas/phonon collision
+            coll_type = 'G';
+            n_coll += 1;
+            next_gas_coll_time += exponential(state, opt.tc);
+        }
+        else{
+            n_bounce += 1;
+            coll_type = 'W';
+        }
+        if (timeToNextCol == nextNoCol){ //check if they were equal so we can set the output states properly
+            if(nextNothing == 0){ //if we reached the end of the simulation
+                finished = true;
+            }
+            //in the case of the max position step size, just don't do anything and let it keep on going
+        }
+    }
+    else{
+        //in this case we didn't have a collision and reached either the max step size or the end of the simulation
+        coll_type = 'N';
+        dt = nextNoCol;
+        if(nextNothing == 0){
+            finished = true;
+        }
+    }
+        
 }
 
-/*
-Calculates the new velocities after a wall or gas collision.
-*/
 
-__PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char &coll_type, char &wall_hit, rngState &state, const options opt) {
+/*
+Update the position and velocity after the collision that is found
+*/
+__PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt, coords &pos_old, coords &pos, coords &v_old, coords &v, char& coll_type, char& wall_hit, rngState& state, bool &stopParticle, const options opt){
 	v_old = v;
-    double Vel = len(v);
+    _PREC Vel = len(v);
+    t_old = t; // update the time
+    t += dt; //increment forward
+    pos_old = pos; //update old position
+    v_old = v; //update old velocity
+    coords a;
+    if(opt.gravity)
+        a = (coords){0.0, G_CONST, 0.0}; //acceleration due to gravity
+    else
+        a = (coords){0.0, 0.0, 0.0};
+    pos = pos_old +  v * dt + 0.5 * a * dt * dt; //update position
+    v = v + a * dt; //update velocity
 	if (coll_type == 'N'){
 		//in this case we don't have a wall collision and it's just iterating through space still
-		//don't update the velocities they're fine
+		//don't mess with the position or velocity, should be fine
 	}
-    else if(coll_type == 'W'){
-        //if it's a wall collision, check to see if diffuse scattering is on or not
-        bool diffuse = false;
+    else if(coll_type == 'W'){ //wall collision detected
+        if (wall_hit == 'x'){
+            pos.x = sgn(pos.x)*opt.L.x*0.5;
+        }
+        else if (wall_hit == 'y'){
+            pos.y = sgn(pos.y)*opt.L.y*0.5;
+        }
+        else if (wall_hit == 'z'){
+            pos.z = sgn(pos.z)*opt.L.z*0.5;
+        }
+        else if (wall_hit == 'a'){
+            pos.x = sgn(pos.x)*opt.L.x*0.5;
+            pos.y = sgn(pos.y)*opt.L.y*0.5;
+            pos.z = sgn(pos.z)*opt.L.z*0.5;
+        }
+        else if (wall_hit == 'b'){
+            pos.x = sgn(pos.x)*opt.L.x*0.5;
+            pos.y = sgn(pos.y)*opt.L.y*0.5;
+        }
+        else if (wall_hit == 'c'){
+            pos.x = sgn(pos.x)*opt.L.x*0.5;
+            pos.z = sgn(pos.z)*opt.L.z*0.5;
+        }
+        else if (wall_hit == 'd'){
+            pos.y = sgn(pos.y)*opt.L.y*0.5;
+            pos.z = sgn(pos.z)*opt.L.z*0.5;
+        }
         if(opt.diffuse > FLT_MIN){
             //could maybe have diffuse scattering, so sample the RNG to see if it happens
             //printf("%lf %lf %d\n", temp, (double)opt.diffuse, temp < (double)opt.diffuse);
-            diffuse = uniform(state) < (double)opt.diffuse;
-        }
-        if(diffuse){//if we want to do a diffuse collision, do this
-            //V = sqrt(vx * vx + vy * vy + vz * vz);
-            double phi,theta;
-            phi = acos(sqrt(uniform(state)));
-            theta = unif02pi(state);
-            if (wall_hit == 'x') {
-                v.x = -1 * sgn(v.x) * Vel * cos(phi);
-                v.y = -Vel * sin(phi) * cos(theta);
-                v.z = Vel * sin(phi) * sin(theta);
+            bool diffuse = (_PREC)uniform(state) < (_PREC)opt.diffuse;
+            if(diffuse){//if we want to do a diffuse collision, do this
+                //V = sqrt(vx * vx + vy * vy + vz * vz);
+                _PREC phi,theta;
+                phi = acos(sqrt(uniform(state)));
+                theta = unif02pi(state);
+                if (wall_hit == 'x') {
+                    v.x = -1 * sgn(v.x) * Vel * cos(phi);
+                    v.y = -Vel * sin(phi) * cos(theta);
+                    v.z = Vel * sin(phi) * sin(theta);
+                }
+                else if (wall_hit == 'y') {
+                    v.x = Vel * sin(phi) * cos(theta);
+                    v.y = -1 * sgn(v.y) * Vel * cos(phi);
+                    v.z = Vel * sin(phi) * sin(theta);
+                }
+                else if (wall_hit == 'z') {
+                    v.x = Vel * sin(phi) * cos(theta);
+                    v.y = Vel * sin(phi) * sin(theta);
+                    v.z = -1 * sgn(v.z) * Vel * cos(phi);
+                }
+                else{
+                    stopParticle = true;
+                }                    
             }
-            else if (wall_hit == 'y') {
-                v.x = Vel * sin(phi) * cos(theta);
-                v.y = -1 * sgn(v.y) * Vel * cos(phi);
-                v.z = Vel * sin(phi) * sin(theta);
+            else{//otehrwise just flip the velocities around and call it a day
+                if (wall_hit == 'x')
+                    v.x *= -1.0;
+                else if (wall_hit == 'y')
+                    v.y *= -1.0;
+                else if (wall_hit == 'z')
+                    v.z *= -1.0;
+                else if (wall_hit == 'a'){
+                    v.x *= -1.0;
+                    v.y *= -1.0;
+                    v.z *= -1.0;
+                }
+                else if (wall_hit == 'b'){
+                    v.x *= -1.0;
+                    v.y *= -1.0;
+                }
+                else if (wall_hit == 'c'){
+                    v.x *= -1.0;
+                    v.z *= -1.0;
+                }
+                else if (wall_hit == 'd'){
+                    v.y *= -1.0;
+                    v.z *= -1.0;
+                }
             }
-            else if (wall_hit == 'z') {
-                v.x = Vel * sin(phi) * cos(theta);
-                v.y = Vel * sin(phi) * sin(theta);
-                v.z = -1 * sgn(v.z) * Vel * cos(phi);
-            } 
         }
         else{//otehrwise just flip the velocities around and call it a day
             if (wall_hit == 'x')
@@ -271,6 +387,23 @@ __PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char &coll_type, ch
                 v.y *= -1.0;
             else if (wall_hit == 'z')
                 v.z *= -1.0;
+            else if (wall_hit == 'a'){
+                v.x *= -1.0;
+                v.y *= -1.0;
+                v.z *= -1.0;
+            }
+            else if (wall_hit == 'b'){
+                v.x *= -1.0;
+                v.y *= -1.0;
+            }
+            else if (wall_hit == 'c'){
+                v.x *= -1.0;
+                v.z *= -1.0;
+            }
+            else if (wall_hit == 'd'){
+                v.y *= -1.0;
+                v.z *= -1.0;
+            }
         }
     }
     else if(coll_type == 'G'){
@@ -281,11 +414,11 @@ __PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char &coll_type, ch
             v.z = maxboltz(state, opt.sqrtKT_m);
         }
         else if(opt.dist == 'C') {
-            double3 vec;
+            coords vec;
             vec.x = normal(state, 0.0, 1.0);
             vec.y = normal(state, 0.0, 1.0);
             vec.z = normal(state, 0.0, 1.0);
-            double vec_norm = len(vec);
+            _PREC vec_norm = len(vec);
             v = Vel * vec/vec_norm;
         }
 	}
@@ -294,31 +427,54 @@ __PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char &coll_type, ch
 /*
 Moves the particle based on the particle velocity and calcuated timestep.
 */
-__PREPROCD__ void move(double &t_old, double& t, double3 &pos_old, double3 &pos, double3& v, double3& v_old, double &dt, const options opt) {
+__PREPROCD__ void move(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coords& v, coords& v_old, _PREC &dt, const options opt) {
 	t_old = t; // update the time
 	t += dt; //increment forward
 	pos_old = pos; //update old position
 	v_old = v; //update old velocity
-	double3 a;
+	coords a;
 	if(opt.gravity)
-		a = (double3){0.0, G_CONST, 0.0}; //acceleration due to gravity
+		a = (coords){0.0, G_CONST, 0.0}; //acceleration due to gravity
 	else
-		a = (double3){0.0, 0.0, 0.0};
+		a = (coords){0.0, 0.0, 0.0};
 	pos = pos_old +  v * dt + 0.5 * a * dt * dt; //update position
 	v = v + a * dt; //update velocity
 	
 }
 
+__PREPROCD__ void sanity_check(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coords& v, coords& v_old, char& coll_type, char& wall_hit, bool &stopParticle, int &failureState, const options opt) {
+    if(abs(pos.x) > opt.L.x/2.0 || abs(pos.y) > opt.L.y/2.0 || abs(pos.z) > opt.L.z/2.0){
+        //printf("%0.8f %0.8f %0.8f %0.8f %0.8f %0.8f %0.8f %c %c\n", t, pos_old.x, pos_old.y, pos_old.z, pos.x, pos.y, pos.z, coll_type, wall_hit);
+        stopParticle = true;
+        failureState = 1; //out of bounds position found
+        return;
+    }
+    if(isinf(t_old) || isinf(t)){
+        stopParticle = true;
+        failureState = 2; //infinite time found
+        return;
+    }
+    if(isnan(pos_old.x) || isnan(pos_old.y) || isnan(pos_old.z) || isnan(pos.x) || isnan(pos.y) || isnan(pos.z)){
+        stopParticle = true;
+        failureState = 3; //nan position found
+        return;
+    }
+    if(isnan(v.x) || isnan(v.y) || isnan(v.z) || isnan(v_old.x) || isnan(v_old.y) || isnan(v_old.z)){
+        failureState = 4; //nan velocity found
+        stopParticle = true;
+        return;
+    }
+}
 /*
 Convenience function that calls the step() function repeatedL.y until the end time is reached.
 */
 
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
-__global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
+__global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit){
+                              unsigned int *partID, int * failureState, bool *stopParticle, char *coll_type, char *wall_hit){
     unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
     if(ipart < opt.numParticles){
         rngState rng;
@@ -340,7 +496,7 @@ __global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v
         uniform(rng);
         
         //now handle the position and velocity information
-        double3 tempos;
+        coords tempos;
         tempos.x = uniform(rng)*opt.L.x-opt.L.x/2.0;
         tempos.y = uniform(rng)*opt.L.y-opt.L.y/2.0;
         tempos.z = uniform(rng)*opt.L.z-opt.L.z/2.0;
@@ -348,7 +504,7 @@ __global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v
         pos[ipart] = tempos;
         pos_old[ipart] = tempos;
         
-        double3 tempv;
+        coords tempv;
         if (opt.gas_coll == true){
             next_gas_coll_time[ipart] = exponential(rng, opt.tc);
         }
@@ -357,13 +513,13 @@ __global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v
         if (opt.dist == 'C') {
             if(std::abs(opt.V) <= 1.0e-6){
                 //assume the user meant 0 speed at this point
-                tempv = (double3){0.0, 0.0, 0.0};
+                tempv = (coords){0.0, 0.0, 0.0};
             }
             else{
                 tempv.x = normal(rng, 0.0, 1.0);
                 tempv.y = normal(rng, 0.0, 1.0);
                 tempv.z = normal(rng, 0.0, 1.0);
-                double vec_norm = len(tempv);
+                _PREC vec_norm = len(tempv);
                 tempv = opt.V * tempv/vec_norm;
             }
         }
@@ -388,33 +544,34 @@ __global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v
     }
 }
 
-__global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 *pv_old,
-                              double3 *ppos, double3 *ppos_old, double *pt, double *pt_old,
-                              double *ptf, double *pdt, double *pnext_gas_coll_time, double *ph,
+__global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv_old,
+                              coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
+                              _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
                               rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
-                              unsigned int *ppartID, bool *pstopParticle, char *pcoll_type, char *pwall_hit,
-                              double nextTOut){
+                              unsigned int *ppartID, int* pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit,
+                              _PREC nextTOut){
     unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
     if(ipart < opt.numParticles){
         //load the individual particle data
-        double3 S = pS[ipart];
-        double3 v = pv[ipart];
-        double3 v_old = pv_old[ipart];
-        double3 pos = ppos[ipart];
-        double3 pos_old = ppos_old[ipart];
+        coords S = pS[ipart];
+        coords v = pv[ipart];
+        coords v_old = pv_old[ipart];
+        coords pos = ppos[ipart];
+        coords pos_old = ppos_old[ipart];
         
-        double t = pt[ipart];
-        double t_old = pt_old[ipart];
-        double tf; //= ptf[ipart]; // no need to load it's done below
-        double dt; //= pdt[ipart]; //no need to load it's defined below
-        double next_gas_coll_time = pnext_gas_coll_time[ipart];
-        double h = ph[ipart];
+        _PREC t = pt[ipart];
+        _PREC t_old = pt_old[ipart];
+        _PREC tf; //= ptf[ipart]; // no need to load it's done below
+        _PREC dt; //= pdt[ipart]; //no need to load it's defined below
+        _PREC next_gas_coll_time = pnext_gas_coll_time[ipart];
+        _PREC h = ph[ipart];
         
         rngState state = pstate[ipart];
         size_t n_bounce = pn_bounce[ipart];
         size_t n_coll = pn_coll[ipart];
         size_t n_steps = pn_steps[ipart];
         unsigned int partID = ppartID[ipart];
+        int failureState = pfailureState[ipart];
         bool stopParticle = pstopParticle[ipart];
         char coll_type = pcoll_type[ipart];
         char wall_hit = pwall_hit[ipart];
@@ -422,52 +579,62 @@ __global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 
         tf = nextTOut;
         bool finished = false;
         int spinResult = 0;
-        double tempH = h;
+        _PREC tempH = h;
         //now start the actual integration and tracking process
         while(finished == false && stopParticle == false){
+            _PREC initEnergy = (pos.y-opt.L.y/2.0)*opt.m + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z);
+            //printf("init: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
             calc_next_collision_time(t, tf, v, pos, next_gas_coll_time, dt, coll_type, n_bounce, n_coll, finished, wall_hit, state, opt);
-            move(t_old, t, pos_old, pos, v, v_old, dt, opt);
-            new_velocities(v, v_old, coll_type, wall_hit, state, opt);
-            //printf("t_old = %lf, t = %lf S = %lf %lf %lf\n", t_old, t, S.x, S.y, S.z);
-            //printf("pos_old = %lf %lf %lf, pos = %lf %lf %lf\n", pos_old, pos);
-            //printf("v_old = %lf %lf %lf, v = %lf %lf %lf\n", pos_old, pos);
-            if(opt.integratorType == 0){
-                //use the DOP853 algorithm for spin tracking
-                spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            update_position_and_velocity(t_old, t, dt, pos_old, pos, v_old, v, coll_type, wall_hit, state, stopParticle, opt);
+            //printf("post: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
+            _PREC postEnergy = (pos.y-opt.L.y/2.0)*opt.m + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z);
+            if(abs(initEnergy-postEnergy)>1.0e-6){
+                printf("%lf %lf %lf %c %c \n", initEnergy, postEnergy, postEnergy - initEnergy, wall_hit, coll_type);
+                
             }
-            else if(opt.integratorType == 1){
-                //use the default RK45 method, no quaternions or anything
-                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            sanity_check(t_old, t, pos_old, pos, v, v_old, coll_type, wall_hit, stopParticle, failureState, opt);
+            if(failureState == 0){
+                if(opt.integratorType == 0){
+                    //use the DOP853 algorithm for spin tracking
+                    spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 1){
+                    //use the default RK45 method, no quaternions or anything
+                    spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 2){
+                    //use the MagnusCFET method
+                    spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 3){
+                    //rk45 method but with quaternions instead
+                    spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 4){
+                    //different set of coefficients for RK45
+                    spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 5){
+                    //same as option 3 but for option 4's coefficients
+                    spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else{
+                    //do nothing
+                    spinResult = 0;
+                }      
+                if(opt.keepStepSize)
+                    h = tempH;
+                if (spinResult < 0){
+                    //printf("particle %d: error state detected %d\n", ipart, spinResult);
+                    stopParticle = true;
+                    failureState = spinResult;
+                }
             }
-            else if(opt.integratorType == 2){
-                //use the MagnusCFET method
-                spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if(opt.integratorType == 3){
-                //rk45 method but with quaternions instead
-                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if(opt.integratorType == 4){
-                //different set of coefficients for RK45
-                spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if(opt.integratorType == 5){
-                //same as option 3 but for option 4's coefficients
-                spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else{
-                //do nothing
-                spinResult = 0;
-            }      
-            if(opt.keepStepSize)
-                h = tempH;
-            if (spinResult < 0){
-                printf("particle %d: error state detected %d\n", ipart, spinResult);
-                stopParticle = true;
+            if(stopParticle){
                 t = nan("");
-                pos = (double3){nan(""), nan(""), nan("")};
-                v = (double3){nan(""), nan(""), nan("")};
-                S = (double3){nan(""), nan(""), nan("")};
+                pos = (coords){nan(""), nan(""), nan("")};
+                v = (coords){nan(""), nan(""), nan("")};
+                S = (coords){nan(""), nan(""), nan("")};
             }
             n_steps += 1;
         }
@@ -481,6 +648,7 @@ __global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 
         pnext_gas_coll_time[ipart] = next_gas_coll_time;
         ph[ipart] = h;
         pstate[ipart] = state;
+        pfailureState[ipart] = failureState;
         pn_bounce[ipart] = n_bounce;
         pn_coll[ipart] = n_coll;
         pn_steps[ipart] = n_steps;
@@ -493,11 +661,11 @@ __global__ void runSimulationGPU(options opt, double3 *pS, double3 *pv, double3 
 }
 
 #else
-void initParticlesCPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit){
+void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
+                              coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
+                              _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
+                              rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
+                              unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit){
     #if defined(_OPENMP)
     #pragma omp parallel for
     #endif
@@ -522,127 +690,163 @@ void initParticlesCPU(options opt, double3 *S, double3 *v, double3 *v_old,
 
 
         //now handle the position and velocity information
-        double3 tempos;
+        coords tempos;
         tempos.x = uniform(rng)*opt.L.x-opt.L.x/2.0;
         tempos.y = uniform(rng)*opt.L.y-opt.L.y/2.0;
         tempos.z = uniform(rng)*opt.L.z-opt.L.z/2.0;
-        pos[ipart] = tempos;
-        pos_old[ipart] = tempos;
+        ppos[ipart] = tempos;
+        ppos_old[ipart] = tempos;
         if (opt.gas_coll == true){
-            next_gas_coll_time[ipart] = exponential(rng, opt.tc);
+            pnext_gas_coll_time[ipart] = exponential(rng, opt.tc);
         }
         else
-            next_gas_coll_time[ipart] = DBL_MAX; //basically set to the end of time
+            pnext_gas_coll_time[ipart] = DBL_MAX; //basically set to the end of time
         if (opt.dist == 'C') {
-            double3 vec;
+            coords vec;
             vec.x = normal(rng, 0.0, 1.0);
             vec.y = normal(rng, 0.0, 1.0);
             vec.z = normal(rng, 0.0, 1.0);
 
-            double vec_norm = len(vec);
-            v[ipart] = opt.V * vec/vec_norm;
+            _PREC vec_norm = len(vec);
+            pv[ipart] = opt.V * vec/vec_norm;
         }
         else if (opt.dist == 'M') {
-            double3 vec;
+            coords vec;
             vec.x = maxboltz(rng, opt.sqrtKT_m);
             vec.y = maxboltz(rng, opt.sqrtKT_m);
             vec.z = maxboltz(rng, opt.sqrtKT_m);
-            v[ipart] = vec;
+            pv[ipart] = vec;
         }
-        v_old[ipart] = v[ipart];
-        state[ipart] = rng; //save the final rng state after all this stuff
+        pv_old[ipart] = pv[ipart];
+        pstate[ipart] = rng; //save the final rng state after all this stuff
         //initialize the rest of the particle data to standard values
-        S[ipart] = opt.yi;
-        t[ipart] = opt.t0;
-        t_old[ipart] = opt.t0;
-        tf[ipart] = opt.tf;
-        dt[ipart] = opt.h;
-        h[ipart] = opt.h;
-        stopParticle[ipart] = false;
-        coll_type[ipart] = 'W';
+        pS[ipart] = opt.yi;
+        pt[ipart] = opt.t0;
+        pt_old[ipart] = opt.t0;
+        ptf[ipart] = opt.tf;
+        pdt[ipart] = opt.h;
+        ph[ipart] = opt.h;
+        pstopParticle[ipart] = false;
+        pcoll_type[ipart] = 'W';
+        pfailureState[ipart] = 0;
     }
 }
 
-void runSimulationCPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit,
-                              double nextTOut){
+void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
+                              coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
+                              _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
+                              rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
+                              unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit,
+                              _PREC nextTOut){
     #if defined(_OPENMP)
     #pragma omp parallel for
     #endif
     for(unsigned int ipart = 0; ipart < opt.numParticles; ipart++){
-        //load the individual particle data
-        double3 S = S[ipart];
-        double3 v = v[ipart];
-        double3 v_old = v_old[ipart];
-        double3 pos = pos[ipart];
-        double3 pos_old = pos_old[ipart];
-        double t = t[ipart];
-        double t_old = t_old[ipart];
-        double tf; //= tf[ipart]; // no need to load it's done below
-        double dt; //= dt[ipart]; //no need to load it's defined below
-        double next_gas_coll_time = next_gas_coll_time[ipart];
-        double h = h[ipart];
-        rngState state = state[ipart];
-        size_t n_bounce = n_bounce[ipart];
-        size_t n_coll = n_coll[ipart];
-        size_t n_steps = n_steps[ipart];
-        unsigned int partID = partID[ipart];
-        bool stopParticle = stopParticle[ipart];
-        char coll_type = coll_type[ipart];
-        char wall_hit = wall_hit[ipart];
-        dt = nextTOut - tf[ipart];
+                //load the individual particle data
+        coords S = pS[ipart];
+        coords v = pv[ipart];
+        coords v_old = pv_old[ipart];
+        coords pos = ppos[ipart];
+        coords pos_old = ppos_old[ipart];
+        
+        _PREC t = pt[ipart];
+        _PREC t_old = pt_old[ipart];
+        _PREC tf; //= ptf[ipart]; // no need to load it's done below
+        _PREC dt; //= pdt[ipart]; //no need to load it's defined below
+        _PREC next_gas_coll_time = pnext_gas_coll_time[ipart];
+        _PREC h = ph[ipart];
+        
+        rngState state = pstate[ipart];
+        size_t n_bounce = pn_bounce[ipart];
+        size_t n_coll = pn_coll[ipart];
+        size_t n_steps = pn_steps[ipart];
+        unsigned int partID = ppartID[ipart];
+        int failureState = pfailureState[ipart];
+        bool stopParticle = pstopParticle[ipart];
+        char coll_type = pcoll_type[ipart];
+        char wall_hit = pwall_hit[ipart];
+        dt = nextTOut - t;
         tf = nextTOut;
         bool finished = false;
         int spinResult = 0;
-        double tempH = h;
+        _PREC tempH = h;
         //now start the actual integration and tracking process
         while(finished == false && stopParticle == false){
+            _PREC initEnergy = ((pos.y+opt.L.y/2.0)*opt.m*abs(G_CONST) + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z))*6.242e18*1e9;
+            //printf("init: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
             calc_next_collision_time(t, tf, v, pos, next_gas_coll_time, dt, coll_type, n_bounce, n_coll, finished, wall_hit, state, opt);
-            move(t_old, t, pos_old, pos, v, v_old, dt, opt);
-            new_velocities(v, v_old, coll_type, wall_hit, state, opt);
-            if(opt.integratorType == 0){
-                //use the DOP853 algorithm for spin tracking
-                spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            update_position_and_velocity(t_old, t, dt, pos_old, pos, v_old, v, coll_type, wall_hit, state, stopParticle, opt);
+            //printf("post: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
+            _PREC postEnergy = ((pos.y-opt.L.y/2.0)*opt.m*abs(G_CONST) + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z))*6.242e18*1e9;
+            if(abs(initEnergy-postEnergy)>1.0e-6){
+                printf("%d, %lf %c %c %lf %lf %lf %lf %lf %lf %lf : pos_old %lf %lf %lf : pos %lf %lf %lf\n", ipart, postEnergy - initEnergy, wall_hit, coll_type, dt, v.x, v.y, v.z, v_old.x, v_old.y, v_old.z, pos_old.x, pos_old.y, pos_old.z, pos.x, pos.y, pos.z);
+                
             }
-            else if(opt.integratorType == 1){
-                //use the default RK45 method, no quaternions or anything
-                spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+            sanity_check(t_old, t, pos_old, pos, v, v_old, coll_type, wall_hit, stopParticle, failureState, opt);
+            if(failureState == 0){
+                if(opt.integratorType == 0){
+                    //use the DOP853 algorithm for spin tracking
+                    spinResult = integrateDOP(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 1){
+                    //use the default RK45 method, no quaternions or anything
+                    spinResult = integrateRK45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 2){
+                    //use the MagnusCFET method
+                    spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 3){
+                    //rk45 method but with quaternions instead
+                    spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 4){
+                    //different set of coefficients for RK45
+                    spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else if(opt.integratorType == 5){
+                    //same as option 3 but for option 4's coefficients
+                    spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
+                }
+                else{
+                    //do nothing
+                    spinResult = 0;
+                }      
+                if(opt.keepStepSize)
+                    h = tempH;
+                if (spinResult < 0){
+                    //printf("particle %d: error state detected %d\n", ipart, spinResult);
+                    stopParticle = true;
+                    failureState = spinResult;
+                }
             }
-            else if(opt.integratorType == 2){
-                //use the MagnusCFET method
-                spinResult = integrateMagnusCFET(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if(opt.integratorType == 3){
-                //rk45 method but with quaternions instead
-                spinResult = integrateRK45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if{opt.integratorType == 4){
-                //different set of coefficients for RK45
-                spinResult = integrateRKF45(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else if{opt.integratorType == 5){
-                //same as option 3 but for option 4's coefficients
-                spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
-            }
-            else{
-                //do nothing
-                spinResult = 0;
-            }      
-            if(opt.keepStepSize)
-                h = tempH;
-            if (spinResult < 0){
-                stopParticle = true;
+            if(stopParticle){
                 t = nan("");
-                pos = (double3){nan(""), nan(""), nan("")};
-                v = (double3){nan(""), nan(""), nan("")};
-                S = (double3){nan(""), nan(""), nan("")};
+                pos = (coords){nan(""), nan(""), nan("")};
+                v = (coords){nan(""), nan(""), nan("")};
+                S = (coords){nan(""), nan(""), nan("")};
             }
             n_steps += 1;
-
         }
+        pS[ipart] = S;
+        pv[ipart] = v;
+        pv_old[ipart] = v_old;
+        ppos[ipart] = pos;
+        ppos_old[ipart] = pos_old;
+        pt[ipart] = t;
+        pt_old[ipart] = t_old;
+        pnext_gas_coll_time[ipart] = next_gas_coll_time;
+        ph[ipart] = h;
+        pstate[ipart] = state;
+        pfailureState[ipart] = failureState;
+        pn_bounce[ipart] = n_bounce;
+        pn_coll[ipart] = n_coll;
+        pn_steps[ipart] = n_steps;
+        ppartID[ipart] = partID;
+        pstopParticle[ipart] = stopParticle;
+        pcoll_type[ipart] = coll_type;
+        pwall_hit[ipart] = wall_hit;
+        ptf[ipart] = tf;
     }
 }
 #endif

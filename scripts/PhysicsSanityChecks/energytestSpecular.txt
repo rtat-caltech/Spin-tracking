@@ -10,7 +10,7 @@ numParticles, 65536
 numPerGPUBlock, 256
 t0, 0.0
 tf, 500.0
-ioutInt, 1.0
+ioutInt, 10.0
 a, 0
 w, 0
 h, 1e-5

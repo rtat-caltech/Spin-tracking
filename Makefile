@@ -21,20 +21,20 @@ CC_INCLUDES = -I /usr/include
 
 #Nvidia GPU Compilation Section
 #using NVCC
-BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/cuda-11.6.0-u4jzhgn5buvcnkwuqrep25mluzkhzi3j
+#BASEGPUPATH = /usr/local/pace-apps/spack/packages/linux-rhel7-x86_64/gcc-4.8.5/cuda-11.6.0-u4jzhgn5buvcnkwuqrep25mluzkhzi3j
 #BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/compilers
 #BASEGPUPATH = /opt/nvidia/hpc_sdk/Linux_x86_64/23.7/compilers
 
-CC = $(BASEGPUPATH)/bin/nvcc
-SM = 80#nvidia A100
+#CC = $(BASEGPUPATH)/bin/nvcc
+#SM = 80#nvidia A100
 #SM = 90#nvidia H100
 #SM = 70#Nvidia V100
-NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
-TYPE_FLAG = -x cu
-CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
-CC_INCLUDES = -I $(BASEGPUPATH)/include
-LIBRARY_PATH = -L $(BASEGPUPATH)/lib64
-LIBRARIES = -lcudart -lcurand
+#NVCC_FLAGS = -rdc=true -gencode arch=compute_$(SM),code=compute_$(SM)
+#TYPE_FLAG = -x cu
+#CC_FLAGS= -g -O3 -std=c++17 $(NVCC_FLAGS)
+#CC_INCLUDES = -I $(BASEGPUPATH)/include
+#LIBRARY_PATH = -L $(BASEGPUPATH)/lib64
+#LIBRARIES = -lcudart -lcurand
 #end nvidia GPU compilation section
 
 
@@ -44,12 +44,12 @@ SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.c
 INCLUDES = $(SOURCES:.cpp=.h)
 OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
 BUILD = build/
-EXECS = gpuA100
 
 TEST = tests/
 TEST_MAIN = test_main
 TEST_SOURCES = integrator_validation.cpp particle_validation.cpp
-EXECS = simple
+
+EXECS = bit64
 
 all: $(MAIN)
 

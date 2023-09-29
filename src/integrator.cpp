@@ -17,22 +17,22 @@
 
 using namespace std;
 
-__PREPROC__ double sign(double a, double b)
+__PREPROC__ _PREC sign(_PREC a, _PREC b)
 {
   return (b < 0.0)? -abs(a) : abs(a);
 }
 
-__PREPROC__ double min_d(double a, double b)
+__PREPROC__ _PREC min_d(_PREC a, _PREC b)
 {
   return (a < b)?a:b;
 }
 
-__PREPROC__ double max_d(double a, double b)
+__PREPROC__ _PREC max_d(_PREC a, _PREC b)
 {
   return (a > b)?a:b;
 }
 
-__PREPROC__ double3 pulse(const double t, double a, double w){
+__PREPROC__ coords pulse(const _PREC t, _PREC a, _PREC w){
 	return {0.0, 0.0, a * cos(w*t)};
 	//return {0.0, 0.0, 64.7766232e-6*cos(10000.0*t)};
 	//return {0.0, 0.0, 38.7505920e-6*cos(6000.0*t)};
@@ -40,16 +40,16 @@ __PREPROC__ double3 pulse(const double t, double a, double w){
 	//return {0.0, 0.0, 0.0};
 }
 
-__PREPROC__ double3 grad(double3& pos){
+__PREPROC__ coords grad(coords& pos){
 	//return {0.0, 0.0, pos.x*1.0e-9};
 	return {0.0, 0.0, 0.0};
 }
 
-__PREPROC__ void interpolate(const double t, const double t0, const double tf, 
-		const double3& p_old, const double3& p_new, const double3& v_old, 
-		const double3& v_new, double3& p_out, double3& v_out, const options OPT){
+__PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, 
+		const coords& p_old, const coords& p_new, const coords& v_old, 
+		const coords& v_new, coords& p_out, coords& v_out, const options OPT){
     if(OPT.gravity){
-        const double3 a = {0.0, G_CONST, 0.0};
+        const coords a = {0.0, G_CONST, 0.0};
         p_out = p_old + v_old * (t-t0) + 0.5 * a * (t-t0)*(t-t0);
         v_out = v_old + a * (t-t0);
         
@@ -60,89 +60,36 @@ __PREPROC__ void interpolate(const double t, const double t0, const double tf,
     }
 }
 
-__PREPROC__ double3 findCrossTerm(const double t, const options OPT, const double t0, const double tf, const double3 p_old,
-					 const double3 p_new, const double3 v_old, const double3 v_new){
-	double3 p, v;
+__PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t0, const _PREC tf, const coords p_old,
+					 const coords p_new, const coords v_old, const coords v_new){
+	coords p, v;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
-	const double3 G = grad(p);
-	const double3 B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
+	const coords G = grad(p);
+	const coords B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
 	return OPT.gamma * B;
 }
 
-__PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, 
-			const double t0, const double tf , const double3& p_old,
-			const double3& p_new, const double3& v_old, const double3& v_new){
-	const double3 temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+__PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options OPT, 
+			const _PREC t0, const _PREC tf , const coords& p_old,
+			const coords& p_new, const coords& v_old, const coords& v_new){
+	const coords temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
 	f = cross(y, temp);
 }
 
-// double hinit(double x, double* y, double posneg, double* f0, double* f1, double* yy1, int iord, options OPT)
-// {
-//     double dnf, dny, atoli, rtoli, sk, h, h1, der2, der12, sqr;
-//     unsigned i;
-//     int n = 3;
-
-//     dnf = 0.0;
-//     dny = 0.0;
-//     atoli = OPT.atol;
-//     rtoli = OPT.rtol;
-
-//     for (i = 0; i < n; i++){
-//         sk = atoli + rtoli * std::abs(y[i]);
-//         sqr = f0[i] / sk;
-//         dnf += sqr*sqr;
-//         sqr = y[i] / sk;
-//         dny += sqr*sqr;
-//     }
-
-//     if ((dnf <= 1.0E-10) || (dny <= 1.0E-10))
-//     h = 1.0E-6;
-//     else
-//     h = sqrt (dny/dnf) * 0.01;
-
-//     h = min_d(h, OPT.hmax);
-//     h = sign(h, posneg);
-
-//     /* perform an explicit Euler step */
-//     for (i = 0; i < n; i++)
-//         yy1[i] = y[i] + h * f0[i];
-//     Bloch (x+h, yy1, f1);
-
-//     /* estimate the second derivative of the solution */
-//     der2 = 0.0;
-//     for (i = 0; i < n; i++){
-//         sk = atoli + rtoli * std::abs(y[i]);
-//         sqr = (f1[i] - f0[i]) / sk;
-//         der2 += sqr*sqr;
-//     }
-//     der2 = sqrt (der2) / h;
-
-//     /* step size is computed such that h**iord * max_d(norm(f0),norm(der2)) = 0.01 */
-//     der12 = max_d(std::abs(der2), sqrt(dnf));
-//     if (der12 <= 1.0E-15)
-//     h1 = max_d (1.0E-6, std::abs(h)*1.0E-3);
-//     else
-//     h1 = pow (0.01/der12, 1.0/(double)iord);
-//     h = min_d (100.0 * std::abs(h), min_d (h1, OPT.hmax));
-
-//     return sign (h, posneg);
-
-// }
-
-__PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		const options OPT, double &h){
-    double3 yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
+__PREPROC__ int integrateDOP(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    coords yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
     //int arret, idid;
     //int iasti, iord, irtrn, reject, last, nonsti;
     int reject, last;
-    double facold, expo1, fac, facc1, facc2, fac11, posneg, xph;
-    double err2, deno;
-    double3 erri, sqr, sk;
-    double err, hnew;
+    _PREC facold, expo1, fac, facc1, facc2, fac11, posneg, xph;
+    _PREC err2, deno;
+    coords erri, sqr, sk;
+    _PREC err, hnew;
     unsigned int nfcn = 0, nstep = 0, naccpt = 0, nrejct = 0;
-    double x = t0;
-    double xf = tf;
+    _PREC x = t0;
+    _PREC xf = tf;
     int n = 3;
     facold = 1.0E-4;
     expo1 = 1.0/8.0 - OPT.beta * 0.2;
@@ -186,7 +133,7 @@ __PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const
         nstep++;
 
         /* the twelve stages */
-        ////("yy1 = %lf %lf %lf\n", yy1.x, yy1.y, yy1.z);
+        //printf("h = %0.17f, yy1 = %lf %lf %lf\n", h, yy1.x, yy1.y, yy1.z);
         yy1 = y + h * COEF::a21 * k1;
         ////("yy12 = %lf %lf %lf\n", yy1.x, yy1.y, yy1.z);
         Bloch(x+COEF::c2*h, yy1, k2, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -244,7 +191,7 @@ __PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const
         deno = err + 0.01 * err2;
         if (deno <= 0.0)
 			deno = 1.0;
-        err = std::abs(h) * err * sqrt (1.0 / (deno*(double)n));
+        err = std::abs(h) * err * sqrt (1.0 / (deno*(_PREC)n));
 
         /* computation of hnew */
         fac11 = pow (err, expo1);
@@ -290,22 +237,22 @@ __PREPROC__ int integrateDOP(const double t0, const double tf, double3& y, const
 
 }
 
-__PREPROC__ int integrateRK45(const double t0, const double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		const options OPT, double &h){
+__PREPROC__ int integrateRK45(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
     //traditional RK45 integrator
-	double t = t0;
+	_PREC t = t0;
 	bool stop = false;
 	int nstep = 0;
-	double endOfSimulDt;
-	double lastH = h;
-	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
-	double error, tol, ratio, q;
-    double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
 	while(1){
 		nstep++;
         if (nstep > OPT.nmax){
@@ -377,22 +324,22 @@ __PREPROC__ int integrateRK45(const double t0, const double tf, double3& y, cons
 	return 0;
 }
 
-__PREPROC__ int integrateRKF45(const double t0, const double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		const options OPT, double &h){
+__PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
     //traditional RK45 integrator
-	double t = t0;
+	_PREC t = t0;
 	bool stop = false;
 	int nstep = 0;
-	double endOfSimulDt;
-	double lastH = h;
-	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
-	double error, tol, ratio, q;
-    double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
 	while(1){
 		nstep++;
         if (nstep > OPT.nmax){
@@ -465,22 +412,22 @@ __PREPROC__ int integrateRKF45(const double t0, const double tf, double3& y, con
 	return 0;
 }
 
-__PREPROC__ int integrateRK45Quaternion(const double t0, const double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		const options OPT, double &h){
+__PREPROC__ int integrateRK45Quaternion(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
     //traditional RK45 integrator
-	double t = t0;
+	_PREC t = t0;
 	bool stop = false;
 	int nstep = 0;
-	double endOfSimulDt;
-	double lastH = h;
-	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
-	double error, tol, ratio, q;
-    double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
 	while(1){
 		nstep++;
         if (nstep > OPT.nmax){
@@ -560,22 +507,22 @@ __PREPROC__ int integrateRK45Quaternion(const double t0, const double tf, double
 	return 0;
 }
 
-__PREPROC__ int integrateRKF45Quaternion(const double t0, const double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		const options OPT, double &h){
+__PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
     //traditional RK45 integrator
-	double t = t0;
+	_PREC t = t0;
 	bool stop = false;
 	int nstep = 0;
-	double endOfSimulDt;
-	double lastH = h;
-	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
-	double error, tol, ratio, q;
-    double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
 	while(1){
 		nstep++;
         if (nstep > OPT.nmax){
@@ -655,23 +602,23 @@ __PREPROC__ int integrateRKF45Quaternion(const double t0, const double tf, doubl
 	return 0;
 }
 
-int integrateMagnusCFET(const double t0, const double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h){
+int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
+						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
-	double t = t0;
+	_PREC t = t0;
 	bool stop = false;
-	double3 k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
-	double3 B1, B2, B3, B4, B5;
-	double3 y8, y6;
-	double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
-	double endOfSimulDt = 0.0;
-	double q, tol, error, ratio;
+	coords k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
+	coords B1, B2, B3, B4, B5;
+	coords y8, y6;
+	_PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
+	_PREC endOfSimulDt = 0.0;
+	_PREC q, tol, error, ratio;
 	unsigned int nstep = 0;
-    double lastH = h; //store the last iteration value of h
+    _PREC lastH = h; //store the last iteration value of h
 	while (1){
 		nstep++;
         if (nstep > OPT.nmax){

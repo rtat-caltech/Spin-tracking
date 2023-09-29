@@ -51,150 +51,108 @@ struct rngState{
     uint64_t y;
     uint64_t z;
     uint64_t w;
-    double spare; //used for the normal generator
+    _PREC spare; //used for the normal generator
     bool hasSpare = false; //used for the normal generator
 };
 
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 //these are the larger kernel calls
-__global__ void initParticlesGPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
+__global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit);
-__global__ void runSimulationGPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit);
+__global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit,
-                              double nextTOut);
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, _PREC nextTOut);
 #else
-void initParticlesCPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
+void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit);
-void runSimulationCPU(options opt, double3 *S, double3 *v, double3 *v_old,
-                              double3 *pos, double3 *pos_old, double *t, double *t_old,
-                              double *tf, double *dt, double *next_gas_coll_time, double *h,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit);
+void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, bool *stopParticle, char *coll_type, char *wall_hit,
-                              double nextTOut);
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, _PREC nextTOut);
 #endif
 
-// typedef void (*GRAD)(const double* pos, double* G);
 class particle
 {
 public:
 	particle(const options OPT){
         opt = OPT; //set the options
         //allocate the various storage spaces
-        numBlocks = std::ceil((double)opt.numParticles/(double)opt.numPerGPUBlock);
+        numBlocks = std::ceil((_PREC)opt.numParticles/(_PREC)opt.numPerGPUBlock);
         numPartsPerBlock = opt.numPerGPUBlock;
         #if defined(__HIPCC__)
         //amd gpu allocation
-        hipMalloc(&S, sizeof(double3)*OPT.numParticles); //spin state
-        hipMalloc(&v, sizeof(double3)*OPT.numParticles); //velocity
-        hipMalloc(&v_old, sizeof(double3)*OPT.numParticles); //velocity
-        hipMalloc(&pos, sizeof(double3)*OPT.numParticles); //position
-        hipMalloc(&pos_old, sizeof(double3)*OPT.numParticles); //position
-        hipMalloc(&t, sizeof(double)*OPT.numParticles); //time
-        hipMalloc(&t_old, sizeof(double)*OPT.numParticles); //time old
-        hipMalloc(&tf, sizeof(double)*OPT.numParticles); //time final
-        hipMalloc(&dt, sizeof(double)*OPT.numParticles); //dt
-        hipMalloc(&next_gas_coll_time, sizeof(double)*OPT.numParticles); //gas collision time
-        hipMalloc(&h, sizeof(double)*OPT.numParticles); //step size
-        hipMalloc(&state, sizeof(rngState)*OPT.numParticles); //rng state
-        hipMalloc(&n_bounce, sizeof(size_t)*OPT.numParticles);
-        hipMalloc(&n_coll, sizeof(size_t)*OPT.numParticles);
-        hipMalloc(&n_steps, sizeof(size_t)*OPT.numParticles);
-        hipMalloc(&partID, sizeof(unsigned int)*OPT.numParticles);
-        hipMalloc(&stopParticle, sizeof(bool)*OPT.numParticles);
-        hipMalloc(&coll_type, sizeof(char)*OPT.numParticles);
-        hipMalloc(&wall_hit, sizeof(char)*OPT.numParticles);
-        
-        //now allocate the output buffers
-        S_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //spin state
-        v_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        v_old_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        pos_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        pos_old_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        t_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time
-        t_old_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time old
-        tf_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time final
-        dt_out = (double*)malloc(sizeof(double)*OPT.numParticles); //dt
-        next_gas_coll_time_out = (double*)malloc(sizeof(double)*OPT.numParticles); //gas collision time
-        h_out = (double*)malloc(sizeof(double)*OPT.numParticles); //step size
-        state_out = (rngState*)malloc(sizeof(rngState)*OPT.numParticles); //rng state
-        n_bounce_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_coll_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_steps_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        partID_out = (unsigned int*)malloc(sizeof(unsigned int)*OPT.numParticles);
-        stopParticle_out = (bool*)malloc(sizeof(bool)*OPT.numParticles);
-        coll_type_out = (char*)malloc(sizeof(char)*OPT.numParticles);
-        wall_hit_out = (char*)malloc(sizeof(char)*OPT.numParticles);
+        hipMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
+        hipMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
+        hipMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
+        hipMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
+        hipMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
+        hipMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
+        hipMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
+        hipMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
+        hipMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
+        hipMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
+        hipMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
+        hipMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
+        hipMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
+        hipMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
+        hipMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
+        hipMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
+        hipMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
         
         #elif defined(__NVCOMPILER) || defined(__NVCC__)
         //nvidia gpu allocation
-        cudaMalloc(&S, sizeof(double3)*OPT.numParticles); //spin state
-        cudaMalloc(&v, sizeof(double3)*OPT.numParticles); //velocity
-        cudaMalloc(&v_old, sizeof(double3)*OPT.numParticles); //velocity
-        cudaMalloc(&pos, sizeof(double3)*OPT.numParticles); //position
-        cudaMalloc(&pos_old, sizeof(double3)*OPT.numParticles); //position
-        cudaMalloc(&t, sizeof(double)*OPT.numParticles); //time
-        cudaMalloc(&t_old, sizeof(double)*OPT.numParticles); //time old
-        cudaMalloc(&tf, sizeof(double)*OPT.numParticles); //time final
-        cudaMalloc(&dt, sizeof(double)*OPT.numParticles); //dt
-        cudaMalloc(&next_gas_coll_time, sizeof(double)*OPT.numParticles); //gas collision time
-        cudaMalloc(&h, sizeof(double)*OPT.numParticles); //step size
-        cudaMalloc(&state, sizeof(rngState)*OPT.numParticles); //rng state
-        cudaMalloc(&n_bounce, sizeof(size_t)*OPT.numParticles);
-        cudaMalloc(&n_coll, sizeof(size_t)*OPT.numParticles);
-        cudaMalloc(&n_steps, sizeof(size_t)*OPT.numParticles);
-        cudaMalloc(&partID, sizeof(unsigned int)*OPT.numParticles);
-        cudaMalloc(&stopParticle, sizeof(bool)*OPT.numParticles);
-        cudaMalloc(&coll_type, sizeof(char)*OPT.numParticles);
-        cudaMalloc(&wall_hit, sizeof(char)*OPT.numParticles);
-        
-        //now allocate the output buffers
-        S_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //spin state
-        v_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        v_old_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        pos_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        pos_old_out = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        t_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time
-        t_old_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time old
-        tf_out = (double*)malloc(sizeof(double)*OPT.numParticles); //time final
-        dt_out = (double*)malloc(sizeof(double)*OPT.numParticles); //dt
-        next_gas_coll_time_out = (double*)malloc(sizeof(double)*OPT.numParticles); //gas collision time
-        h_out = (double*)malloc(sizeof(double)*OPT.numParticles); //step size
-        state_out = (rngState*)malloc(sizeof(rngState)*OPT.numParticles); //rng state
-        n_bounce_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_coll_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_steps_out = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        partID_out = (unsigned int*)malloc(sizeof(unsigned int)*OPT.numParticles);
-        stopParticle_out = (bool*)malloc(sizeof(bool)*OPT.numParticles);
-        coll_type_out = (char*)malloc(sizeof(char)*OPT.numParticles);
-        wall_hit_out = (char*)malloc(sizeof(char)*OPT.numParticles);
+        cudaMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
+        cudaMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
+        cudaMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
+        cudaMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
+        cudaMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
+        cudaMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
+        cudaMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
+        cudaMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
+        cudaMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
+        cudaMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
+        cudaMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
+        cudaMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
+        cudaMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
+        cudaMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
+        cudaMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
+        cudaMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
+        cudaMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
         
         #else
         //cpu allocation
-        S = (double3*)malloc(sizeof(double3)*OPT.numParticles); //spin state
-        v = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        v_old = (double3*)malloc(sizeof(double3)*OPT.numParticles); //velocity
-        pos = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        pos_old = (double3*)malloc(sizeof(double3)*OPT.numParticles); //position
-        t = (double*)malloc(sizeof(double)*OPT.numParticles); //time
-        t_old = (double*)malloc(sizeof(double)*OPT.numParticles); //time old
-        tf = (double*)malloc(sizeof(double)*OPT.numParticles); //time final
-        dt = (double*)malloc(sizeof(double)*OPT.numParticles); //dt
-        next_gas_coll_time = (double*)malloc(sizeof(double)*OPT.numParticles); //gas collision time
-        h = (double*)malloc(sizeof(double)*OPT.numParticles); //step size
+        S = (coords*)malloc(sizeof(coords)*OPT.numParticles); //spin state
+        v = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
+        v_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
+        pos = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
+        pos_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
+        t = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time
+        t_old = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time old
+        tf = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time final
+        dt = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //dt
+        next_gas_coll_time = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //gas collision time
+        h = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //step size
         state = (rngState*)malloc(sizeof(rngState)*OPT.numParticles); //rng state
         n_bounce = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
         n_coll = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
         n_steps = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
         partID = (unsigned int*)malloc(sizeof(unsigned int)*OPT.numParticles);
+        failureState = (int*)malloc(sizeof(int)*OPT.numParticles);
         stopParticle = (bool*)malloc(sizeof(bool)*OPT.numParticles);
         coll_type = (char*)malloc(sizeof(char)*OPT.numParticles);
         wall_hit = (char*)malloc(sizeof(char)*OPT.numParticles);
@@ -219,30 +177,10 @@ public:
         hipFree(n_coll);
         hipFree(n_steps);
         hipFree(partID);
+        hipFree(failureState);
         hipFree(stopParticle);
         hipFree(coll_type);
         hipFree(wall_hit);
-        
-        //free out the output buffers
-        free(S_out); //spin state
-        free(v_out); //velocity
-        free(v_old_out);
-        free(pos_out); //position
-        free(pos_old_out); //position
-        free(t_out); //time
-        free(t_old_out); //time old
-        free(tf_out); //time final
-        free(dt_out); //dt
-        free(next_gas_coll_time_out); //gas collision time
-        free(h_out); //step size
-        free(state_out); //rng state
-        free(n_bounce_out);
-        free(n_coll_out);
-        free(n_steps_out);
-        free(partID_out);
-        free(stopParticle_out);
-        free(coll_type_out);
-        free(wall_hit_out);
         
         #elif defined(__NVCOMPILER) || defined(__NVCC__)
         //nvidia gpu allocation
@@ -262,30 +200,11 @@ public:
         cudaFree(n_coll);
         cudaFree(n_steps);
         cudaFree(partID);
+        cudaFree(failureState);
         cudaFree(stopParticle);
         cudaFree(coll_type);
         cudaFree(wall_hit);
         
-        //free the output buffers
-        free(S_out); //spin state
-        free(v_out); //velocity
-        free(v_old_out);
-        free(pos_out); //position
-        free(pos_old_out); //position
-        free(t_out); //time
-        free(t_old_out); //time old
-        free(tf_out); //time final
-        free(dt_out); //dt
-        free(next_gas_coll_time_out); //gas collision time
-        free(h_out); //step size
-        free(state_out); //rng state
-        free(n_bounce_out);
-        free(n_coll_out);
-        free(n_steps_out);
-        free(partID_out);
-        free(stopParticle_out);
-        free(coll_type_out);
-        free(wall_hit_out);
         #else
         //cpu allocation
         free(S); //spin state
@@ -304,6 +223,7 @@ public:
         free(n_coll);
         free(n_steps);
         free(partID);
+        free(failureState);
         free(stopParticle);
         free(coll_type);
         free(wall_hit);
@@ -313,128 +233,110 @@ public:
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
         initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old,
                               pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-                              state, n_bounce, n_coll, n_steps, partID, stopParticle, coll_type, wall_hit);
+                              state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit);
         #else
         initParticlesCPU(opt, S, v, v_old,
                               pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-                              state, n_bounce, n_coll, n_steps, partID, stopParticle, coll_type, wall_hit);
+                              state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit);
         #endif
     };
-    void runSimulation(double nextTOut){
+    void runSimulation(_PREC nextTOut){
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
         runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
                             t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-                            partID, stopParticle, coll_type, wall_hit, nextTOut);
+                            partID, failureState, stopParticle,  coll_type, wall_hit, nextTOut);
         #else
         runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
                             t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-                            partID, stopParticle, coll_type, wall_hit, nextTOut);
+                            partID, failureState, stopParticle, coll_type, wall_hit, nextTOut);
         #endif
         
     
     }
-    void getCurrentState(){
-        #if defined(__HIPCC__)
-        //move data over for AMD GPUs
-        gpuErrchk(hipMemcpy(t_out, t, sizeof(double)*opt.numParticles, hipMemcpyDeviceToHost));
-        gpuErrchk(hipMemcpy(pos_out, pos, sizeof(double3)*opt.numParticles, hipMemcpyDeviceToHost));
-        gpuErrchk(hipMemcpy(v_out, v, sizeof(double3)*opt.numParticles, hipMemcpyDeviceToHost));
-        gpuErrchk(hipMemcpy(S_out, S, sizeof(double3)*opt.numParticles, hipMemcpyDeviceToHost));
-        #elif defined(__NVCOMPILER) || defined(__NVCC__)
-        //move data over for Nvidia GPUs
-        gpuErrchk(cudaMemcpy(t_out, t, sizeof(double)*opt.numParticles, cudaMemcpyDeviceToHost));
-        gpuErrchk(cudaMemcpy(pos_out, pos, sizeof(double3)*opt.numParticles, cudaMemcpyDeviceToHost));
-        gpuErrchk(cudaMemcpy(v_out, v, sizeof(double3)*opt.numParticles, cudaMemcpyDeviceToHost));
-        gpuErrchk(cudaMemcpy(S_out, S, sizeof(double3)*opt.numParticles, cudaMemcpyDeviceToHost));
-        #else
-        //do nothing, the data is already on CPU in this case
-        #endif
-    }
     void outputData(FILE *f){
-        getCurrentState();
-        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
-        for(int i = 0; i < opt.numParticles; i++){
-            fwrite(&t_out[i], sizeof(double), 1, f);
-            fwrite(&pos_out[i], sizeof(double3), 1, f);
-            fwrite(&v_out[i], sizeof(double3), 1, f);
-            fwrite(&S_out[i], sizeof(double3), 1, f);
-        }
+        #if defined(__HIPCC__)
+        hipDeviceSynchronize();
+        #elif defined(__NVCOMPILER) || defined(__NVCC__)
+        cudaDeviceSynchronize();
         #else
-        for(int i = 0; i < opt.numParticles; i++){
-            fwrite(&t[i], sizeof(double), 1, f);
-            fwrite(&pos[i], sizeof(double3), 1, f);
-            fwrite(&v[i], sizeof(double3), 1, f);
-            fwrite(&S[i], sizeof(double3), 1, f);
-        }
+        
         #endif
+        fwrite(t, sizeof(_PREC), opt.numParticles, f);
+        fwrite(pos, sizeof(coords), opt.numParticles, f);
+        fwrite(v, sizeof(coords), opt.numParticles, f);
+        fwrite(S, sizeof(coords), opt.numParticles, f);
+        fwrite(failureState, sizeof(int), opt.numParticles, f);
+        fwrite(n_coll, sizeof(size_t), opt.numParticles, f);
+        fwrite(n_bounce, sizeof(size_t), opt.numParticles, f);
+        fwrite(n_steps, sizeof(size_t), opt.numParticles, f);
     }
 private:
     options opt;
     int numPartsPerBlock;
     int numBlocks;
-    double3 *S;
-    double3 *v;
-    double3 *v_old;
-    double3 *pos;
-    double3 *pos_old;
-    double *t;
-    double *t_old;
-    double *tf;
-    double *dt;
-    double *next_gas_coll_time;
-    double *h;
+    coords *S;
+    coords *v;
+    coords *v_old;
+    coords *pos;
+    coords *pos_old;
+    _PREC *t;
+    _PREC *t_old;
+    _PREC *tf;
+    _PREC *dt;
+    _PREC *next_gas_coll_time;
+    _PREC *h;
     //rng states
     rngState *state;
     size_t *n_bounce;
     size_t *n_coll;
     size_t *n_steps;
     unsigned int *partID;
+    int *failureState;
     bool *stopParticle;
     char *coll_type;
     char *wall_hit;
     
-    double3 *S_out;
-    double3 *v_out;
-    double3 *v_old_out;
-    double3 *pos_out;
-    double3 *pos_old_out;
-    double *t_out;
-    double *t_old_out;
-    double *tf_out;
-    double *dt_out;
-    double *next_gas_coll_time_out;
-    double *h_out;
+    coords *S_out;
+    coords *v_out;
+    coords *v_old_out;
+    coords *pos_out;
+    coords *pos_old_out;
+    _PREC *t_out;
+    _PREC *t_old_out;
+    _PREC *tf_out;
+    _PREC *dt_out;
+    _PREC *next_gas_coll_time_out;
+    _PREC *h_out;
     //rng states
     rngState *state_out;
     size_t *n_bounce_out;
     size_t *n_coll_out;
     size_t *n_steps_out;
     unsigned int *partID_out;
+    int* failureState_out;
     bool *stopParticle_out;
     char *coll_type_out;
     char *wall_hit_out;
 };
 
-__PREPROCD__ void calc_next_collision_time(double t, double tf, double3 v, double3 pos, 
-                                           double& next_gas_coll_time, double& dt, char& coll_type, 
+__PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, 
+                                           _PREC& next_gas_coll_time, _PREC& dt, char& coll_type, 
                                            size_t &n_bounce, size_t &n_coll, bool& finished, 
                                            char& wall_hit, rngState& state, const options opt);
-template <typename T> __PREPROCD__ double sgn(T val);
-__PREPROCD__ void new_velocities(double3 &v, double3 &v_old, char& coll_type, char& wall_hit, 
-            rngState& state);
-__PREPROCD__ void move(double &t_old, double& t, double3 &pos_old, double3 &pos, double3& v, double3& v_old, double &dt);
-//__PREPROCD__ outputDtype getState(unsigned int part);
-//__PREPROCD__ void updateTF(int part, const double);
+template <typename T> __PREPROCD__ _PREC sgn(T val);
+__PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt, coords &pos_old, coords &pos, coords &v_old, coords &v, char& coll_type, char& wall_hit, rngState& state, bool &stopParticle, const options opt);
+__PREPROCD__ void sanity_check(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coords& v, coords& v_old, char& coll_type, char& wall_hit, bool &stopParticle, int &failureState, const options opt);
+
 //rng related functions
 __PREPROCD__ uint64_t rol64(const uint64_t, const int);
 __PREPROCD__ void initRNG(rngState& state, unsigned long seed);
 __PREPROCD__ uint64_t xoshiro256p(rngState &state);
-__PREPROCD__ double uniform(rngState &state);
-__PREPROCD__ double uniform(rngState &state, const double, const double);
-__PREPROCD__ double normal(rngState &state, const double, const double);
-__PREPROCD__ double maxboltz(rngState &state, const double);
-__PREPROCD__ double unif02pi(rngState &state);
-__PREPROCD__ double exponential(rngState &state, const double);
+__PREPROCD__ _PREC uniform(rngState &state);
+__PREPROCD__ _PREC uniform(rngState &state, const _PREC, const _PREC);
+__PREPROCD__ _PREC normal(rngState &state, const _PREC, const _PREC);
+__PREPROCD__ _PREC maxboltz(rngState &state, const _PREC);
+__PREPROCD__ _PREC unif02pi(rngState &state);
+__PREPROCD__ _PREC exponential(rngState &state, const _PREC);
 
 
 

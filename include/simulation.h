@@ -25,37 +25,6 @@
 #define __PREPROC__
 #endif
 
-struct outputBuffers{
-	outputDtype* particleStatesGPU; //where to store all the particle states on GPU
-	outputDtype* particleStatesCPU; //where to store all particle states on CPU
-	double *times;
-	
-	//information for the averages
-	//right now assume this is done on the CPU
-	double* averagesGPU;
-	double* averagesCPU;
-	double* stdsGPU;
-	double* stdsCPU;
-	
-	//information for the standard dump method
-	outputDtype* allParticleStatesGPU;
-	outputDtype* allParticleStatesCPU;
-	
-	//information for the histogram method
-	//right now assume this processing is done on the CPU
-	double gridSize;
-	double vecBinSize;
-	int numx, numy, numz;
-	int numPhiBins, numThetaBins;
-	unsigned int* posHist;
-	unsigned int* thetaHist;
-	unsigned int* phiHist;
-	
-	double* temp;
-};
-
-
-void createOutputBuffers(const options opt, void** buffers);
 void mainAnalysis(const options opt, int totalTime, char* outputName, unsigned int seed);
 
 #endif
