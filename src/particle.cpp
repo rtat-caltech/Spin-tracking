@@ -125,7 +125,6 @@ __PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords p
     _PREC dx, dy, dz, dtx, dty, dtz = (_PREC)0.0;
 	if(opt.gravity){
 		//calculate distance to collision point
-        //printf("%f %f %f %f %f %f %f\n", t, pos.x, pos.y, pos.z, v.x, v.y, v.z);
 		dx = sgn(v.x) * opt.L.x / (_PREC)2.0 - pos.x;
 		dz = sgn(v.z) * opt.L.z / (_PREC)2.0 - pos.z;
  
@@ -133,31 +132,28 @@ __PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords p
 		dtx = dx / v.x;
 		dtz = dz / v.z;
 		_PREC y2 = v.y * v.y;
-		if(sgn(v.y) <= (_PREC)0.0){ //if the particle has negative y velocity
-				dy = pos.y + opt.L.y*0.5;
-				_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
-				_PREC temp1 = -(sqr+v.y)/G_CONST;
-				_PREC temp2 = (sqr-v.y)/G_CONST;
-				dty = min(std::abs(temp1), std::abs(temp2));
+        if(sgn(v.y) <= (_PREC)0.0){ //if the particle has negative y velocity
+                dy = pos.y + opt.L.y*0.5; //distance to the bottom of the cell
+                _PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
+                _PREC temp1 = -(sqr+v.y)/G_CONST;
+                _PREC temp2 = (sqr-v.y)/G_CONST;
+                dty = min(std::abs(temp1), std::abs(temp2));
+        }
+        else{
+            _PREC maxHeight = -0.5 * y2/G_CONST + pos.y;
+            if(maxHeight < 0.5 * opt.L.y){ //in this case it can't hit the ceiling, calculate time to the floor
+                _PREC t1 = -v.y/G_CONST; //time until it stops moving upwards
+                _PREC topOfFlight = pos.y+v.y*t1+0.5*G_CONST*t1*t1;//highest location in path
+                _PREC t2 = sqrt((-0.5*opt.L.y - topOfFlight)*2.0/G_CONST); //time to fall to bottom of cell
+                dty = t1 + t2; //total time for this path
+            }
+            else{
+                _PREC sqr = sqrt(y2 - 2.0*G_CONST*(pos.y-(0.5*opt.L.y)));//specifically targetting hitting the ceiling
+                _PREC temp1 = (-v.y + sqr)/G_CONST;
+                _PREC temp2 = (-v.y-sqr)/G_CONST;
+                dty = min(std::abs(temp1), std::abs(temp2));
+            }
 		}
-		else{
-				_PREC maxHeight = -0.5 * y2/G_CONST + pos.y;
-				if(maxHeight < 0.5 * opt.L.y){ //in this case it can't hit the ceiling
-						dy = pos.y+opt.L.y*0.5;
-						_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
-						_PREC temp1 = -(sqr+v.y)/G_CONST;
-						_PREC temp2 = (sqr-v.y)/G_CONST;
-						dty = max(temp1, temp2);
-				}
-				else{
-						dy = opt.L.y*0.5 - pos.y; //how far to ceiling
-						_PREC sqr = sqrt(-2.0*G_CONST*dy+y2);
-						_PREC temp1 = -(sqr+v.y)/G_CONST;
-						_PREC temp2 = (sqr-v.y)/G_CONST;
-						dty = min(std::abs(temp1), std::abs(temp2));
-				}
-		}
-        //printf("\t side walls: %f %f %f %f %f %f\n", dx, dtx, dy, dty, dz, dtz);
 		if (dtx < 1e-16 || std::isnan(dtx))
 			dtx = 1e6;
 		else if (dty < 1e-16 || std::isnan(dty))
@@ -283,7 +279,7 @@ Update the position and velocity after the collision that is found
 */
 __PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt, coords &pos_old, coords &pos, coords &v_old, coords &v, char& coll_type, char& wall_hit, rngState& state, bool &stopParticle, const options opt){
 	v_old = v;
-    _PREC Vel = len(v);
+    
     t_old = t; // update the time
     t += dt; //increment forward
     pos_old = pos; //update old position
@@ -295,6 +291,7 @@ __PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt
         a = (coords){0.0, 0.0, 0.0};
     pos = pos_old +  v * dt + 0.5 * a * dt * dt; //update position
     v = v + a * dt; //update velocity
+    _PREC Vel = len(v);
 	if (coll_type == 'N'){
 		//in this case we don't have a wall collision and it's just iterating through space still
 		//don't mess with the position or velocity, should be fine
@@ -328,7 +325,6 @@ __PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt
         }
         if(opt.diffuse > FLT_MIN){
             //could maybe have diffuse scattering, so sample the RNG to see if it happens
-            //printf("%lf %lf %d\n", temp, (double)opt.diffuse, temp < (double)opt.diffuse);
             bool diffuse = (_PREC)uniform(state) < (_PREC)opt.diffuse;
             if(diffuse){//if we want to do a diffuse collision, do this
                 //V = sqrt(vx * vx + vy * vy + vz * vz);
@@ -443,8 +439,18 @@ __PREPROCD__ void move(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coo
 }
 
 __PREPROCD__ void sanity_check(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coords& v, coords& v_old, char& coll_type, char& wall_hit, bool &stopParticle, int &failureState, const options opt) {
-    if(abs(pos.x) > opt.L.x/2.0 || abs(pos.y) > opt.L.y/2.0 || abs(pos.z) > opt.L.z/2.0){
-        //printf("%0.8f %0.8f %0.8f %0.8f %0.8f %0.8f %0.8f %c %c\n", t, pos_old.x, pos_old.y, pos_old.z, pos.x, pos.y, pos.z, coll_type, wall_hit);
+    _PREC tol = 1.0e-15;
+    if(abs(pos.x) > opt.L.x/2.0+tol){
+        stopParticle = true;
+        failureState = 1; //out of bounds position found
+        return;
+    }
+    if(abs(pos.y) > opt.L.y/2.0+tol){
+        stopParticle = true;
+        failureState = 1; //out of bounds position found
+        return;
+    }
+    if(abs(pos.z) > opt.L.z/2.0+tol){
         stopParticle = true;
         failureState = 1; //out of bounds position found
         return;
@@ -582,16 +588,8 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
         _PREC tempH = h;
         //now start the actual integration and tracking process
         while(finished == false && stopParticle == false){
-            _PREC initEnergy = (pos.y-opt.L.y/2.0)*opt.m + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z);
-            //printf("init: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
             calc_next_collision_time(t, tf, v, pos, next_gas_coll_time, dt, coll_type, n_bounce, n_coll, finished, wall_hit, state, opt);
             update_position_and_velocity(t_old, t, dt, pos_old, pos, v_old, v, coll_type, wall_hit, state, stopParticle, opt);
-            //printf("post: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
-            _PREC postEnergy = (pos.y-opt.L.y/2.0)*opt.m + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z);
-            if(abs(initEnergy-postEnergy)>1.0e-6){
-                printf("%lf %lf %lf %c %c \n", initEnergy, postEnergy, postEnergy - initEnergy, wall_hit, coll_type);
-                
-            }
             sanity_check(t_old, t, pos_old, pos, v, v_old, coll_type, wall_hit, stopParticle, failureState, opt);
             if(failureState == 0){
                 if(opt.integratorType == 0){
@@ -625,7 +623,6 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
                 if(opt.keepStepSize)
                     h = tempH;
                 if (spinResult < 0){
-                    //printf("particle %d: error state detected %d\n", ipart, spinResult);
                     stopParticle = true;
                     failureState = spinResult;
                 }
@@ -772,16 +769,8 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
         _PREC tempH = h;
         //now start the actual integration and tracking process
         while(finished == false && stopParticle == false){
-            _PREC initEnergy = ((pos.y+opt.L.y/2.0)*opt.m*abs(G_CONST) + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z))*6.242e18*1e9;
-            //printf("init: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
             calc_next_collision_time(t, tf, v, pos, next_gas_coll_time, dt, coll_type, n_bounce, n_coll, finished, wall_hit, state, opt);
             update_position_and_velocity(t_old, t, dt, pos_old, pos, v_old, v, coll_type, wall_hit, state, stopParticle, opt);
-            //printf("post: %lf %lf %lf %lf %lf %lf %lf %lf\n", t, tf, pos.x, pos.y, pos.z, v.x, v.y, v.z);
-            _PREC postEnergy = ((pos.y-opt.L.y/2.0)*opt.m*abs(G_CONST) + 0.5 * opt.m * (v.x*v.x + v.y*v.y+v.z*v.z))*6.242e18*1e9;
-            if(abs(initEnergy-postEnergy)>1.0e-6){
-                printf("%d, %lf %c %c %lf %lf %lf %lf %lf %lf %lf : pos_old %lf %lf %lf : pos %lf %lf %lf\n", ipart, postEnergy - initEnergy, wall_hit, coll_type, dt, v.x, v.y, v.z, v_old.x, v_old.y, v_old.z, pos_old.x, pos_old.y, pos_old.z, pos.x, pos.y, pos.z);
-                
-            }
             sanity_check(t_old, t, pos_old, pos, v, v_old, coll_type, wall_hit, stopParticle, failureState, opt);
             if(failureState == 0){
                 if(opt.integratorType == 0){
@@ -815,7 +804,6 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
                 if(opt.keepStepSize)
                     h = tempH;
                 if (spinResult < 0){
-                    //printf("particle %d: error state detected %d\n", ipart, spinResult);
                     stopParticle = true;
                     failureState = spinResult;
                 }

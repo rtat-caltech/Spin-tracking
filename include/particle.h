@@ -68,6 +68,7 @@ __global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_ol
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
                               unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, _PREC nextTOut);
 #else
+
 void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
