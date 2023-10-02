@@ -7,10 +7,10 @@ vpath %.h include/
 # CC compiler options:
 
 ##This is the CPU compilation section
-CC = g++ 
-LIBRARY_PATH= 
-CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp
-CC_INCLUDES = -I /usr/include
+#CC = g++ 
+#LIBRARY_PATH= 
+#CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp
+#CC_INCLUDES = -I /usr/include
 
 #AMD GPU Compilation Section#CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
 #CC = /opt/rocm-5.2.5/bin/hipcc #AMD GPU compilation
@@ -44,12 +44,12 @@ SOURCES = double3.cpp optionsParser.cpp integrator.cpp particle.cpp simulation.c
 INCLUDES = $(SOURCES:.cpp=.h)
 OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
 BUILD = build/
-EXECS = gpuA100
 
 TEST = tests/
 TEST_MAIN = test_main
 TEST_SOURCES = integrator_validation.cpp particle_validation.cpp
-EXECS = simple
+
+EXECS = bit64
 
 all: $(MAIN)
 

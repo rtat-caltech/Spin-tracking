@@ -3,7 +3,7 @@
 import numpy as np #handling array objects
 import os #doing the file seeking to find the right location in the file
 
-def readInOutputFile(outputFilename):
+def readInOutputFile(outputFilename, prec=np.float64, pad = 0):
     """
     This function reads in the output from the Spin Tracking Simulations.
     
@@ -11,6 +11,12 @@ def readInOutputFile(outputFilename):
     ----------------------------------------------
     filename: the name of the file to be read
         Expects this to be a string
+       
+    prec: np.dtype
+        The precision of the floating point values
+        
+    pad: int
+        The number of bytes of padded to round the structure to the proper padded C length
     
     Output(s):
     ----------------------------------------------
@@ -39,112 +45,64 @@ def readInOutputFile(outputFilename):
     
     """
     optionsStructType = np.dtype([
-        ('B0', np.float64, 3),
-        ('E', np.float64, 3),
-        ('L', np.float64, 3),
-        ('yi', np.float64, 3),
-        ('posHistBins', np.float64, 3),
-        ('m', np.float64),
-        ('t0', np.float64),
-        ('tf', np.float64),
-        ('rtol', np.float64),
-        ('atol', np.float64),
-        ('beta', np.float64),
-        ('uround', np.float64),
-        ('safe', np.float64),
-        ('fac1', np.float64),
-        ('fac2', np.float64),
-        ('hmax', np.float64),
-        ('hmin', np.float64),
-        ('h', np.float64),
-        ('T', np.float64),
-        ('sqrtKT_m', np.float64),
-        ('tc', np.float64),
-        ('gamma', np.float64),
-        ('V', np.float64),
-        ('a', np.float64),
-        ('w', np.float64),
-        ('swapStepSize', np.float64),
-        ('maxPosStep', np.float64),
-        ('ioutInt', np.float64),
+        ('B0', prec, 3),
+        ('E', prec, 3),
+        ('L', prec, 3),
+        ('yi', prec, 3),
+        ('m', prec),
+        ('t0', prec),
+        ('tf', prec),
+        ('rtol', prec),
+        ('atol', prec),
+        ('beta', prec),
+        ('uround', prec),
+        ('safe', prec),
+        ('fac1', prec),
+        ('fac2', prec),
+        ('hmax', prec),
+        ('hmin', prec),
+        ('h', prec),
+        ('T', prec),
+        ('sqrtKT_m', prec),
+        ('tc', prec),
+        ('gamma', prec),
+        ('V', prec),
+        ('a', prec),
+        ('w', prec),
+        ('swapStepSize', prec),
+        ('maxPosStep', prec),
+        ('ioutInt', prec),
+        ('diffuse', prec),
         ('nmax', np.uint32),
         ('seed', np.uint32),
         ('integratorType', np.int32),
         ('numParticles', np.int32),
         ('numPerGPUBlock', np.int32),
         ('iout', np.int32),
-        ('numPhiBins', np.int32),
-        ('numThetaBins', np.int32),
-        ('diffuse', np.float32),
+        
         ('dist', 'S', 1),
-        ('output', 'S', 1),
         ('gas_coll', bool),
         ('gravity', bool),
         ('fixedStepSize', bool),
         ('keepStepSize', bool),
-        ('pad', 'S', 6) #this is padding space just designed to fix the structure padding done in C++
+        ('pad', 'S', pad) #this is padding space just designed to fix the structure padding done in C++
     ])
     file = open(outputFilename, 'rb')
     parameters = np.fromfile(file, count=1, dtype=optionsStructType)[0]
     data = None
-    if parameters['output'] == b'n':
-        #in this case it was the full dump of all particle data
-        outputDtype = np.dtype([
-            ('t', '<f8'),
-            ('xx', '<f8'),
-            ('xy', '<f8'),
-            ('xz', '<f8'),
-            ('vx', '<f8'),
-            ('vy', '<f8'),
-            ('vz', '<f8'),
-            ('sx', '<f8'),
-            ('sy', '<f8'),
-            ('sz', '<f8')])
-        file.seek(0, 0)
-        data = np.fromfile(file, dtype=outputDtype, offset=parameters.nbytes)
-        numTimes = data.shape[0]//parameters['numParticles']
-        numPer = int((parameters['tf']-parameters['t0'])/parameters['ioutInt'])+1
-        data = data[:numTimes*parameters['numParticles']].reshape(-1, parameters['numParticles']).T #this returns the data in a little more convenient format, I think
-    elif parameters['output'] == b'h':
-        #this is the histogram output format instead now
-        numx = int(parameters['L'][0]/parameters['gridSize'])+1
-        numy = int(parameters['L'][1]/parameters['gridSize'])+1
-        numz = int(parameters['L'][2]/parameters['gridSize'])+1
-
-        numVecBins = int(np.ceil(2.0/parameters['vecBinSize']))
-
-        xbins = np.arange(-parameters['L'][0]/2.0, parameters['L'][0]/2.0, parameters['gridSize'])
-        ybins = np.arange(-parameters['L'][0]/2.0, parameters['L'][0]/2.0, parameters['gridSize']) 
-        zbins = np.arange(-parameters['L'][0]/2.0, parameters['L'][0]/2.0, parameters['gridSize'])
-        sbins = np.arange(-1.0, 1.0, parameters['vecBinSize'])
-        outputDtype = np.dtype([
-            ('t', np.float64),
-            ('x', np.uint32, numx),
-            ('y', np.uint32, numy),
-            ('z', np.uint32, numz),
-            ('sx', np.uint32, numVecBins),
-            ('sy', np.uint32, numVecBins),
-            ('sz', np.uint32, numVecBins)
-        ])
-        file.seek(0, 0)
-        data = np.fromfile(file, dtype=outputDtype, offset=parameters.nbytes)
-        data = {'xbins': xbins,
-               'ybins': ybins,
-               'zbins': zbins,
-               'sbins': sbins,
-               'data': data}
-    elif parameters['output'] == b'a':
-        outputDtype = np.dtype([
-            ('t', np.float64),
-            ('sx', np.float64),
-            ('dsx', np.float64),
-            ('sy', np.float64),
-            ('dsy', np.float64),
-            ('sz', np.float64),
-            ('dsz', np.float64)
-        ])
-        file.seek(0, 0)
-        data = np.fromfile(file, dtype=outputDtype, offset=parameters.nbytes)
+    #in this case it was the full dump of all particle data
+    outputDtype = np.dtype([
+        ('t', prec, parameters['numParticles']),
+        ('x', prec, (parameters['numParticles'], 3)),
+        ('v', prec, (parameters['numParticles'], 3)),
+        ('s', prec, (parameters['numParticles'], 3)),
+        ('errorState', np.int32, parameters['numParticles']),
+        ('n_coll', np.int64, parameters['numParticles']),
+        ('n_bounce', np.int64, parameters['numParticles']),
+        ('n_steps', np.int64, parameters['numParticles'])
+    ])
+    file.seek(0, 0)
+    data = np.fromfile(file, dtype=outputDtype, offset=parameters.nbytes)
     file.close()
     return parameters, data
 

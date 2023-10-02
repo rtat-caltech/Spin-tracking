@@ -23,43 +23,42 @@
 #define __PREPROC__
 #endif
 
-__PREPROC__ void obs(long nr, double xold, double x, double3 y, double3 pos, int* irtrn, 
+__PREPROC__ void obs(long nr, _PREC xold, _PREC x, coords y, coords pos, int* irtrn, 
 	const options OPT, double* lastOutput, unsigned int* lastIndex, outputDtype* outputArray);		
 
-__PREPROC__ double3 pulse(const double t);
+__PREPROC__ coords pulse(const _PREC t);
 
-__PREPROC__ double3 findCrossTerm(const double t, const double3& y, const options OPT, const double t0, const double tf ,const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new);
+__PREPROC__ coords findCrossTerm(const _PREC t, const coords& y, const options OPT, const _PREC t0, const _PREC tf ,const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new);
 
-__PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, const double t0, const double tf ,const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new);
+__PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options OPT, const _PREC t0, const _PREC tf ,const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new);
 
-__PREPROC__ void interpolate(const double t, const double t0, const double tf, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, double3& p_out, double3& v_out, const options OPT);
+__PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, coords& p_out, coords& v_out, const options OPT);
 
-__PREPROC__ double3 grad(double3&);
+__PREPROC__ coords grad(coords&);
 
-// double hinit(double, double*, double, double*, double*, double*, int, double, double, double);
-__PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
-	const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateDOP(_PREC t0, _PREC tf, coords& y, const coords& p_old, const coords& p_new, 
+	const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ int integrateRK45(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
-	const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateRK45(_PREC t0, _PREC tf, coords& y, const coords& p_old, const coords& p_new, 
+	const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ int integrateRKF45(double t0, double tf, double3& y, const double3& p_old, const double3& p_new, 
-	const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateRKF45(_PREC t0, _PREC tf, coords& y, const coords& p_old, const coords& p_new, 
+	const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ int integrateRK45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
-                                        const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateRK45Quaternion(_PREC t0, _PREC tf, coords& y, const coords& p_old, 
+                                        const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ int integrateRKF45Quaternion(double t0, double tf, double3& y, const double3& p_old, 
-                                        const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateRKF45Quaternion(_PREC t0, _PREC tf, coords& y, const coords& p_old, 
+                                        const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new, const options OPT, double& h);
+__PREPROC__ int integrateMagnusCFET(_PREC t0, _PREC tf, coords& y, const coords& p_old,
+						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
-__PREPROC__ double sign(double, double);
+__PREPROC__ _PREC sign(_PREC, _PREC);
 
-__PREPROC__ double min_d(double, double);
+__PREPROC__ _PREC min_d(_PREC, _PREC);
 
-__PREPROC__ double max_d(double, double);
+__PREPROC__ _PREC max_d(_PREC, _PREC);
 
 
 #endif
