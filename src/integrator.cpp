@@ -500,55 +500,39 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 	return 0;
 }
 
-void goertzel_stage_1(const double3& x, double3& s1, double3& s2, double w, double dt) {
-	double angle = w * dt;
-	double3 new_s = x + 2 * cos(angle) * s1 - s2;
-	s2 = s1;
-	s1 = new_s;
-	return;
-}
-
-double3 goertzel_stage_2(const double3& s1, const double3& s2, double w, double dt) {
-	double angle = w * dt;
-	double3 a = s1 - cos(angle) * s2;
-	double3 b = sin(angle) * s2;
-	return a*a + b*b; // * T/N
-}
-
 double first_sample_point(double t0, double h) {
-	// Returns the first spectrum sample point for a time interval starting at t0.
+	// Returns the first Spectrum sample point for a time interval starting at t0.
 	// With sampling interval h
 	return (floor(t0/h)+1)*h; // The smallest multiple of h greater than t0
 }
 
-int integrateSpectrum(double t0, double tf, double3 *s1, double3 *s2, double* w, double n_freqs, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, options OPT, const double h) {
+int integrateSpectrum(double t0, double tf, SpectrumAggregator& specagg, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, options OPT, const double h) {
 	// I'm doing it this way because I'm worried about floating point error
 	double t = first_sample_point(t0, h);
 	double next_t = first_sample_point(tf, h);
 	int n_steps = 0;
 	while (t < next_t - (h/2)) {
 		double3 B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
-		for (int i = 0; i < NK; i++) {
-			goertzel_stage_1(B, s1[i], s2[i], w[i], OPT.h);
-		}
+		specagg.update(B);
 		t += h;
 		n_steps++;
 	}
 	return n_steps;
 }
 
-int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, double h) {
+__PREPROC__ int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, double h) {
 	double t = t0;
 	quaternion q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11;
 	double3 B1, B2, B3, B4, B5;
-	double3 p_old = {0.0, 0.0, 0.0};
-	double3 p_new = p_old;
-	double3 v_old = v_old;
-	double3 v_new = v_new;
+	double3 dummy = {0.0, 0.0, 0.0};
+	double3 p_old = dummy;
+	double3 p_new = dummy;
+	double3 v_old = dummy;
+	double3 v_new = dummy;
 
 	double endOfSimulDt = 0.0;
 	unsigned int nstep = 0;
-	while (1){
+	while (t < tf){
 		nstep++;
         if (nstep > OPT.nmax){
             return -2;
@@ -576,12 +560,41 @@ int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, doubl
 		q2 = rodriguezQuat((CFET8::G21 * B1 + CFET8::G22 * B2 + CFET8::G23 * B3 + CFET8::G24 * B4 + CFET8::G25 * B5), h);
 		q1 = rodriguezQuat((CFET8::G11 * B1 + CFET8::G12 * B2 + CFET8::G13 * B3 + CFET8::G14 * B4 + CFET8::G15 * B5), h);
 
-		y = q11 * q10 * q9 * q8 * q7 * q6 * q5 * q4 * q3 * q2 * q1 * y;
+		y = q1 * q2 * q3 * q4 * q5 * q6 * q7 * q8 * q9 * q10 * q11 * y;
 		t += h;			
 	}
 	return 0;
 }
 
-int integrateFloquetMarkov(double t0, double tf, quaternion& y, options OPT, double h) {
-	
+Matrix2d drhodt(Matrix2d rho, Matrix2d A) {
+	Matrix2d m;
+	m(0, 0) = -A(1,0) * rho(0,0) + A(0,1) * rho(1,1);
+	m(1, 1) = -m(0, 0);
+	m(0, 1) = -0.5 * m(0,1) * (A(0,0) + A(0,1) + A(1,0) + A(1,1));
+	m(1, 0) = -0.5 * m(1,0) * (A(0,0) + A(0,1) + A(1,0) + A(1,1));
+	return m;
+}
+
+Matrix2cd integrateFloquetMarkov(double t0, double tf,  Matrix2cd rho, const double (&A)[2][2]) {
+	//double diagonal_decay = -(A(0, 0) + A(1, 1));
+	double off_diagonal_decay = -0.5 * (A[0][0] + A[0][1] + A[1][0] + A[1][1]);
+	double dt = tf - t0;
+	Vector2cd p_diag_0;
+	p_diag_0 << rho(0, 0), rho(1, 1);
+	Matrix2d A_diag;
+	A_diag << -A[1][0], A[0][1],
+		A[1][0], -A[0][1];
+
+	Matrix2d A_exp = (A_diag * dt).exp();
+	cout << "A_exp:" << endl;
+	cout << A_exp << endl;
+	cout << p_diag_0 << endl;
+	cout << A_exp * p_diag_0 << endl;
+	Vector2cd p_diag_1 = A_exp * p_diag_0;
+	rho(0, 0) = p_diag_1(0);
+	rho(1, 1) = p_diag_1(1);
+	double decay_factor = exp(off_diagonal_decay * dt);
+	rho(0, 1) = rho(0, 1) * decay_factor;
+	rho(1, 0) = rho(1, 0) * decay_factor;
+	return rho;
 }

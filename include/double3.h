@@ -1,6 +1,8 @@
 #ifndef __DOUBLE3_H_INCLUDED__
 #define __DOUBLE3_H_INCLUDED__
 
+#include <iostream>
+
 #if defined(__NVCOMPILER) || defined(__NVCC__)
 #define __PREPROC__ __host__ __device__
 #include <cuda_runtime.h>
@@ -32,6 +34,8 @@ struct outputDtype {
 	double3 s;
 };
 
+using namespace std;
+__PREPROC__ ostream& operator<<(ostream& os, const double3& x);
 __PREPROC__ double3 operator+(const double3, const double3);
 __PREPROC__ double3 operator+(const double3, const double);
 __PREPROC__ double3 operator+(const double, const double3);

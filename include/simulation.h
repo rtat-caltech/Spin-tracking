@@ -12,6 +12,7 @@
 #include "../include/options.h"
 #include "../include/coeff.h"
 #include "../include/particle.h"
+#include "../include/floquet.h"
 
 #if defined(__HIPCC__)
 #include <hip/hip_runtime.h>
@@ -68,7 +69,8 @@ __global__ void initializeParticles(particle * particles, int numParticles, opti
 #else
 void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
 void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
-void aggregateSpectrum(particle*, spectrum&, int, int, options);
+
+void aggregateSpectrum(particle*, CovarianceSpectrum&, int);
 
 #endif
 

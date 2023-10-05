@@ -77,6 +77,11 @@ __PREPROC__ quaternion operator*(const quaternion q, const double a){
 	return out;
 }
 
+__PREPROC__ double3 operator*(const quaternion q, const double3 v1){
+	return qv_mult(q, v1);
+}
+
+
 __PREPROC__ quaternion operator*(const double a, const quaternion q){
 	return q * a;
 }
@@ -163,10 +168,25 @@ __PREPROC__ double3 rodriguez(const double3 k, const double3 v1){
 
 __PREPROC__ quaternion qEigenval(const quaternion q) {
 	// Returns the "eigenvalues" of a quaternion q
-	return quaternion(q.w, -sqrt(1.0 - q.w * q.w), 0.0, 0.0);
+	return quaternion(q.w, 0.0, 0.0, -sqrt(1.0 - q.w * q.w));
 }
 
 __PREPROC__ quaternion qEigenvec(const quaternion q) {
-	quaternion q1 = {0.0, q.x - sqrt(1.0 - q.w * q.w), q.y, q.z};
+	quaternion q1 = {sqrt(1.0 - q.w * q.w) - q.z, q.y, -q.x, 0};
 	return q1/norm(q1);
+}
+
+Matrix2cd toSU2(const quaternion q) {
+	Matrix2cd out;
+	out << q.w + im_unit * q.z, q.y + im_unit * q.x,
+		-q.y + im_unit * q.x, q.w - im_unit * q.z;
+	return out;
+}
+
+quaternion pow(quaternion q, int n) {
+	if (n == 0) {
+		return (quaternion) {1, 0, 0, 0};
+	} else {
+		return q * pow(q, n-1);
+	}	
 }

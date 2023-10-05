@@ -11,6 +11,13 @@
 #define __PREPROC__
 #endif
 
+using namespace std;
+
+ostream& operator<<(ostream& os, const double3& x) {
+	os << '{' << x.x << ", " << x.y << ", " << x.z << '}';
+	return os;
+}
+
 __PREPROC__ double3 operator+(const double3 a, const double3 b){
 	double3 out;
 	out.x = a.x + b.x;

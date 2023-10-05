@@ -119,6 +119,51 @@ void initializeParticles(particle* particles, int numParticles, options OPT, out
 	}
 }
 
+floquetDiagonalization initializeSpectra(particle* particles, CovarianceSpectrum& cspec, options OPT) {
+	double t0 = 0.0;
+	double tf = 1e-3; //TODO
+	int n_prop = 100;
+	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	quaternion y = {1, 0, 0, 0};
+	double h = 1e-6;
+	for (int i=0; i < n_prop; i++) {
+		double t1 = t0 + (tf - t0) * i/n_prop;
+		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
+		integrateHamiltonian(t1, t2, y, OPT, h);
+		propagators[i] = y;
+	}
+	
+	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
+	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
+
+	double ea = atan2(eigen_values.x, eigen_values.w);
+	double eb = -atan2(eigen_values.x, eigen_values.w);
+	double deltaE = ea - eb;
+
+	double frequencies[NW];
+	int count = 0;
+	for(int k=0; k < NK/2; k++) {
+		for (int i=-1; i < 2; i++) {
+			double w = deltaE * i + k * OPT.w;
+			if (w >= 0) {
+				frequencies[k*3 + i] = w;
+				count++;
+			}
+		}
+	}
+	for(unsigned int tid = 0; tid < OPT.numParticles; tid++){
+		particles[tid].specagg.initialize(frequencies, (tf - t0)/n_prop);
+	}
+	cspec.initialize(frequencies, (tf - t0)/n_prop);
+
+	floquetDiagonalization fd;
+	fd.propagators = propagators;
+	fd.f_modes_0 = eigen_values;
+	fd.f_energies = eigen_vectors;
+	fd.n_prop = n_prop;
+	return fd;
+}
+
 void runSimulation(particle* particles, int numParticles, options OPT, outputBuffers buffers, double nextTOut){
 	#if defined(_OPENMP)
 	#pragma omp parallel for
@@ -131,16 +176,6 @@ void runSimulation(particle* particles, int numParticles, options OPT, outputBuf
 	}
 }
 #endif
-
-void aggregateSpectrum(particle* particles, spectrum& spec, int numParticles, int n_samples, options opt) {
-	double dt = opt.h;
-	for(unsigned int tid = 0; tid < numParticles; tid++){
-		for (int w=0; w < spec.size; w++) {
-			double frequency = spec.frequencies[w];
-			spec.power[w] = spec.power[w] + goertzel_stage_2(particles[tid].get_S1()[w], particles[tid].get_S2()[w], frequency, dt) * dt/n_samples;
-		}
-	}
-}
 
 void calculateMeanAndSD(double* data, int length, double &average, double &std) {
 	average = 0.0;
@@ -266,84 +301,10 @@ void handleOutput(FILE * f, particle* particles, options opt, outputBuffers buff
 	}
 }
 
-void floquet_eigen(options opt, double period, int subdivisions, int kmax, spectrum spec) {
-	quaternion y = {1.0, 0.0, 0.0, 0.0};
-	
-	// You know, I told myself I'd never mess with pointers again. Yet here we are.
-	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * subdivisions);
-
-	// I *think* it's pass by value in this case?
-	opt.gravity = false;
-	opt.E = {0.0, 0.0, 0.0};
-
-	// Compute the Floquet Modes
-	double h = 1e-5;
-	double dt = period/subdivisions;
-	for (int i = 0; i < subdivisions; i++) {
-		integrateHamiltonian(dt * i, dt * (i + 1), y, opt, h);
-		propagators[i]  = y;
+void aggregateSpectrum(particle* particles, CovarianceSpectrum& cspec, int numParticles) {
+	for(unsigned int tid = 0; tid < numParticles; tid++){
+		cspec.add(particles[tid].specagg.get_covariance_spectrum());
 	}
-	
-	// Diagonalize the full-period propagator
-	quaternion U = propagators[subdivisions-1];
-	quaternion P = qEigenvec(U);
-	quaternion L = qEigenval(U);
-	double ea = atan2(L.x, L.w)/period;
-	double eb = atan2(L.z, L.y)/period;	
-	double omega = 2 * M_PI/period;
-	
-	quaternion change_of_basis = q1 * ((quaternion) {1, 0, 0, 0}) + q2 * ((quaternion) {0, 0, 1, 0});
-	q1 = q1/norm(q1);
-	q2 = q2/norm(q2);
-
-	// Don't ask me how this part works, it came to me in a dream.
-	quaternion Xq[kmax*2 + 1];
-	double X[2][2][kmax*2 + 1];
-	quaternion op = {0, 0, 1, 0};
-	// Now compute X
-	// X_{a,b,k} = X^*_{b,a,-k}
-	// op = {0, Bx, By, Bz}
-	for (int i = 0; i < subdivisions; i++) {
-		double t = i * period/subdivisions;
-		// Gauss quadrature
-		double weight;
-		quaternion phase = {cos((ea - eb) * t), sin((ea - eb) * t), 0, 0};
-		quaternion q = conj(change_of_basis) * conj(phase) * conj(propagators[i]) * op * propagators[i] * phase * change_of_basis;
-		for (int k = -kmax; k <= kmax; k++) {
-			Xq[k + kmax] = Xq[k + kmax] + ((quaternion) {cos(k * omega * t), sin(k * omega * t), 0, 0}) * q * weight;
-		}
-	}
-	for (int k = 0; k <= kmax*2; k++) {
-		X[0][0][k] = sq(Xq[k].w) + sq(Xq[k].x);
-		X[1][1][k] = -X[0][0][k];
-		X[0][1][k] = sq(Xq[k].y) + sq(Xq[k].z);
-		X[1][0][k] = sq(Xq[2*kmax-k].y) + sq(Xq[2*kmax-k].z);
-	}
-
-	// Now compute gamma
-	double gamma[2][2][NK];
-	for (int k = 0; k <= kmax * 2; k++) {
-		for (int i = 0;  i < 2; i++) {
-			for (int j = 0; j < 2; j++) {
-				gamma[i][j][k] = X[i][j][k] * spec.power[k] * heaviside(spec.frequencies[k])
-			}
-		}
-	}
-
-	// Now compute A
-	double A[2][2] = {{0}};
-	for (int i = 0; k <= kmax * 2; k++) {
-		for (int i = 0;  i < 2; i++) {
-			for (int j = 0; j < 2; j++) {
-				A[i][j] += gamma[i][j][k];
-			}
-		}
-	}
-
-	//Now compute rho
-		
-	
-	return;
 }
 
 //this functions does the actual analysis and integration
@@ -399,10 +360,12 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		particle* particles = (particle*)malloc(sizeof(particle) * opt.numParticles);
 		//create the output file
 		FILE* f = fopen(outputName, "wb");
-		spectrum spec;
 		fwrite(&opt, sizeof(options), 1, f);//write the options that were used to create the simulation
 		//initialize the particles and save their states
 		initializeParticles(particles, opt.numParticles, opt, buffers, seed);
+		CovarianceSpectrum cspec;
+		floquetDiagonalization fd = initializeSpectra(particles, cspec, opt);
+		
 		handleOutput(f, particles, opt, buffers); //save the initial states
 		
 		unsigned int numIterations = int(floor(double(opt.tf - opt.t0)/opt.ioutInt));
@@ -415,14 +378,32 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			runSimulation(particles, opt.numParticles, opt, buffers, nextTime);
 			if (opt.integratorType == 3) {
 				int n_samp = first_sample_point(((double) i)*opt.ioutInt, opt.h) - first_sample_point(nextTime, opt.h);
-				aggregateSpectrum(particles, spec, opt.numParticles, n_samp, opt);
-				
+				aggregateSpectrum(particles, cspec, opt.numParticles);				
+			} else {
+				handleOutput(f, particles, opt, buffers);
 			}
-			handleOutput(f, particles, opt, buffers);
             stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
             std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
+		cspec.normalize();
+		double Delta[2][2][NK] = {{{0}}};
+		double X[2][2][NK] = {{{0}}};
+		double Gamma[2][2][NK] = {{{0}}};
+		double A[2][2] = {{0}};
+
+		vector<pair<quaternion, Spectrum>> specs = cspec.extract();
+		Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
+		for (int i = 0; i < specs.size(); i++) {
+			quaternion c_op = specs.at(i).first;
+			Spectrum spec = specs.at(i).second;
+			floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w, spec, Delta, X, Gamma, A);
+		}
+		integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
+		int n_period = floor((opt.tf - opt.t0) * 2 *M_PI/opt.w);
+		double3 b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+		cout << "Final Bloch Vector:" << endl;
+		cout << b_end << endl;
 		fclose(f);
 		
 		destroyOutputBuffers(buffers, opt);

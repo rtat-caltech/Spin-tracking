@@ -36,7 +36,7 @@ CC_INCLUDES = -I /usr/include
 
 ## Project file structure ##
 MAIN = main
-SOURCES = optionsParser.cpp double3.cpp integrator.cpp particle.cpp simulation.cpp quaternion.cpp
+SOURCES = optionsParser.cpp double3.cpp integrator.cpp particle.cpp simulation.cpp quaternion.cpp floquet.cpp
 INCLUDES = $(SOURCES:.cpp=.h)
 OBJECTS = $(MAIN).o $(SOURCES:.cpp=.o)
 BUILD = build

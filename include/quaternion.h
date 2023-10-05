@@ -4,6 +4,8 @@
 #include <utility> //So we can use pair from std
 #include <iostream>
 #include "double3.h"
+#include <Eigen/Dense>
+using Eigen::Matrix2cd;
 
 #if defined(__NVCOMPILER) || defined(__NVCC__)
 #define __PREPROC__ __host__ __device__
@@ -16,6 +18,8 @@
 #endif
 
 using namespace std;
+
+const complex im_unit = complex<double>(0.0, 1.0);
 
 struct quaternion{
 	double w = 0.0;
@@ -35,6 +39,7 @@ __PREPROC__ quaternion operator-(const quaternion, const quaternion);
 __PREPROC__ quaternion operator*(const quaternion, const quaternion);
 __PREPROC__ quaternion operator*(const quaternion, const double);
 __PREPROC__ quaternion operator*(const double, const quaternion);
+__PREPROC__ double3 operator*(const quaternion, const double3);
 __PREPROC__ quaternion operator/(const quaternion, const double);
 __PREPROC__ quaternion operator/(const double, const quaternion);
 __PREPROC__ quaternion operator/(const quaternion, const quaternion);
@@ -56,5 +61,7 @@ __PREPROC__ quaternion qEigenval(const quaternion);
 __PREPROC__ quaternion qEigenvec(const quaternion);
 __PREPROC__ quaternion rodriguezQuat(const double3, const double);
 __PREPROC__ double3 rodriguez(const double3, const double3);
-
+Matrix2cd toSU2(const quaternion);
+quaternion pow(quaternion q, int n);
+	
 #endif
