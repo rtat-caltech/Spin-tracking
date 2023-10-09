@@ -387,6 +387,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
             std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		cspec.normalize();
+		cout << cspec.variance[0] << endl;
 		double Delta[2][2][NK] = {{{0}}};
 		double X[2][2][NK] = {{{0}}};
 		double Gamma[2][2][NK] = {{{0}}};
@@ -399,7 +400,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			Spectrum spec = specs.at(i).second;
 			floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w, spec, Delta, X, Gamma, A);
 		}
-		integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
+		rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
 		int n_period = floor((opt.tf - opt.t0) * 2 *M_PI/opt.w);
 		double3 b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 		cout << "Final Bloch Vector:" << endl;

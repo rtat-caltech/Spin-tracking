@@ -232,11 +232,9 @@ Matrix2cd bloch_to_density(double3 bloch, quaternion basis) {
 	double x = bloch.x;
 	double y = bloch.y;
 	double z = bloch.z;
-	cout << x << ", " << y << ", " << z << endl;
 	Matrix2cd rho;
 	rho << (1 + z), (x - y * im_unit),
 		(x + y * im_unit), (1 - z);
-	cout << rho << endl;
 	return basis_matrix.adjoint() * rho * basis_matrix/2.0;
 }
 
