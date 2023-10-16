@@ -5,12 +5,14 @@ diffuse, true
 rtol, 1.0e-12
 gravity, true
 B0, 3.0e-6, 0, 0
-E, 0, 0, 0,
+E, 75e5, 0, 0,
 h, 0.0001
 numParticles, 16384
 numPerGPUBlock, 256
 t0, 0.0
-tf, 1000
+tf, 100
 ioutInt, 0.5
 integratorType, 0
-output, n
+output, a
+a, 3e-5
+w, 6.28318531e3

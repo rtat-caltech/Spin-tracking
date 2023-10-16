@@ -10,17 +10,17 @@ using Eigen::Matrix3cd;
 using Eigen::Vector3cd;
 
 #if defined(__HIPCC__)
-#define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #elif defined(__NVCOMPILER) || defined(__NVCC__)
-#define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #else
 #include <random>
-#define __PREPROCD__ 
+#define __PREPROC__ 
 #endif
 
 using namespace std;
 
-__PREPROCD__ void goertzel_stage_1(const double3& x, double3& s1, double3& s2, double w, double dt) {
+__PREPROC__ void goertzel_stage_1(const double3& x, double3& s1, double3& s2, double w, double dt) {
 	double angle = w * dt;	
 	double3 new_s = x + 2 * cos(angle) * s1 - s2;
 	s2 = s1;
@@ -28,7 +28,7 @@ __PREPROCD__ void goertzel_stage_1(const double3& x, double3& s1, double3& s2, d
 	return;
 }
 
-__PREPROCD__ Matrix3cd goertzel_stage_2(const double3& s1, const double3& s2, double w, double dt) {
+__PREPROC__ Matrix3cd goertzel_stage_2(const double3& s1, const double3& s2, double w, double dt) {
 	double angle = w * dt;
 	double3 a = s1 - cos(angle) * s2;
 	double3 b = sin(angle) * s2;
@@ -99,14 +99,14 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 	return out;
 }
 
-__PREPROCD__ void SpectrumAggregator::update(const double3& x) {
+__PREPROC__ void SpectrumAggregator::update(const double3& x) {
 	for (int i=0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
 	}
 	n_samples += 1;
 }
 
-__PREPROCD__ void SpectrumAggregator::reset() {
+__PREPROC__ void SpectrumAggregator::reset() {
 	for (int i = 0; i < NW; i++) {
 		s1[i] = {0, 0, 0};
 		s2[i] = {0, 0, 0};
@@ -114,7 +114,7 @@ __PREPROCD__ void SpectrumAggregator::reset() {
 	n_samples = 0;
 }
 
-__PREPROCD__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
+__PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	CovarianceSpectrum spec;
 	spec.initialize(w, dt, n_samples);
 	for (int i=0; i < NW; i++) {
@@ -123,12 +123,12 @@ __PREPROCD__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	return spec;
 }
 
-__PREPROCD__ void SpectrumAggregator::initialize(double (&freq)[NW], double h) {
+__PREPROC__ void SpectrumAggregator::initialize(double (&freq)[NW], double h) {
 	set_frequencies(freq);
 	dt = h;
 }
 
-__PREPROCD__ void SpectrumAggregator::set_frequencies(double (&freq)[NW]) {
+__PREPROC__ void SpectrumAggregator::set_frequencies(double (&freq)[NW]) {
 	for (int i=0; i < NW; i++) {
 		w[i] = freq[i];
 	}

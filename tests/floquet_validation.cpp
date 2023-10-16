@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	for(int k=0; k <= NK/2; k++) {
 		for (int i=-1; i < 2; i++) {
 			double w = deltaE * i + k * opt.w;
-			if (w < 0) {p
+			if (w < 0) {
 				continue;
 			}			
 			spec.frequencies[k*3 + i] = w;

@@ -121,7 +121,7 @@ void initializeParticles(particle* particles, int numParticles, options OPT, out
 
 floquetDiagonalization initializeSpectra(particle* particles, CovarianceSpectrum& cspec, options OPT) {
 	double t0 = 0.0;
-	double tf = 1e-3; //TODO
+	double tf = (2*M_PI)/(OPT.w); //TODO
 	int n_prop = 100;
 	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
 	quaternion y = {1, 0, 0, 0};

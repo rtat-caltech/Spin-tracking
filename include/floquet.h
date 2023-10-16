@@ -5,12 +5,12 @@
 #include <omp.h>
 #endif
 #if defined(__HIPCC__)
-#define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #elif defined(__NVCOMPILER) || defined(__NVCC__)
-#define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #include <cuda_runtime.h>
 #else
-#define __PREPROCD__ 
+#define __PREPROC__ 
 #endif
 
 #include <math.h>
@@ -43,7 +43,7 @@ public:
 
 class CovarianceSpectrum {
 public:
-	__PREPROCD__ CovarianceSpectrum()
+	CovarianceSpectrum()
 	{
 		for (int i = 0; i < NW; i++) {
 			variance[i] = Matrix3cd::Constant(0.0);
@@ -64,7 +64,7 @@ private:
 
 class SpectrumAggregator {
 public:
-	__PREPROCD__ SpectrumAggregator()
+	__PREPROC__ SpectrumAggregator()
 	{
 		for (int i = 0; i < NW; i++) {
 			s1[i] = {0, 0, 0};
@@ -72,10 +72,10 @@ public:
 		}
 		n_samples = 0;
 	}
-	__PREPROCD__ void initialize(double (&freq)[NW], double dt);
-	__PREPROCD__ CovarianceSpectrum get_covariance_spectrum();
-	__PREPROCD__ void update(const double3& x);
-	__PREPROCD__ void reset();
+	__PREPROC__ void initialize(double (&freq)[NW], double dt);
+	__PREPROC__ CovarianceSpectrum get_covariance_spectrum();
+	__PREPROC__ void update(const double3& x);
+	__PREPROC__ void reset();
 
 private:
 	double3 s1[NW];
@@ -83,7 +83,7 @@ private:
 	double w[NW];
 	double dt;
 	int n_samples;
-	__PREPROCD__ void set_frequencies(double (&freq)[NW]);
+	__PREPROC__ void set_frequencies(double (&freq)[NW]);
 };
 
 struct floquetDiagonalization {
