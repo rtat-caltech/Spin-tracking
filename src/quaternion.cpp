@@ -186,7 +186,12 @@ Matrix2cd toSU2(const quaternion q) {
 quaternion pow(quaternion q, int n) {
 	if (n == 0) {
 		return (quaternion) {1, 0, 0, 0};
+	} else if (n == 1) {
+		return q;
 	} else {
-		return q * pow(q, n-1);
+		int half = n/2;
+		quaternion q2 = pow(q, half);
+		quaternion qr = pow(q, n - half - half);
+		return q2 * q2 * qr;
 	}	
 }

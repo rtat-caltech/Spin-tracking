@@ -586,10 +586,6 @@ Matrix2cd integrateFloquetMarkov(double t0, double tf,  Matrix2cd rho, const dou
 		A[1][0], -A[0][1];
 
 	Matrix2d A_exp = (A_diag * dt).exp();
-	cout << "A_exp:" << endl;
-	cout << A_exp << endl;
-	cout << p_diag_0 << endl;
-	cout << A_exp * p_diag_0 << endl;
 	Vector2cd p_diag_1 = A_exp * p_diag_0;
 	rho(0, 0) = p_diag_1(0);
 	rho(1, 1) = p_diag_1(1);

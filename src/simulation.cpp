@@ -121,7 +121,7 @@ void initializeParticles(particle* particles, int numParticles, options OPT, out
 
 floquetDiagonalization initializeSpectra(particle* particles, CovarianceSpectrum& cspec, options OPT) {
 	double t0 = 0.0;
-	double tf = (2*M_PI)/(OPT.w); //TODO
+	double tf = (2*M_PI)/OPT.w; //TODO
 	int n_prop = 100;
 	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
 	quaternion y = {1, 0, 0, 0};
@@ -158,8 +158,8 @@ floquetDiagonalization initializeSpectra(particle* particles, CovarianceSpectrum
 
 	floquetDiagonalization fd;
 	fd.propagators = propagators;
-	fd.f_modes_0 = eigen_values;
-	fd.f_energies = eigen_vectors;
+	fd.f_modes_0 = eigen_vectors;
+	fd.f_energies = eigen_values;
 	fd.n_prop = n_prop;
 	return fd;
 }
@@ -387,7 +387,6 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
             std::cout<<i<<", "<<nextTime<<", "<<duration<<std::endl;
 		}
 		cspec.normalize();
-		cout << cspec.variance[0] << endl;
 		double Delta[2][2][NK] = {{{0}}};
 		double X[2][2][NK] = {{{0}}};
 		double Gamma[2][2][NK] = {{{0}}};
@@ -395,18 +394,22 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 
 		vector<pair<quaternion, Spectrum>> specs = cspec.extract();
 		Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
+		cout << rho << endl;
 		for (int i = 0; i < specs.size(); i++) {
 			quaternion c_op = specs.at(i).first;
 			Spectrum spec = specs.at(i).second;
 			floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w, spec, Delta, X, Gamma, A);
 		}
+		cout << density_to_bloch(bloch_to_density(opt.yi)) << endl;
+		cout << fd.propagators[fd.n_prop - 1] << endl;
 		rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
-		int n_period = floor((opt.tf - opt.t0) * 2 *M_PI/opt.w);
+		int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
 		double3 b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 		cout << "Final Bloch Vector:" << endl;
 		cout << b_end << endl;
+		cout << pow(fd.propagators[fd.n_prop - 1], n_period) * opt.yi << endl;
+		free(fd.propagators);
 		fclose(f);
-		
 		destroyOutputBuffers(buffers, opt);
 	}
 	#endif
