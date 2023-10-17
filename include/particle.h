@@ -6,6 +6,7 @@
 #include <random>
 #include <iostream>
 #include <stdint.h>
+#include <limits>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -19,145 +20,333 @@
 #define __PREPROCD__ 
 #endif
 
+#if defined(__NVCC__) || defined(__NVCOMPILER)
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#elif defined(__HIPCC__)
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != hipSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", hipGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#endif
+
 #include "integrator.h"
 #include "options.h"
 #include "double3.h"
 #include "quaternion.h"
 #include "floquet.h"
 
-// typedef void (*GRAD)(const double* pos, double* G);
+struct rngState{
+    uint64_t x;
+    uint64_t y;
+    uint64_t z;
+    uint64_t w;
+    _PREC spare; //used for the normal generator
+    bool hasSpare = false; //used for the normal generator
+};
+
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+//these are the larger kernel calls
+__global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit);
+__global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *pspecagg, _PREC nextTOut);
+#else
+
+void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit);
+void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
+                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *pspecagg, _PREC nextTOut);
+#endif
+
 class particle
 {
-	double k = 1.380649e-23;
-
 public:
-	size_t n_bounce = 0;
-	size_t n_coll = 0;
-	size_t n_steps = 0;
-	bool finished = false;
-	bool stopParticle = false;
-	double lastOutput = 0.0;
-	unsigned int lastIndex = 0;
-	SpectrumAggregator specagg;
-	
-	__PREPROCD__ particle(double3 y0, options OPT, unsigned long seed, unsigned int ipart) :
-		L(OPT.L), m(OPT.m), dist(OPT.dist), V_init(OPT.V), t0(OPT.t0), tf(OPT.tf), 
-		diffuse(OPT.diffuse), gas_coll(OPT.gas_coll), 
-		gravity(OPT.gravity), pos(), sqrtKT_m(sqrt(k*OPT.T/opt.m)), max_step(OPT.hmax),
-		pos_old(), v(), v_old(), B0(OPT.B0), p_interp(), v_interp(), 
-		gamma(OPT.gamma), G(), opt(OPT), ipart(ipart), seed(seed),
-		integrationType(OPT.integratorType), h(OPT.h)
-	{
-		// First do the RNG initialization
-		xorshift128_init(seed + ipart);
-        uniform(); //initial RNG to get things going, otherwise they all share the same first value which is very strange to me still
-		S = y0;
-		//calculate the collision time
-		tc = 1.6e-4*m/(k*pow(OPT.T, 8));
-		pos.x = uniform()*L.x-L.x/2.0;
-		pos.y = uniform()*L.y-L.y/2.0;
-		pos.z = uniform()*L.z-L.z/2.0;
-		pos_old = pos;
-		t = t0;
-		if (gas_coll == true){
-			next_gas_coll_time = exponential(tc);
-		}
-		else
-			next_gas_coll_time = tf + 1.0;
-		if (dist == 'C') {
-			double3 vec;
-			vec.x = normal(0.0, 1.0);
-			vec.y = normal(0.0, 1.0);
-			vec.z = normal(0.0, 1.0);
-
-			double vec_norm = len(vec);
-			v = V_init * vec/vec_norm;
-		}
-		else if (dist == 'M') {
-			v.x = maxboltz(sqrtKT_m);
-			v.y = maxboltz(sqrtKT_m);
-			v.z = maxboltz(sqrtKT_m);
-		}
-		Vel = len(v);
-		v_old = v;
-	}
-
-	__PREPROCD__ ~particle() {};
-	__PREPROCD__ void calc_next_collision_time();
-	template <typename T> __PREPROCD__ double sgn(T val);
-	__PREPROCD__ void new_velocities();
-	__PREPROCD__ void move();
-	__PREPROCD__ void step();
-	__PREPROCD__ void run();
-	__PREPROCD__ outputDtype getState();
-	__PREPROCD__ void updateTF(double);
-    //rng related functions
-    __PREPROCD__ uint64_t rol64(uint64_t, int);
-    __PREPROCD__ uint64_t splitmix64();
-    __PREPROCD__ void xorshift128_init(uint64_t);
-    __PREPROCD__ uint64_t xoshiro256p();
-    __PREPROCD__ double uniform();
-    __PREPROCD__ double uniform(double, double);
-    __PREPROCD__ double normal(double, double);
-    __PREPROCD__ double maxboltz(const double);
-    __PREPROCD__ double unif02pi();
-    __PREPROCD__ double exponential(const double);
+	particle(const options OPT){
+        opt = OPT; //set the options
+        //allocate the various storage spaces
+        numBlocks = std::ceil((_PREC)opt.numParticles/(_PREC)opt.numPerGPUBlock);
+        numPartsPerBlock = opt.numPerGPUBlock;
+        #if defined(__HIPCC__)
+        //amd gpu allocation
+        hipMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
+        hipMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
+        hipMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
+        hipMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
+        hipMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
+        hipMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
+        hipMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
+        hipMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
+        hipMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
+        hipMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
+        hipMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
+        hipMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
+        hipMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
+        hipMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
+        hipMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
+        hipMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
+        hipMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
+        hipMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
+	hipMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles);
+        
+        #elif defined(__NVCOMPILER) || defined(__NVCC__)
+        //nvidia gpu allocation
+        cudaMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
+        cudaMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
+        cudaMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
+        cudaMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
+        cudaMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
+        cudaMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
+        cudaMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
+        cudaMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
+        cudaMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
+        cudaMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
+        cudaMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
+        cudaMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
+        cudaMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
+        cudaMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
+        cudaMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
+        cudaMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
+        cudaMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
+        cudaMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
+	cudaMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles); 
+        #else
+        //cpu allocation
+        S = (coords*)malloc(sizeof(coords)*OPT.numParticles); //spin state
+        v = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
+        v_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
+        pos = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
+        pos_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
+        t = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time
+        t_old = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time old
+        tf = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time final
+        dt = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //dt
+        next_gas_coll_time = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //gas collision time
+        h = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //step size
+        state = (rngState*)malloc(sizeof(rngState)*OPT.numParticles); //rng state
+        n_bounce = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
+        n_coll = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
+        n_steps = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
+        partID = (unsigned int*)malloc(sizeof(unsigned int)*OPT.numParticles);
+        failureState = (int*)malloc(sizeof(int)*OPT.numParticles);
+        stopParticle = (bool*)malloc(sizeof(bool)*OPT.numParticles);
+        coll_type = (char*)malloc(sizeof(char)*OPT.numParticles);
+        wall_hit = (char*)malloc(sizeof(char)*OPT.numParticles);
+        specagg = (SpectrumAggregator*)malloc(sizeof(SpectrumAggregator)*OPT.numParticles);
+        #endif
+    }
+    ~particle(){
+        #if defined(__HIPCC__)
+        //amd gpu de-allocation
+        hipFree(S); //spin state
+        hipFree(v); //velocity
+        hipFree(v_old);
+        hipFree(pos); //position
+        hipFree(pos_old); //position
+        hipFree(t); //time
+        hipFree(t_old); //time old
+        hipFree(tf); //time final
+        hipFree(dt); //dt
+        hipFree(next_gas_coll_time); //gas collision time
+        hipFree(h); //step size
+        hipFree(state); //rng state
+        hipFree(n_bounce);
+        hipFree(n_coll);
+        hipFree(n_steps);
+        hipFree(partID);
+        hipFree(failureState);
+        hipFree(stopParticle);
+        hipFree(coll_type);
+        hipFree(wall_hit);
+	hipFree(specagg);
+        
+        #elif defined(__NVCOMPILER) || defined(__NVCC__)
+        //nvidia gpu allocation
+        cudaFree(S); //spin state
+        cudaFree(v); //velocity
+        cudaFree(v_old);
+        cudaFree(pos); //position
+        cudaFree(pos_old); //position
+        cudaFree(t); //time
+        cudaFree(t_old); //time old
+        cudaFree(tf); //time final
+        cudaFree(dt); //dt
+        cudaFree(next_gas_coll_time); //gas collision time
+        cudaFree(h); //step size
+        cudaFree(state); //rng state
+        cudaFree(n_bounce);
+        cudaFree(n_coll);
+        cudaFree(n_steps);
+        cudaFree(partID);
+        cudaFree(failureState);
+        cudaFree(stopParticle);
+        cudaFree(coll_type);
+        cudaFree(wall_hit);
+	cudaFree(specagg);
+        
+        #else
+        //cpu allocation
+        free(S); //spin state
+        free(v); //velocity
+        free(v_old);
+        free(pos); //position
+        free(pos_old); //position
+        free(t); //time
+        free(t_old); //time old
+        free(tf); //time final
+        free(dt); //dt
+        free(next_gas_coll_time); //gas collision time
+        free(h); //step size
+        free(state); //rng state
+        free(n_bounce);
+        free(n_coll);
+        free(n_steps);
+        free(partID);
+        free(failureState);
+        free(stopParticle);
+        free(coll_type);
+        free(wall_hit);
+	free(specagg);
+        #endif
+    };
+    void initParticles(){
+        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+        initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old,
+                              pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
+                              state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit);
+        #else
+        initParticlesCPU(opt, S, v, v_old,
+                              pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
+                              state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit);
+        #endif
+    };
+    void runSimulation(_PREC nextTOut){
+        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+        runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
+                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
+                            partID, failureState, stopParticle,  coll_type, wall_hit, nextTOut);
+        #else
+        runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
+                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
+                            partID, failureState, stopParticle, coll_type, wall_hit, nextTOut);
+        #endif
+        
     
-
+    }
+    void outputData(FILE *f){
+        #if defined(__HIPCC__)
+        hipDeviceSynchronize();
+        #elif defined(__NVCOMPILER) || defined(__NVCC__)
+        cudaDeviceSynchronize();
+        #else
+        
+        #endif
+        fwrite(t, sizeof(_PREC), opt.numParticles, f);
+        fwrite(pos, sizeof(coords), opt.numParticles, f);
+        fwrite(v, sizeof(coords), opt.numParticles, f);
+        fwrite(S, sizeof(coords), opt.numParticles, f);
+        fwrite(failureState, sizeof(int), opt.numParticles, f);
+        fwrite(n_coll, sizeof(size_t), opt.numParticles, f);
+        fwrite(n_bounce, sizeof(size_t), opt.numParticles, f);
+        fwrite(n_steps, sizeof(size_t), opt.numParticles, f);
+    }
 private:
-	options opt;
-	bool diffuse;
-	bool gas_coll;
-	bool gravity;
-	double y = 0;
-	double theta = 0;
-	double phi = 0;
-	double m;
-	double tc;
-	double3 S;
-	double3 v;
-	double3 v_old;
-	double3 pos;
-	double3 pos_old;
-	double3 p_interp;
-	double3 v_interp;
-	double3 G;
-	double sqrtKT_m;
-	double V_init;
-	double Vel = 0.0;
-	double3 L;
-	char coll_type = 'W';
-	char dist = 'C';
-	double t0;
-	double tf;
-	double t;
-	double t_old;
-	double dt = 0.0;
-	double next_gas_coll_time;
-	double dx = 0.0;
-	double dy = 0.0;
-	double dz = 0.0;
-	double dtx = 0.0;
-	double dty = 0.0;
-	double dtz = 0.0;
-	double tbounce = 0.0;
-	char wall_hit = 'x';
-	double Temp = 4.2;
-	double3 B0 = {0.0, 0.0, 0.0};
-	double gamma;
-	unsigned int ipart;
-	unsigned int icount = 0;
-	unsigned long iprn;
-	double max_step = 0.001;
-	int integrationType = 0;//default to DOP853
-	double h;//keep track of hte step size in the particle;
-	
-	//all the various RNG related things
-	uint64_t seed = 0;
-    uint64_t splitmix64_state;
-    uint64_t rngState[4];
-    double spareRng;
-    bool hasSpare = false;
+    options opt;
+    int numPartsPerBlock;
+    int numBlocks;
+    coords *S;
+    coords *v;
+    coords *v_old;
+    coords *pos;
+    coords *pos_old;
+    _PREC *t;
+    _PREC *t_old;
+    _PREC *tf;
+    _PREC *dt;
+    _PREC *next_gas_coll_time;
+    _PREC *h;
+    //rng states
+    rngState *state;
+    size_t *n_bounce;
+    size_t *n_coll;
+    size_t *n_steps;
+    unsigned int *partID;
+    int *failureState;
+    bool *stopParticle;
+    char *coll_type;
+    char *wall_hit;
+    
+    coords *S_out;
+    coords *v_out;
+    coords *v_old_out;
+    coords *pos_out;
+    coords *pos_old_out;
+    _PREC *t_out;
+    _PREC *t_old_out;
+    _PREC *tf_out;
+    _PREC *dt_out;
+    _PREC *next_gas_coll_time_out;
+    _PREC *h_out;
+    //rng states
+    rngState *state_out;
+    size_t *n_bounce_out;
+    size_t *n_coll_out;
+    size_t *n_steps_out;
+    unsigned int *partID_out;
+    int* failureState_out;
+    bool *stopParticle_out;
+    char *coll_type_out;
+    char *wall_hit_out;
+    SpectrumAggregator *specagg;
 };
+
+__PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, 
+                                           _PREC& next_gas_coll_time, _PREC& dt, char& coll_type, 
+                                           size_t &n_bounce, size_t &n_coll, bool& finished, 
+                                           char& wall_hit, rngState& state, const options opt);
+template <typename T> __PREPROCD__ _PREC sgn(T val);
+__PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt, coords &pos_old, coords &pos, coords &v_old, coords &v, char& coll_type, char& wall_hit, rngState& state, bool &stopParticle, const options opt);
+__PREPROCD__ void sanity_check(_PREC &t_old, _PREC& t, coords &pos_old, coords &pos, coords& v, coords& v_old, char& coll_type, char& wall_hit, bool &stopParticle, int &failureState, const options opt);
+
+//rng related functions
+__PREPROCD__ uint64_t rol64(const uint64_t, const int);
+__PREPROCD__ void initRNG(rngState& state, unsigned long seed);
+__PREPROCD__ uint64_t xoshiro256p(rngState &state);
+__PREPROCD__ _PREC uniform(rngState &state);
+__PREPROCD__ _PREC uniform(rngState &state, const _PREC, const _PREC);
+__PREPROCD__ _PREC normal(rngState &state, const _PREC, const _PREC);
+__PREPROCD__ _PREC maxboltz(rngState &state, const _PREC);
+__PREPROCD__ _PREC unif02pi(rngState &state);
+__PREPROCD__ _PREC exponential(rngState &state, const _PREC);
+
+
 
 #endif

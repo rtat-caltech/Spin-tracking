@@ -4,6 +4,7 @@
 #include "options.h"
 #include<sstream>
 #include <string>
+#include <math.h>
 
 void parseLine(options& opt, std::string s);
 

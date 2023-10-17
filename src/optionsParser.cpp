@@ -48,37 +48,37 @@ void parseLine(options& opt, std::string s){
 	}
 	//now start the wall of comparisons for most things
 	if(elements.at(0) == "L"){
-		opt.L = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
+		opt.L = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
 	else if(elements.at(0) == "L"){
-		opt.yi = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
+		opt.yi = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
 	else if(elements.at(0) == "dist"){
 		opt.dist = elements.at(1)[0];
 	}
 	else if(elements.at(0) == "m"){
-		opt.m = std::stod(elements.at(1));
+		opt.m = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "gas_coll"){
 		opt.gas_coll = to_bool(elements.at(1));
 	}
 	else if(elements.at(0) == "T"){
-		opt.T = std::stod(elements.at(1));
+		opt.T = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "diffuse"){
-		opt.diffuse = to_bool(elements.at(1));
+		opt.diffuse = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "gamma"){
-		opt.gamma = std::stod(elements.at(1));
+		opt.gamma = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "V"){
-		opt.V = std::stod(elements.at(1));
+		opt.V = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "a"){
-		opt.a = std::stod(elements.at(1));
+		opt.a = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "w"){
-		opt.w = std::stod(elements.at(1));
+		opt.w = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "gravity"){
 		opt.gravity = to_bool(elements.at(1));
@@ -90,61 +90,61 @@ void parseLine(options& opt, std::string s){
 		opt.keepStepSize = to_bool(elements.at(1));
 	}
 	else if(elements.at(0) == "B0"){
-		opt.B0 = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
+		opt.B0 = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
 	else if(elements.at(0) == "E"){
-		opt.E = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
-	}
-	else if(elements.at(0) == "posHistBins"){
-		opt.posHistBins = {std::stod(elements.at(1)), std::stod(elements.at(2)), std::stod(elements.at(3))};
+		opt.E = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
 	else if(elements.at(0) == "t0"){
-		opt.t0 = std::stod(elements.at(1));
+		opt.t0 = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "tf"){
-		opt.tf = std::stod(elements.at(1));
+		opt.tf = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "rtol"){
-		opt.rtol = std::stod(elements.at(1));
+		opt.rtol = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "atol"){
-		opt.atol = std::stod(elements.at(1));
+		opt.atol = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "beta"){
-		opt.beta = std::stod(elements.at(1));
+		opt.beta = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "uround"){
-		opt.uround = std::stod(elements.at(1));
+		opt.uround = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "safe"){
-		opt.safe = std::stod(elements.at(1));
+		opt.safe = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "fac1"){
-		opt.fac1 = std::stod(elements.at(1));
+		opt.fac1 = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "fac2"){
-		opt.fac2 = std::stod(elements.at(1));
+		opt.fac2 = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "hmax"){
-		opt.hmax = std::stod(elements.at(1));
+		opt.hmax = (_PREC)std::stod(elements.at(1));
 	}
     else if(elements.at(0) == "hmin"){
-		opt.hmin = std::stod(elements.at(1));
+		opt.hmin = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "h"){
-		opt.h = std::stod(elements.at(1));
+		opt.h = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "nmax"){
 		opt.nmax = std::stoi(elements.at(1));
 	}
 	else if(elements.at(0) == "seed"){
-		opt.seed = std::stoi(elements.at(1));	
+		opt.seed = std::stoi(elements.at(1));
+	}
+	else if(elements.at(0) == "maxPosStep"){
+		opt.maxPosStep = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "integratorType"){
 		opt.integratorType = std::stoi(elements.at(1));
 	}
 	else if(elements.at(0) == "swapStepSize"){
-		opt.swapStepSize = std::stod(elements.at(1));
+		opt.swapStepSize = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "numParticles"){
 		opt.numParticles = std::stoi(elements.at(1));
@@ -152,17 +152,8 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "numPerGPUBlock"){
 		opt.numPerGPUBlock = std::stoi(elements.at(1));
 	}
-	else if(elements.at(0) == "output"){
-		opt.output = elements.at(1)[0];
-	}
-	else if(elements.at(0) == "numPhiBins"){
-		opt.numPhiBins = std::stoi(elements.at(1));
-	}
-	else if(elements.at(0) == "numThetaBins"){
-		opt.numThetaBins = std::stoi(elements.at(1));
-	}
 	else if(elements.at(0) == "ioutInt"){
-		opt.ioutInt = std::stod(elements.at(1));
+		opt.ioutInt = (_PREC)std::stod(elements.at(1));
 	}
 	else if(elements.at(0) == "iout"){
 		opt.iout = std::stoi(elements.at(1));
@@ -192,5 +183,9 @@ options optionParser(char * filename){
 	}
 	
 	file.close();
+    _PREC k = 1.380649e-23;
+    opts.tc = 1.6e-4*opts.m/(k*pow(opts.T, 8.0));
+    opts.sqrtKT_m = sqrt(k*opts.T/opts.m);
+    
 	return opts;
 }

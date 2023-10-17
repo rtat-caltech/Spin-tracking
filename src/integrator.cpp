@@ -17,27 +17,27 @@
 
 using namespace std;
 
-__PREPROC__ double sign(double a, double b)
+__PREPROC__ _PREC sign(_PREC a, _PREC b)
 {
   return (b < 0.0)? -abs(a) : abs(a);
 }
 
-__PREPROC__ double min_d(double a, double b)
+__PREPROC__ _PREC min_d(_PREC a, _PREC b)
 {
   return (a < b)?a:b;
 }
 
-__PREPROC__ double max_d(double a, double b)
+__PREPROC__ _PREC max_d(_PREC a, _PREC b)
 {
   return (a > b)?a:b;
 }
 
 // Extra pulse used for testing purposes
-__PREPROC__ double3 testNoise(const double t, double3 a, double3 w) {
-	return a * ((double3) {sin(w.x * t), sin(w.y * t), sin(w.z * t)});
+__PREPROC__ coords testNoise(const _PREC t, coords a, coords w) {
+	return a * ((coords) {sin(w.x * t), sin(w.y * t), sin(w.z * t)});
 }
 
-__PREPROC__ double3 pulse(const double t, double a, double w){
+__PREPROC__ coords pulse(const _PREC t, _PREC a, _PREC w){
 	return {0.0, 0.0, a * cos(w*t)};
 	//return {0.0, 0.0, 64.7766232e-6*cos(10000.0*t)};
 	//return {0.0, 0.0, 38.7505920e-6*cos(6000.0*t)};
@@ -45,22 +45,29 @@ __PREPROC__ double3 pulse(const double t, double a, double w){
 	//return {0.0, 0.0, 0.0};
 }
 
-__PREPROC__ double3 grad(double3& pos){
+__PREPROC__ coords grad(coords& pos){
 	//return {0.0, 0.0, pos.x*1.0e-9};
 	return {0.0, 0.0, 0.0};
 }
 
-__PREPROC__ void interpolate(const double t, const double t0, const double tf, 
-		const double3& p_old, const double3& p_new, const double3& v_old, 
-		const double3& v_new, double3& p_out, double3& v_out){
-	p_out = (p_old*(tf-t) + p_new*(t-t0))/(tf-t0);
-	// //("%f\t %f\t %f\n", p_old[0], p_out[0], p_new[0]);
-	v_out = v_old;
+__PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, 
+		const coords& p_old, const coords& p_new, const coords& v_old, 
+		const coords& v_new, coords& p_out, coords& v_out, const options OPT){
+    if(OPT.gravity){
+        const coords a = {0.0, G_CONST, 0.0};
+        p_out = p_old + v_old * (t-t0) + 0.5 * a * (t-t0)*(t-t0);
+        v_out = v_old + a * (t-t0);
+        
+    }
+    else{
+        p_out = p_old + v_old * (t-t0);
+        v_out = v_old;
+    }
 }
 
-__PREPROC__ double3 findCrossTerm(const double t, const options OPT, const double t0, const double tf, const double3 p_old,
-					 const double3 p_new, const double3 v_old, const double3 v_new){
-	double3 p, v, G, B, N;
+__PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t0, const _PREC tf, const coords p_old,
+					 const coords p_new, const coords v_old, const coords v_new){
+	coords p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
 	G = grad(p);
 	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
@@ -68,81 +75,27 @@ __PREPROC__ double3 findCrossTerm(const double t, const options OPT, const doubl
 	return OPT.gamma * B;
 }
 
-__PREPROC__ void Bloch(const double t, const double3& y, double3& f, const options OPT, 
-			const double t0, const double tf , const double3& p_old,
-			const double3& p_new, const double3& v_old, const double3& v_new){
-	double3 temp;
-	temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+__PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options OPT, 
+			const _PREC t0, const _PREC tf , const coords& p_old,
+			const coords& p_new, const coords& v_old, const coords& v_new){
+	const coords temp = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
 	f = cross(y, temp);
 }
 
-// double hinit(double x, double* y, double posneg, double* f0, double* f1, double* yy1, int iord, options OPT)
-// {
-//     double dnf, dny, atoli, rtoli, sk, h, h1, der2, der12, sqr;
-//     unsigned i;
-//     int n = 3;
-
-//     dnf = 0.0;
-//     dny = 0.0;
-//     atoli = OPT.atol;
-//     rtoli = OPT.rtol;
-
-//     for (i = 0; i < n; i++){
-//         sk = atoli + rtoli * std::abs(y[i]);
-//         sqr = f0[i] / sk;
-//         dnf += sqr*sqr;
-//         sqr = y[i] / sk;
-//         dny += sqr*sqr;
-//     }
-
-//     if ((dnf <= 1.0E-10) || (dny <= 1.0E-10))
-//     h = 1.0E-6;
-//     else
-//     h = sqrt (dny/dnf) * 0.01;
-
-//     h = min_d(h, OPT.hmax);
-//     h = sign(h, posneg);
-
-//     /* perform an explicit Euler step */
-//     for (i = 0; i < n; i++)
-//         yy1[i] = y[i] + h * f0[i];
-//     Bloch (x+h, yy1, f1);
-
-//     /* estimate the second derivative of the solution */
-//     der2 = 0.0;
-//     for (i = 0; i < n; i++){
-//         sk = atoli + rtoli * std::abs(y[i]);
-//         sqr = (f1[i] - f0[i]) / sk;
-//         der2 += sqr*sqr;
-//     }
-//     der2 = sqrt (der2) / h;
-
-//     /* step size is computed such that h**iord * max_d(norm(f0),norm(der2)) = 0.01 */
-//     der12 = max_d(std::abs(der2), sqrt(dnf));
-//     if (der12 <= 1.0E-15)
-//     h1 = max_d (1.0E-6, std::abs(h)*1.0E-3);
-//     else
-//     h1 = pow (0.01/der12, 1.0/(double)iord);
-//     h = min_d (100.0 * std::abs(h), min_d (h1, OPT.hmax));
-
-//     return sign (h, posneg);
-
-// }
-
-__PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		options OPT, double &h){
-    double3 yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
+__PREPROC__ int integrateDOP(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    coords yy1, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10;
     //int arret, idid;
     //int iasti, iord, irtrn, reject, last, nonsti;
     int reject, last;
-    double facold, expo1, fac, facc1, facc2, fac11, posneg, xph;
-    double err2, deno;
-    double3 erri, sqr, sk;
-    double atoli, rtoli, hlamb, err, hnew;
+    _PREC facold, expo1, fac, facc1, facc2, fac11, posneg, xph;
+    _PREC err2, deno;
+    coords erri, sqr, sk;
+    _PREC err, hnew;
     unsigned int nfcn = 0, nstep = 0, naccpt = 0, nrejct = 0;
-    double x = t0;
-    double xf = tf;
+    _PREC x = t0;
+    _PREC xf = tf;
     int n = 3;
     facold = 1.0E-4;
     expo1 = 1.0/8.0 - OPT.beta * 0.2;
@@ -151,15 +104,10 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
     posneg = sign(1.0, tf-t0);
 
     /* initial preparations */
-    atoli = OPT.atol;
-    rtoli = OPT.rtol;
     last  = 0;
-    hlamb = 0.0;
     ////("k1 prior = %lf %lf %lf\n", k1.x, k1.y, k1.z);
     Bloch(x, y, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
     ////("k1 post = %lf %lf %lf\n", k1.x, k1.y, k1.z);
-
-    double hmax = std::abs(OPT.hmax);
     // if (OPT.h == 0.0)
     //     h = hinit(fcn, x0, y, posneg, k1, k2, k3, iord, hmax, OPT.atol, OPT.rtol);
     nfcn += 2;
@@ -173,13 +121,14 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
     }*/
 
     while (1){
-        //printf("x = %0.17f, h = %0.17f\n", x, h);
         if (nstep > OPT.nmax){
             return -1;
         }
+        /*
         if (0.1 * std::abs(h) <= std::abs(x) * OPT.uround){
             return -3;
         }
+        */
         if ((x + 1.01*h - xf) * posneg > 0.0){
             h = xf - x;
             last = 1;
@@ -190,7 +139,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
         nstep++;
 
         /* the twelve stages */
-        ////("yy1 = %lf %lf %lf\n", yy1.x, yy1.y, yy1.z);
+        //printf("h = %0.17f, yy1 = %lf %lf %lf\n", h, yy1.x, yy1.y, yy1.z);
         yy1 = y + h * COEF::a21 * k1;
         ////("yy12 = %lf %lf %lf\n", yy1.x, yy1.y, yy1.z);
         Bloch(x+COEF::c2*h, yy1, k2, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -236,7 +185,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
         /* error estimation */
         err = 0.0;
         err2 = 0.0;
-		sk = atoli + rtoli * max_d3(fabs3(y), fabs3(k5));
+		sk = OPT.atol + OPT.rtol * max_d3(fabs3(y), fabs3(k5));
 		erri = k4 - COEF::bhh1*k1 - COEF::bhh2*k9 - COEF::bhh3*k3;
         sqr = erri / sk;
         err2 += sum(sqr*sqr);
@@ -248,7 +197,7 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
         deno = err + 0.01 * err2;
         if (deno <= 0.0)
 			deno = 1.0;
-        err = std::abs(h) * err * sqrt (1.0 / (deno*(double)n));
+        err = std::abs(h) * err * sqrt (1.0 / (deno*(_PREC)n));
 
         /* computation of hnew */
         fac11 = pow (err, expo1);
@@ -274,8 +223,8 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
                 return 1;
             }
 
-            if (std::abs(hnew) > hmax)
-                hnew = posneg * hmax;
+            if (std::abs(hnew) > OPT.hmax)
+                hnew = posneg * OPT.hmax;
             if (reject)
                 hnew = posneg * min_d (std::abs(hnew), std::abs(h));
             reject = 0;
@@ -294,86 +243,65 @@ __PREPROC__ int integrateDOP(double t0, double tf, double3& y, const double3& p_
 
 }
 
-__PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const double3& p_old, 
-		const double3& p_new, const double3& v_old, const double3& v_new, 
-		options OPT, double &h){
-	double t = t0;
+__PREPROC__ int integrateRK45(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    //traditional RK45 integrator
+	_PREC t = t0;
 	bool stop = false;
-	double hmin = OPT.hmin;
 	int nstep = 0;
-	double endOfSimulDt;
-	double lastH = h;
-	double3 k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
-	double error, tol, ratio, q;
-    double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
 	while(1){
 		nstep++;
         if (nstep > OPT.nmax){
+            //if we have taken too many steps, we should stop the code
             return -2;
         }
 		endOfSimulDt = tf - t; //how long until the end of the simulation
-        lastH = h;
+        lastH = h; //update our last time step that we took before we calculate the new step size
         if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
             h = OPT.h;
         }
         else{
-            h = min(h, OPT.hmax);
-            h = max(h, OPT.hmin);
+            //otherwise make sure h is in the valid range
+            //only throw an error if it takes too small of a step because that can kill the code
+            if(h > OPT.hmax)
+                h = min(h, OPT.hmax);
+            else if(h < OPT.hmin)
+                return -1;
         }
 		if(h >= endOfSimulDt){
+            //now check if h is too large for the amount of time left, if so make it the right size
 			h = endOfSimulDt;
-			stop = true;
+			stop = true; //tell the system to stop
 		}
 		else{
+            //otherwise we still think the system should be running and keep on going
             lastH = h;
-			stop = false;
-            if(h <= OPT.hmin){
-                return -1;
-            }
+            stop = false;
 		}
-		//sleep(1);
-		if(h < OPT.swapStepSize){ //in this case we want to use the traditional RK45 methodology
-			Bloch(t, yy1, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = y + h*RK45COEF::B21*k1;
-			Bloch(t+RK45COEF::A2*h, yy1, k2, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = y + h*RK45COEF::B31*k1 + h*RK45COEF::B32*k2;
-			Bloch(t+RK45COEF::A3*h, yy1, k3, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = y + h*RK45COEF::B41*k1 + h*RK45COEF::B42*k2 + h*RK45COEF::B43*k3;
-			Bloch(t+RK45COEF::A4*h, yy1, k4, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = y + h*RK45COEF::B51*k1 + h*RK45COEF::B52*k2 + h*RK45COEF::B53*k3 + h*RK45COEF::B54*k4;
-			Bloch(t+RK45COEF::A5*h, yy1, k5, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			yy1 = y + h*RK45COEF::B61*k1 + h*RK45COEF::B62*k2 + h*RK45COEF::B63*k3 + h*RK45COEF::B64*k4 + h*RK45COEF::B65*k5;
-			Bloch(t+RK45COEF::A6*h, yy1, k6, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			weightedStep = y + h*(k1*RK45COEF::CH1+k2*RK45COEF::CH2+k3*RK45COEF::CH3+k4*RK45COEF::CH4+k5*RK45COEF::CH5+k6*RK45COEF::CH6);
-			TE2 = h*(RK45COEF::CT1*k1 + RK45COEF::CT2*k2 + RK45COEF::CT3*k3 + RK45COEF::CT4*k4 + RK45COEF::CT5*k5 + RK45COEF::CT6*k6);
-		}
-		else{
-			k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			quaternion temp2 = rodriguezQuat(k1, RK45COEF::B21*h);
-			//yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
-			k2 = findCrossTerm(t+RK45COEF::A2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);
-			k3 = findCrossTerm(t+RK45COEF::A3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k3, RK45COEF::B43*h), qMult(rodriguezQuat(k2, RK45COEF::B42*h), rodriguezQuat(k1, RK45COEF::B41*h))), y);
-			k4 = findCrossTerm(t+RK45COEF::A4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k4, RK45COEF::B54*h), qMult(rodriguezQuat(k3, RK45COEF::B53*h), 
-					//qMult(rodriguezQuat(k2, RK45COEF::B52*h), rodriguezQuat(k1, RK45COEF::B51*h)))), y);
-			k5 = findCrossTerm(t+RK45COEF::A5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			//yy1 = qv_mult(qMult(rodriguezQuat(k5, RK45COEF::B65*h), qMult(rodriguezQuat(k4, RK45COEF::B64*h), 
-					//qMult(rodriguezQuat(k3, RK45COEF::B63*h), qMult(rodriguezQuat(k2, RK45COEF::B62*h), rodriguezQuat(k1, RK45COEF::B61*h))))), y);
-			k6 = findCrossTerm(t+RK45COEF::A6*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
-			weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RK45COEF::CH6), qMult(rodriguezQuat(k5, h*RK45COEF::CH5), 
-				qMult(rodriguezQuat(k4, h*RK45COEF::CH4), qMult(rodriguezQuat(k3, h*RK45COEF::CH3),
-				qMult(rodriguezQuat(k2, h*RK45COEF::CH2), rodriguezQuat(k1, h*RK45COEF::CH1)))))), y);
-			TE2 = qv_mult(qMult(rodriguezQuat(k5, h*RK45COEF::C5), qMult(rodriguezQuat(k4, h*RK45COEF::C4), 
-								qMult(rodriguezQuat(k3, h*RK45COEF::C3), qMult(rodriguezQuat(k2, h*RK45COEF::C2), 
-									rodriguezQuat(k1, h*RK45COEF::C1))))), y);
-			TE2 = weightedStep - TE2;
-		}
+        Bloch(t, yy1, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RK45COEF::B21*k1;
+        Bloch(t+RK45COEF::A2*h, yy1, k2, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RK45COEF::B31*k1 + h*RK45COEF::B32*k2;
+        Bloch(t+RK45COEF::A3*h, yy1, k3, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RK45COEF::B41*k1 + h*RK45COEF::B42*k2 + h*RK45COEF::B43*k3;
+        Bloch(t+RK45COEF::A4*h, yy1, k4, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RK45COEF::B51*k1 + h*RK45COEF::B52*k2 + h*RK45COEF::B53*k3 + h*RK45COEF::B54*k4;
+        Bloch(t+RK45COEF::A5*h, yy1, k5, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RK45COEF::B61*k1 + h*RK45COEF::B62*k2 + h*RK45COEF::B63*k3 + h*RK45COEF::B64*k4 + h*RK45COEF::B65*k5;
+        Bloch(t+RK45COEF::A6*h, yy1, k6, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        weightedStep = y + h*(k1*RK45COEF::CH1+k2*RK45COEF::CH2+k3*RK45COEF::CH3+k4*RK45COEF::CH4+k5*RK45COEF::CH5+k6*RK45COEF::CH6);
+        TE2 = h*(RK45COEF::CT1*k1 + RK45COEF::CT2*k2 + RK45COEF::CT3*k3 + RK45COEF::CT4*k4 + RK45COEF::CT5*k5 + RK45COEF::CT6*k6);
 		error = len(TE2);
 		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
 		tol = OPT.rtol; // TODO: incorporate abs and rel tols
@@ -402,23 +330,301 @@ __PREPROC__ int integrateRK45Hybrid(double t0, double tf, double3& y, const doub
 	return 0;
 }
 
-int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
-						const double3& p_new, const double3& v_old, const double3& v_new, options OPT, double& h){
-	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
-	double t = t0;
+__PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    //traditional RK45 integrator
+	_PREC t = t0;
 	bool stop = false;
-	double3 k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
-	double3 B1, B2, B3, B4, B5;
-	double3 y8, y6;
-	double beta1 = 0.7;
-	double beta2 = -0.4;
-	double accept_safety = 0.81;
-	double k = 7.0;
-	double prev_ratio = 1.0;
-	double endOfSimulDt = 0.0;
-	double q, tol, error, ratio;
+	int nstep = 0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
+	while(1){
+		nstep++;
+        if (nstep > OPT.nmax){
+            //if we have taken too many steps, we should stop the code
+            return -2;
+        }
+		endOfSimulDt = tf - t; //how long until the end of the simulation
+        lastH = h; //update our last time step that we took before we calculate the new step size
+        if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
+            h = OPT.h;
+        }
+        else{
+            //otherwise make sure h is in the valid range
+            //now check if h is too large for the amount of time left, if so make it the right size
+            if(h >= endOfSimulDt){
+                //end the simulation
+                h = endOfSimulDt;
+                stop = true; //tell the system to stop
+            }
+            else{
+                //otherwise we still think the system should be running and keep on going
+                lastH = h;
+                stop = false;
+                //make sure the new h value is allowed then
+                if(h > OPT.hmax)
+                    h = min(h, OPT.hmax);
+                else if(h < OPT.hmin)
+                    return -1;
+            }
+        }
+        Bloch(t, yy1, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RKF45COEF::B21*k1;
+        Bloch(t+RKF45COEF::A2*h, yy1, k2, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RKF45COEF::B31*k1 + h*RKF45COEF::B32*k2;
+        Bloch(t+RKF45COEF::A3*h, yy1, k3, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RKF45COEF::B41*k1 + h*RKF45COEF::B42*k2 + h*RKF45COEF::B43*k3;
+        Bloch(t+RKF45COEF::A4*h, yy1, k4, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RKF45COEF::B51*k1 + h*RKF45COEF::B52*k2 + h*RKF45COEF::B53*k3 + h*RKF45COEF::B54*k4;
+        Bloch(t+RKF45COEF::A5*h, yy1, k5, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        yy1 = y + h*RKF45COEF::B61*k1 + h*RKF45COEF::B62*k2 + h*RKF45COEF::B63*k3 + h*RKF45COEF::B64*k4 + h*RKF45COEF::B65*k5;
+        Bloch(t+RKF45COEF::A6*h, yy1, k6, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        weightedStep = y + h*(k1*RKF45COEF::C1+k2*RKF45COEF::C2+k3*RKF45COEF::C3+k4*RKF45COEF::C4+k5*RKF45COEF::C5+k6*RKF45COEF::C6);
+        TE2 = y + h*(RKF45COEF::CR1*k1 + RKF45COEF::CR2*k2 + RKF45COEF::CR3*k3 + RKF45COEF::CR4*k4 + RKF45COEF::CR5*k5 + RKF45COEF::CR6*k6);
+		error = len(TE2);
+		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
+		tol = OPT.rtol; // TODO: incorporate abs and rel tols
+		ratio = tol/error;
+
+		q = pow(ratio, beta1/k) * pow(prev_ratio, beta2/k);
+		q = min(q,4.0); // control stepsize growth
+		if (q > accept_safety && error < 2 * tol || OPT.fixedStepSize) {
+			//in this case the step is accepted, or we're doing fixed step sizes anyways
+			y = weightedStep;
+			t += h;
+			if(stop){
+                h = lastH;
+				return 0;
+			}
+		}
+		else{
+			if(stop){ //in this case we wanted to output but the step wasn't accepted so try again
+				stop = false;
+			}
+		}
+        if(!OPT.fixedStepSize)
+            h = h*q;
+		prev_ratio = ratio;
+	}
+	return 0;
+}
+
+__PREPROC__ int integrateRK45Quaternion(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    //traditional RK45 integrator
+	_PREC t = t0;
+	bool stop = false;
+	int nstep = 0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
+	while(1){
+		nstep++;
+        if (nstep > OPT.nmax){
+            //if we have taken too many steps, we should stop the code
+            return -2;
+        }
+		endOfSimulDt = tf - t; //how long until the end of the simulation
+        lastH = h; //update our last time step that we took before we calculate the new step size
+        if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
+            h = OPT.h;
+        }
+        else{
+            //otherwise make sure h is in the valid range
+            //now check if h is too large for the amount of time left, if so make it the right size
+            if(h >= endOfSimulDt){
+                //end the simulation
+                h = endOfSimulDt;
+                stop = true; //tell the system to stop
+            }
+            else{
+                //otherwise we still think the system should be running and keep on going
+                lastH = h;
+                stop = false;
+                //make sure the new h value is allowed then
+                if(h > OPT.hmax)
+                    h = min(h, OPT.hmax);
+                else if(h < OPT.hmin)
+                    return -1;
+            }
+        }
+        k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(rodriguezQuat(k1, RK45COEF::B21*h), y);
+        k2 = findCrossTerm(t+RK45COEF::A2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k2, RK45COEF::B32*h), rodriguezQuat(k1, RK45COEF::B31*h)), y);
+        k3 = findCrossTerm(t+RK45COEF::A3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k3, RK45COEF::B43*h), qMult(rodriguezQuat(k2, RK45COEF::B42*h), rodriguezQuat(k1, RK45COEF::B41*h))), y);
+        k4 = findCrossTerm(t+RK45COEF::A4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k4, RK45COEF::B54*h), qMult(rodriguezQuat(k3, RK45COEF::B53*h), 
+                //qMult(rodriguezQuat(k2, RK45COEF::B52*h), rodriguezQuat(k1, RK45COEF::B51*h)))), y);
+        k5 = findCrossTerm(t+RK45COEF::A5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k5, RK45COEF::B65*h), qMult(rodriguezQuat(k4, RK45COEF::B64*h), 
+                //qMult(rodriguezQuat(k3, RK45COEF::B63*h), qMult(rodriguezQuat(k2, RK45COEF::B62*h), rodriguezQuat(k1, RK45COEF::B61*h))))), y);
+        k6 = findCrossTerm(t+RK45COEF::A6*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RK45COEF::CH6), qMult(rodriguezQuat(k5, h*RK45COEF::CH5), 
+            qMult(rodriguezQuat(k4, h*RK45COEF::CH4), qMult(rodriguezQuat(k3, h*RK45COEF::CH3),
+            qMult(rodriguezQuat(k2, h*RK45COEF::CH2), rodriguezQuat(k1, h*RK45COEF::CH1)))))), y);
+        TE2 = qv_mult(qMult(rodriguezQuat(k5, h*RK45COEF::C5), qMult(rodriguezQuat(k4, h*RK45COEF::C4), 
+                            qMult(rodriguezQuat(k3, h*RK45COEF::C3), qMult(rodriguezQuat(k2, h*RK45COEF::C2), 
+                                rodriguezQuat(k1, h*RK45COEF::C1))))), y);
+        TE2 = weightedStep - TE2;
+		error = len(TE2);
+		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
+		tol = OPT.rtol; // TODO: incorporate abs and rel tols
+		ratio = tol/error;
+
+		q = pow(ratio, beta1/k) * pow(prev_ratio, beta2/k);
+		q = min(q,4.0); // control stepsize growth
+		if (q > accept_safety && error < 2 * tol || OPT.fixedStepSize) {
+			//in this case the step is accepted, or we're doing fixed step sizes anyways
+			y = weightedStep;
+			t += h;
+			if(stop){
+                h = lastH;
+				return 0;
+			}
+		}
+		else{
+			if(stop){ //in this case we wanted to output but the step wasn't accepted so try again
+				stop = false;
+			}
+		}
+        if(!OPT.fixedStepSize)
+            h = h*q;
+		prev_ratio = ratio;
+	}
+	return 0;
+}
+
+__PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords& y, const coords& p_old, 
+		const coords& p_new, const coords& v_old, const coords& v_new, 
+		const options OPT, _PREC &h){
+    //traditional RK45 integrator
+	_PREC t = t0;
+	bool stop = false;
+	int nstep = 0;
+	_PREC endOfSimulDt;
+	_PREC lastH = h;
+	coords k1, k2, k3, k4, k5, k6, yy1, TE2, weightedStep;
+	_PREC error, tol, ratio, q;
+    _PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
+	while(1){
+		nstep++;
+        if (nstep > OPT.nmax){
+            //if we have taken too many steps, we should stop the code
+            return -2;
+        }
+		endOfSimulDt = tf - t; //how long until the end of the simulation
+        lastH = h; //update our last time step that we took before we calculate the new step size
+        if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
+            h = OPT.h;
+        }
+        else{
+            //otherwise make sure h is in the valid range
+            //now check if h is too large for the amount of time left, if so make it the right size
+            if(h >= endOfSimulDt){
+                //end the simulation
+                h = endOfSimulDt;
+                stop = true; //tell the system to stop
+            }
+            else{
+                //otherwise we still think the system should be running and keep on going
+                lastH = h;
+                stop = false;
+                //make sure the new h value is allowed then
+                if(h > OPT.hmax)
+                    h = min(h, OPT.hmax);
+                else if(h < OPT.hmin)
+                    return -1;
+            }
+        }
+        k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(rodriguezQuat(k1, RKF45COEF::B21*h), y);
+        k2 = findCrossTerm(t+RKF45COEF::A2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k2, RKF45COEF::B32*h), rodriguezQuat(k1, RKF45COEF::B31*h)), y);
+        k3 = findCrossTerm(t+RKF45COEF::A3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k3, RKF45COEF::B43*h), qMult(rodriguezQuat(k2, RKF45COEF::B42*h), rodriguezQuat(k1, RKF45COEF::B41*h))), y);
+        k4 = findCrossTerm(t+RKF45COEF::A4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k4, RKF45COEF::B54*h), qMult(rodriguezQuat(k3, RKF45COEF::B53*h), 
+                //qMult(rodriguezQuat(k2, RKF45COEF::B52*h), rodriguezQuat(k1, RKF45COEF::B51*h)))), y);
+        k5 = findCrossTerm(t+RKF45COEF::A5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        //yy1 = qv_mult(qMult(rodriguezQuat(k5, RKF45COEF::B65*h), qMult(rodriguezQuat(k4, RKF45COEF::B64*h), 
+                //qMult(rodriguezQuat(k3, RKF45COEF::B63*h), qMult(rodriguezQuat(k2, RKF45COEF::B62*h), rodriguezQuat(k1, RKF45COEF::B61*h))))), y);
+        k6 = findCrossTerm(t+RKF45COEF::A6*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+        weightedStep = qv_mult(qMult(rodriguezQuat(k6, h*RKF45COEF::C6), qMult(rodriguezQuat(k5, h*RKF45COEF::C5), 
+            qMult(rodriguezQuat(k4, h*RKF45COEF::C4), qMult(rodriguezQuat(k3, h*RKF45COEF::C3),
+            qMult(rodriguezQuat(k2, h*RKF45COEF::C2), rodriguezQuat(k1, h*RKF45COEF::C1)))))), y);
+        TE2 = qv_mult(qMult(rodriguezQuat(k5, h*RKF45COEF::C5), qMult(rodriguezQuat(k4, h*RKF45COEF::C4), 
+                            qMult(rodriguezQuat(k3, h*RKF45COEF::C3), qMult(rodriguezQuat(k2, h*RKF45COEF::C2), 
+                                rodriguezQuat(k1, h*RKF45COEF::C1))))), y);
+        TE2 = weightedStep - TE2;
+		error = len(TE2);
+		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
+		tol = OPT.rtol; // TODO: incorporate abs and rel tols
+		ratio = tol/error;
+
+		q = pow(ratio, beta1/k) * pow(prev_ratio, beta2/k);
+		q = min(q,4.0); // control stepsize growth
+		if (q > accept_safety && error < 2 * tol || OPT.fixedStepSize) {
+			//in this case the step is accepted, or we're doing fixed step sizes anyways
+			y = weightedStep;
+			t += h;
+			if(stop){
+                h = lastH;
+				return 0;
+			}
+		}
+		else{
+			if(stop){ //in this case we wanted to output but the step wasn't accepted so try again
+				stop = false;
+			}
+		}
+        if(!OPT.fixedStepSize)
+            h = h*q;
+		prev_ratio = ratio;
+	}
+	return 0;
+}
+
+int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
+						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h){
+	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
+	_PREC t = t0;
+	bool stop = false;
+	coords k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11;
+	coords B1, B2, B3, B4, B5;
+	coords y8, y6;
+	_PREC beta1 = 0.7;
+	_PREC beta2 = -0.4;
+	_PREC accept_safety = 0.81;
+	_PREC k = 7.0;
+	_PREC prev_ratio = 1.0;
+	_PREC endOfSimulDt = 0.0;
+	_PREC q, tol, error, ratio;
 	unsigned int nstep = 0;
-    double lastH = h; //store the last iteration value of h
+    _PREC lastH = h; //store the last iteration value of h
 	while (1){
 		nstep++;
         if (nstep > OPT.nmax){
@@ -427,23 +633,28 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 		endOfSimulDt = tf - t; //how long until the end of the simulation
         lastH = h;
         if(OPT.fixedStepSize){
+            //if using a fixed step size use that value
             h = OPT.h;
         }
         else{
-            h = min(h, OPT.hmax);
-            h = max(h, OPT.hmin);
-        }
-		if(h >= endOfSimulDt){
-			h = endOfSimulDt;
-			stop = true;
-		}
-		else{
-            lastH = h;
-			stop = false;
-            if(h <= OPT.hmin){
-                return -1;
+            //otherwise make sure h is in the valid range
+            //now check if h is too large for the amount of time left, if so make it the right size
+            if(h >= endOfSimulDt){
+                //end the simulation
+                h = endOfSimulDt;
+                stop = true; //tell the system to stop
             }
-		}
+            else{
+                //otherwise we still think the system should be running and keep on going
+                lastH = h;
+                stop = false;
+                //make sure the new h value is allowed then
+                if(h > OPT.hmax)
+                    h = min(h, OPT.hmax);
+                else if(h < OPT.hmin)
+                    return -1;
+            }
+        }
 		B1 = findCrossTerm(t+GL5::X1*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
 		B2 = findCrossTerm(t+GL5::X2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
 		B3 = findCrossTerm(t+GL5::X3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -500,19 +711,19 @@ int integrateMagnusCFET(double t0, double tf, double3& y, const double3& p_old,
 	return 0;
 }
 
-double first_sample_point(double t0, double h) {
+_PREC first_sample_point(_PREC t0, _PREC h) {
 	// Returns the first Spectrum sample point for a time interval starting at t0.
 	// With sampling interval h
 	return (floor(t0/h)+1)*h; // The smallest multiple of h greater than t0
 }
 
-int integrateSpectrum(double t0, double tf, SpectrumAggregator& specagg, const double3& p_old, const double3& p_new, const double3& v_old, const double3& v_new, options OPT, const double h) {
+int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, options OPT, const _PREC h) {
 	// I'm doing it this way because I'm worried about floating point error
-	double t = first_sample_point(t0, h);
-	double next_t = first_sample_point(tf, h);
+	_PREC t = first_sample_point(t0, h);
+	_PREC next_t = first_sample_point(tf, h);
 	int n_steps = 0;
 	while (t < next_t - (h/2)) {
-		double3 B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
+		coords B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
 		specagg.update(B);
 		t += h;
 		n_steps++;
@@ -520,17 +731,17 @@ int integrateSpectrum(double t0, double tf, SpectrumAggregator& specagg, const d
 	return n_steps;
 }
 
-__PREPROC__ int integrateHamiltonian(double t0, double tf, quaternion& y, options OPT, double h) {
-	double t = t0;
+__PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h) {
+	_PREC t = t0;
 	quaternion q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11;
-	double3 B1, B2, B3, B4, B5;
-	double3 dummy = {0.0, 0.0, 0.0};
-	double3 p_old = dummy;
-	double3 p_new = dummy;
-	double3 v_old = dummy;
-	double3 v_new = dummy;
+	coords B1, B2, B3, B4, B5;
+	coords dummy = {0.0, 0.0, 0.0};
+	coords p_old = dummy;
+	coords p_new = dummy;
+	coords v_old = dummy;
+	coords v_new = dummy;
 
-	double endOfSimulDt = 0.0;
+	_PREC endOfSimulDt = 0.0;
 	unsigned int nstep = 0;
 	while (t < tf){
 		nstep++;
@@ -575,10 +786,10 @@ Matrix2d drhodt(Matrix2d rho, Matrix2d A) {
 	return m;
 }
 
-Matrix2cd integrateFloquetMarkov(double t0, double tf,  Matrix2cd rho, const double (&A)[2][2]) {
-	//double diagonal_decay = -(A(0, 0) + A(1, 1));
-	double off_diagonal_decay = -0.5 * (A[0][0] + A[0][1] + A[1][0] + A[1][1]);
-	double dt = tf - t0;
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const _PREC (&A)[2][2]) {
+	//_PREC diagonal_decay = -(A(0, 0) + A(1, 1));
+	_PREC off_diagonal_decay = -0.5 * (A[0][0] + A[0][1] + A[1][0] + A[1][1]);
+	_PREC dt = tf - t0;
 	Vector2cd p_diag_0;
 	p_diag_0 << rho(0, 0), rho(1, 1);
 	Matrix2d A_diag;
@@ -589,7 +800,7 @@ Matrix2cd integrateFloquetMarkov(double t0, double tf,  Matrix2cd rho, const dou
 	Vector2cd p_diag_1 = A_exp * p_diag_0;
 	rho(0, 0) = p_diag_1(0);
 	rho(1, 1) = p_diag_1(1);
-	double decay_factor = exp(off_diagonal_decay * dt);
+	_PREC decay_factor = exp(off_diagonal_decay * dt);
 	rho(0, 1) = rho(0, 1) * decay_factor;
 	rho(1, 0) = rho(1, 0) * decay_factor;
 	return rho;

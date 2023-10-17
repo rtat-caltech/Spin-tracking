@@ -15,6 +15,7 @@ using namespace std::chrono;
 options parseUserInput(int argc, char * argv[], char** outputName);
 
 int main(int argc, char* argv[]){
+	printf("%d\n", sizeof(particle));	
 	char * outputName;
 	options opt = parseUserInput(argc, argv, &outputName);
 	int totalTime = 3600; //total time allowed in seconds
