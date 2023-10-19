@@ -68,7 +68,7 @@ __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf,
 __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t0, const _PREC tf, const coords p_old,
 					 const coords p_new, const coords v_old, const coords v_new){
 	coords p, v, G, B, N;
-	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v);
+	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
 	G = grad(p);
 	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
 	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G + N;
@@ -274,10 +274,11 @@ __PREPROC__ int integrateRK45(const _PREC t0, const _PREC tf, coords& y, const c
         else{
             //otherwise make sure h is in the valid range
             //only throw an error if it takes too small of a step because that can kill the code
-            if(h > OPT.hmax)
-                h = min(h, OPT.hmax);
-            else if(h < OPT.hmin)
+            if(h > OPT.hmax) {
+                h = min(h, OPT.hmax);			
+            } else if(h < OPT.hmin) {
                 return -1;
+			}
         }
 		if(h >= endOfSimulDt){
             //now check if h is too large for the amount of time left, if so make it the right size
@@ -371,10 +372,11 @@ __PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const 
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+                } else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         Bloch(t, yy1, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -459,10 +461,11 @@ __PREPROC__ int integrateRK45Quaternion(const _PREC t0, const _PREC tf, coords& 
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+                } else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -554,10 +557,11 @@ __PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords&
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+				} else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -608,7 +612,7 @@ __PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords&
 	return 0;
 }
 
-int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
+__PREPROC__ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
 						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
 	_PREC t = t0;
@@ -649,10 +653,11 @@ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords&
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+				} else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
 		B1 = findCrossTerm(t+GL5::X1*h, OPT, t0, tf, p_old, p_new, v_old, v_new);

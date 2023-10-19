@@ -2,58 +2,6 @@
 #include <unistd.h>
 #include <chrono>
 
-floquetDiagonalization initializeSpectra(particle* particles, CovarianceSpectrum& cspec, options OPT) {
-	double t0 = 0.0;
-	double tf = (2*M_PI)/OPT.w; //TODO
-	int n_prop = 100;
-	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
-	quaternion y = {1, 0, 0, 0};
-	double h = 1e-6;
-	for (int i=0; i < n_prop; i++) {
-		double t1 = t0 + (tf - t0) * i/n_prop;
-		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
-		integrateHamiltonian(t1, t2, y, OPT, h);
-		propagators[i] = y;
-	}
-	
-	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
-	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
-
-	double ea = atan2(eigen_values.x, eigen_values.w);
-	double eb = -atan2(eigen_values.x, eigen_values.w);
-	double deltaE = ea - eb;
-
-	double frequencies[NW];
-	int count = 0;
-	for(int k=0; k < NK/2; k++) {
-		for (int i=-1; i < 2; i++) {
-			double w = deltaE * i + k * OPT.w;
-			if (w >= 0) {
-				frequencies[k*3 + i] = w;
-				count++;
-			}
-		}
-	}
-	for(unsigned int tid = 0; tid < OPT.numParticles; tid++){
-		particles[tid].specagg.initialize(frequencies, (tf - t0)/n_prop);
-	}
-	cspec.initialize(frequencies, (tf - t0)/n_prop);
-
-	floquetDiagonalization fd;
-	fd.propagators = propagators;
-	fd.f_modes_0 = eigen_vectors;
-	fd.f_energies = eigen_values;
-	fd.n_prop = n_prop;
-	return fd;
-}
-
-
-void aggregateSpectrum(particle* particles, CovarianceSpectrum& cspec, int numParticles) {
-	for(unsigned int tid = 0; tid < numParticles; tid++){
-		cspec.add(particles[tid].specagg.get_covariance_spectrum());
-	}
-}
-
 //this functions does the actual analysis and integration
 void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int seed){
 	#if defined(__NVCOMPILER) || defined(__HIPCC__) || defined(__NVCC__)
@@ -124,7 +72,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		particle p(opt);
 		p.initParticles();
 		CovarianceSpectrum cspec;
-		floquetDiagonalization fd = initializeSpectra(particles, cspec, opt);
+		floquetDiagonalization fd = p.initializeSpectra(cspec, opt);
 		p.outputData(f); //save the initial states
 		unsigned int numIterations = int(floor(_PREC(opt.tf - opt.t0)/opt.ioutInt));
 		
@@ -137,10 +85,9 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			p.runSimulation(nextTime);
 			if (opt.integratorType == 3) {
 				int n_samp = first_sample_point(((double) i)*opt.ioutInt, opt.h) - first_sample_point(nextTime, opt.h);
-				aggregateSpectrum(particles, cspec, opt.numParticles);				
+				p.aggregateSpectrum(cspec, opt.numParticles);				
 } else {
-p.outputDta(f);
-				handleOutput(f, particles, opt, buffers);
+				p.outputData(f);
 			}
 			
 			stop = std::chrono::high_resolution_clock::now();
@@ -165,7 +112,7 @@ p.outputDta(f);
 		cout << fd.propagators[fd.n_prop - 1] << endl;
 		rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
 		int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
-		double3 b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+		coords b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 		cout << "Final Bloch Vector:" << endl;
 		cout << b_end << endl;
 		cout << pow(fd.propagators[fd.n_prop - 1], n_period) * opt.yi << endl;

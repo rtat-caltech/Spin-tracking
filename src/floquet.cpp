@@ -20,18 +20,18 @@ using Eigen::Vector3cd;
 
 using namespace std;
 
-__PREPROC__ void goertzel_stage_1(const double3& x, double3& s1, double3& s2, double w, double dt) {
+__PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt) {
 	double angle = w * dt;	
-	double3 new_s = x + 2 * cos(angle) * s1 - s2;
+	coords new_s = x + 2 * cos(angle) * s1 - s2;
 	s2 = s1;
 	s1 = new_s;
 	return;
 }
 
-__PREPROC__ Matrix3cd goertzel_stage_2(const double3& s1, const double3& s2, double w, double dt) {
+__PREPROC__ Matrix3cd goertzel_stage_2(const coords& s1, const coords& s2, double w, double dt) {
 	double angle = w * dt;
-	double3 a = s1 - cos(angle) * s2;
-	double3 b = sin(angle) * s2;
+	coords a = s1 - cos(angle) * s2;
+	coords b = sin(angle) * s2;
 	Vector3cd c = {complex<double> (a.x, b.x), complex<double> (a.y, b.y), complex<double> (a.z, b.z)};
 	Matrix3cd m = c * c.adjoint();
 	return m;
@@ -99,7 +99,7 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 	return out;
 }
 
-__PREPROC__ void SpectrumAggregator::update(const double3& x) {
+__PREPROC__ void SpectrumAggregator::update(const coords& x) {
 	for (int i=0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
 	}
@@ -222,12 +222,12 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	return;
 }
 
-Matrix2cd bloch_to_density(double3 bloch) {
+Matrix2cd bloch_to_density(coords bloch) {
 	quaternion basis = {1, 0, 0, 0};
 	return bloch_to_density(bloch, basis);
 }
 
-Matrix2cd bloch_to_density(double3 bloch, quaternion basis) {
+Matrix2cd bloch_to_density(coords bloch, quaternion basis) {
 	Matrix2cd basis_matrix = toSU2(basis);
 	double x = bloch.x;
 	double y = bloch.y;
@@ -238,12 +238,12 @@ Matrix2cd bloch_to_density(double3 bloch, quaternion basis) {
 	return basis_matrix.adjoint() * rho * basis_matrix/2.0;
 }
 
-double3 density_to_bloch(Matrix2cd rho) {
+coords density_to_bloch(Matrix2cd rho) {
 	quaternion basis = {1, 0, 0, 0};
 	return density_to_bloch(rho, basis);
 }
 
-double3 density_to_bloch(Matrix2cd rho, quaternion basis) {
+coords density_to_bloch(Matrix2cd rho, quaternion basis) {
 	Matrix2cd sx, sy, sz;
 	Matrix2cd basis_matrix = toSU2(basis);
 	sx << 0, 1,
@@ -253,5 +253,5 @@ double3 density_to_bloch(Matrix2cd rho, quaternion basis) {
 	sz << 1, 0,
 		0, -1;
 	Matrix2cd rho_lab = basis_matrix * rho * basis_matrix.adjoint();
-	return double3 {abs((rho_lab * sx).trace()), abs((rho_lab * sy).trace()), abs((rho_lab * sz).trace())};
+	return coords {abs((rho_lab * sx).trace()), abs((rho_lab * sy).trace()), abs((rho_lab * sz).trace())};
 }

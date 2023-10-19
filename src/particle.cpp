@@ -480,7 +480,7 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, int * failureState, bool *stopParticle, char *coll_type, char *wall_hit){
+								 unsigned int *partID, int * failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg){
     unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
     if(ipart < opt.numParticles){
         rngState rng;
@@ -546,7 +546,8 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
         dt[ipart] = opt.h;
         h[ipart] = opt.h;
         stopParticle[ipart] = false;
-        coll_type[ipart] = 'W';       
+        coll_type[ipart] = 'W';
+		specagg[ipart] = SpectrumAggregator();
     }
 }
 
@@ -581,7 +582,7 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
         bool stopParticle = pstopParticle[ipart];
         char coll_type = pcoll_type[ipart];
         char wall_hit = pwall_hit[ipart];
-	SpectrumAggregator specagg = 
+		SpectrumAggregator specagg = pspecagg[ipart];
         dt = nextTOut - t;
         tf = nextTOut;
         bool finished = false;
@@ -665,7 +666,7 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
                               coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
                               _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
                               rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
-                              unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit){
+					  unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit, SpectrumAggregator *specagg){
     #if defined(_OPENMP)
     #pragma omp parallel for
     #endif
@@ -729,6 +730,7 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
         pstopParticle[ipart] = false;
         pcoll_type[ipart] = 'W';
         pfailureState[ipart] = 0;
+		specagg[ipart] = SpectrumAggregator();
     }
 }
 
@@ -765,6 +767,7 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
         bool stopParticle = pstopParticle[ipart];
         char coll_type = pcoll_type[ipart];
         char wall_hit = pwall_hit[ipart];
+		SpectrumAggregator specagg = pspecagg[ipart];
         dt = nextTOut - t;
         tf = nextTOut;
         bool finished = false;
@@ -844,3 +847,63 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
     }
 }
 #endif
+
+floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, options OPT) {
+	double t0 = 0.0;
+	double tf = (2*M_PI)/OPT.w; //TODO
+	int n_prop = 100;
+	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	quaternion y = {1, 0, 0, 0};
+	double h = 1e-6;
+	for (int i=0; i < n_prop; i++) {
+		double t1 = t0 + (tf - t0) * i/n_prop;
+		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
+		integrateHamiltonian(t1, t2, y, OPT, h);
+		propagators[i] = y;
+	}
+	
+	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
+	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
+
+	double ea = atan2(eigen_values.x, eigen_values.w);
+	double eb = -atan2(eigen_values.x, eigen_values.w);
+	double deltaE = ea - eb;
+
+	double frequencies[NW];
+	int count = 0;
+	for(int k=0; k < NK/2; k++) {
+		for (int i=-1; i < 2; i++) {
+			double w = deltaE * i + k * OPT.w;
+			if (w >= 0) {
+				frequencies[k*3 + i] = w;
+				count++;
+			}
+		}
+	}
+	for(unsigned int tid = 0; tid < OPT.numParticles; tid++){
+		specagg[tid].initialize(frequencies, (tf - t0)/n_prop);
+	}
+	cspec.initialize(frequencies, (tf - t0)/n_prop);
+
+	floquetDiagonalization fd;
+	fd.propagators = propagators;
+	fd.f_modes_0 = eigen_vectors;
+	fd.f_energies = eigen_values;
+	fd.n_prop = n_prop;
+	return fd;
+}
+
+
+void particle::aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles) {
+	for(unsigned int tid = 0; tid < numParticles; tid++){
+		cspec.add(specagg[tid].get_covariance_spectrum());
+	}
+}
+
+SpectrumAggregator* particle::getSpectrumAggregators() {
+	return specagg;
+}
+
+coords* particle::getVelocities() {
+	return v;
+}

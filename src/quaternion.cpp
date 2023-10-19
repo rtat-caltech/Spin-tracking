@@ -77,7 +77,7 @@ __PREPROC__ quaternion operator*(const quaternion q, const double a){
 	return out;
 }
 
-__PREPROC__ double3 operator*(const quaternion q, const double3 v1){
+__PREPROC__ coords operator*(const quaternion q, const coords v1){
 	return qv_mult(q, v1);
 }
 
@@ -134,8 +134,8 @@ __PREPROC__ quaternion qMult(const quaternion q1, const quaternion q2){
 	return out;
 }
 
-__PREPROC__ double3 qv_mult(const quaternion q1, const double3 v1){
-	double3 out;
+__PREPROC__ coords qv_mult(const quaternion q1, const coords v1){
+	coords out;
 	quaternion q2;
 	q2.x = v1.x;
 	q2.y = v1.y;
@@ -147,15 +147,15 @@ __PREPROC__ double3 qv_mult(const quaternion q1, const double3 v1){
 	return out;
 }
 
-__PREPROC__ quaternion rodriguezQuat(const double3 k, const double dt){
+__PREPROC__ quaternion rodriguezQuat(const coords k, const double dt){
 	double angle = len(k);
-	double3 norm = k/angle;
+	coords norm = k/angle;
 	double h = angle * dt;
 	norm = norm * -sin(h/2.0);
 	return quaternion(cos(h/2.0), norm.x, norm.y, norm.z);
 }
 
-__PREPROC__ double3 rodriguez(const double3 k, const double3 v1){
+__PREPROC__ coords rodriguez(const coords k, const coords v1){
 	double angle = len(k);
 	double s =  sin(angle);
 	double c = cos(angle);

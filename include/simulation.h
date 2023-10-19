@@ -62,13 +62,13 @@ void mainAnalysis(const options opt, int totalTime, char* outputName, unsigned i
 
 #if defined(__HIPCC__)
 __global__ void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, coords yi);
 #elif defined(__NVCOMPILER) || defined(__NVCC__)
 __global__ void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+__global__ void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, coords yi);
 #else
 void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
-void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, double3 yi);
+void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, coords yi);
 
 void aggregateSpectrum(particle*, CovarianceSpectrum&, int);
 

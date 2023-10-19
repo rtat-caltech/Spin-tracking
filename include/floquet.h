@@ -74,15 +74,15 @@ public:
 	}
 	__PREPROC__ void initialize(double (&freq)[NW], double dt);
 	__PREPROC__ CovarianceSpectrum get_covariance_spectrum();
-	__PREPROC__ void update(const double3& x);
+	__PREPROC__ void update(const coords& x);
 	__PREPROC__ void reset();
-
+	int n_samples;
+	
 private:
-	double3 s1[NW];
-	double3 s2[NW];
+	coords s1[NW];
+	coords s2[NW];
 	double w[NW];
 	double dt;
-	int n_samples;
 	__PREPROC__ void set_frequencies(double (&freq)[NW]);
 };
 
@@ -97,9 +97,9 @@ void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, d
 
 void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], double (&Gamma)[2][2][NK], double (&A)[2][2]);
 
-Matrix2cd bloch_to_density(double3 bloch);
-Matrix2cd bloch_to_density(double3 bloch, quaternion basis);
-double3 density_to_bloch(Matrix2cd rho);
-double3 density_to_bloch(Matrix2cd rho, quaternion basis);
+Matrix2cd bloch_to_density(coords bloch);
+Matrix2cd bloch_to_density(coords bloch, quaternion basis);
+coords density_to_bloch(Matrix2cd rho);
+coords density_to_bloch(Matrix2cd rho, quaternion basis);
 
 #endif
