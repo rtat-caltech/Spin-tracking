@@ -39,7 +39,7 @@ __PREPROC__ quaternion operator-(const quaternion, const quaternion);
 __PREPROC__ quaternion operator*(const quaternion, const quaternion);
 __PREPROC__ quaternion operator*(const quaternion, const double);
 __PREPROC__ quaternion operator*(const double, const quaternion);
-__PREPROC__ double3 operator*(const quaternion, const double3);
+__PREPROC__ coords operator*(const quaternion, const coords);
 __PREPROC__ quaternion operator/(const quaternion, const double);
 __PREPROC__ quaternion operator/(const double, const quaternion);
 __PREPROC__ quaternion operator/(const quaternion, const quaternion);
@@ -56,11 +56,11 @@ __PREPROC__ quaternion conj(const quaternion);
 __PREPROC__ quaternion conjugate(const quaternion); // Different name conj(q)
 __PREPROC__ quaternion qConjugate(const quaternion); // Another different name for conj(q)
 __PREPROC__ quaternion qMult(const quaternion, const quaternion);
-__PREPROC__ double3 qv_mult(const quaternion, const double3);
+__PREPROC__ coords qv_mult(const quaternion, const coords);
 __PREPROC__ quaternion qEigenval(const quaternion);
 __PREPROC__ quaternion qEigenvec(const quaternion);
-__PREPROC__ quaternion rodriguezQuat(const double3, const double);
-__PREPROC__ double3 rodriguez(const double3, const double3);
+__PREPROC__ quaternion rodriguezQuat(const coords, const double);
+__PREPROC__ coords rodriguez(const coords, const coords);
 Matrix2cd toSU2(const quaternion);
 quaternion pow(quaternion q, int n);
 	

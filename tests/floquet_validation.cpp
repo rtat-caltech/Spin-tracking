@@ -17,7 +17,7 @@ namespace boost { namespace math { namespace fpc {
 			struct tolerance_based< quaternion > : boost::true_type{};
 		} } }
 
-bool double3_compare(double3 a, double3 b, double tol) {
+bool coords_compare(coords a, coords b, double tol) {
 	return len(a - b) < tol;
 }
 
@@ -59,21 +59,21 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	opt.w = 1/tf * 2 * M_PI;
 	opt.atol = 1e-12;
 	opt.rtol = 1e-12;
-	double3 s0 = {0, 1, 0};
-	double3 s = {0, 1, 0};
+	coords s0 = {0, 1, 0};
+	coords s = {0, 1, 0};
 
 	int n_prop = 100;
 	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
 	quaternion y = {1, 0, 0, 0};
-	double3 dummy = {0, 0, 0};
+	coords dummy = {0, 0, 0};
 	double h = 1e-6;
 	for (int i=0; i < n_prop; i++) {
 		double t1 = t0 + (tf - t0) * i/n_prop;
 		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
 		integrateHamiltonian(t1, t2, y, opt, 1e-6);
 		integrateMagnusCFET(t1, t2, s, dummy, dummy, dummy, dummy, opt, h);
-		double3 a = y * s0;
-		double3 b = s;
+		coords a = y * s0;
+		coords b = s;
 	  	BOOST_TEST(a.x == b.x);
 		BOOST_TEST(a.y == b.y);
 		BOOST_TEST(a.z == b.z);
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	
 	double A_ref[2][2] = {{2.91394437e-02, 3.07337942e+00}, {6.70579412e-04, 2.91394437e-02}};
 	
-	double3 b_ref = {0., 0.98446036, -0.03025961};
+	coords b_ref = {0., 0.98446036, -0.03025961};
 
 	double Delta[2][2][NK] = {{{0}}};
 	double X[2][2][NK] = {{{0}}};
@@ -121,7 +121,6 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	for (int i=0; i < 2; i++) {
 		for (int j=0; j < 2; j++) {
 			BOOST_TEST(A[i][j] == A_ref[i][j]);
-			cout << i << ", " << j << ", " << A[i][j] << endl;
 			for (int k = 0; k < NK; k++) {
 				BOOST_TEST(Delta[i][j][k] == Delta_ref[i][j][k]);
 				BOOST_TEST(X[i][j][k] - X_ref[i][j][k] == 0);
@@ -131,11 +130,8 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	}
 
 	Matrix2cd rho = bloch_to_density(s0);
-	cout << "rho:" << endl;
-	cout << rho << endl;
 	rho = integrateFloquetMarkov(t0, (tf - t0) * 10 + t0, rho, A);
-	cout << rho << endl;
-	double3 sf = density_to_bloch(rho);
+	coords sf = density_to_bloch(rho);
 	BOOST_TEST(sf.x == b_ref.x);
 	BOOST_TEST(sf.y == b_ref.y);
 	BOOST_TEST(sf.z == b_ref.z);
@@ -154,11 +150,11 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-9)) {
 	opt.noiseFrequencies = {1.0e3, 3.5e3, -3.5e3}; // See the testNoise function in integrators.cpp
 	double t0 = 0.1;
 	double tf = 1.2;
-	double3 y = (double3){0, 0, 1};
-	double3 p_old = (double3) {0, 0, 0};
-	double3 p_new = (double3) {0, 0, 0};
-	double3 v_old = (double3) {0, 0, 0};
-	double3 v_new = (double3) {0, 0, 0};
+	coords y = (coords){0, 0, 1};
+	coords p_old = (coords) {0, 0, 0};
+	coords p_new = (coords) {0, 0, 0};
+	coords v_old = (coords) {0, 0, 0};
+	coords v_new = (coords) {0, 0, 0};
 	double B0 = 3e-6;
 	opt.B0 = {B0, 0.0, 0.0};
 	opt.E = {0.0, 0.0, 0.0};
@@ -167,6 +163,7 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-9)) {
 	opt.rtol = 1e-12;
 	opt.atol = 1e-12;
 	opt.gravity = false;
+	opt.numParticles = 1;
 	double dt = 1e-5;
 
 	SpectrumAggregator specagg;
@@ -174,21 +171,19 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-9)) {
 	w[0] = opt.noiseFrequencies.x;
 	w[1] = opt.noiseFrequencies.y;
 	w[2] = opt.noiseFrequencies.z;
-	particle* particles = (particle*) malloc(sizeof(particle)); // Just 1 particle
-	particles[0] = particle(opt.yi, opt, 0, 0);
-	particles[0].specagg.initialize(w, dt);
+	particle p = particle(opt);
+	p.initParticles();
+	p.getSpectrumAggregators()[0].initialize(w, dt);
 	
-	int n_steps = integrateSpectrum(t0, tf, particles[0].specagg, p_old, p_new, v_old, v_new, opt, dt);
+	int n_steps = integrateSpectrum(t0, tf, p.getSpectrumAggregators()[0], p_old, p_new, v_old, v_new, opt, dt);
 	CovarianceSpectrum spec;
 	spec.initialize(w, dt);
-	aggregateSpectrum(particles, spec, 1);
+	p.aggregateSpectrum(spec, opt.numParticles);
 	spec.normalize();
 
 	BOOST_TEST(spec.variance[0](0, 0).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt));
 	BOOST_TEST(spec.variance[1](1, 1).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt));
 	BOOST_TEST(spec.variance[2](2, 2).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt));
-
-	free(particles);
 }
 
 BOOST_AUTO_TEST_CASE(spectrum_diagonalization, * utf::tolerance(1e-9)) {
