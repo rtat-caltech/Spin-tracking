@@ -156,9 +156,9 @@ __PREPROC__ quaternion rodriguezQuat(const coords k, const double dt){
 }
 
 __PREPROC__ coords rodriguez(const coords k, const coords v1){
-	double angle = len(k);
-	double s =  sin(angle);
-	double c = cos(angle);
+	const _PREC angle = len(k);
+	const _PREC s =  sin(angle);
+	const _PREC c = cos(angle);
 	return v1 * c + (cross(v1, k) * (s/angle)) + k * (dot(k, v1) * (1.0 - c)/(angle * angle));
 }
 
