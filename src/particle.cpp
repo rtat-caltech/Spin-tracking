@@ -618,14 +618,16 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
                     //same as option 3 but for option 4's coefficients
                     spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
                 }
-		else if(opt.integratorType == 6){
-		  integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+				else if(opt.integratorType == 6){
+					integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+				}
                 else{
                     //do nothing
                     spinResult = 0;
-                }      
-                if(opt.keepStepSize)
-                    h = tempH;
+                }
+				if(opt.keepStepSize) {
+					h = tempH;
+				}
                 if (spinResult < 0){
                     stopParticle = true;
                     failureState = spinResult;
@@ -803,9 +805,9 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
                     //same as option 3 but for option 4's coefficients
                     spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
                 }
-		else if(opt.integratorType == 6){
-		  integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
-		}
+				else if(opt.integratorType == 6){
+					integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+				}
                 else{
                     //do nothing
                     spinResult = 0;
@@ -844,9 +846,18 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
         pcoll_type[ipart] = coll_type;
         pwall_hit[ipart] = wall_hit;
         ptf[ipart] = tf;
+		pspecagg[ipart] = specagg;
     }
 }
 #endif
+
+coords particle::spinMean() {
+	coords S_sum = {0, 0, 0};
+	for (int i = 0; i < opt.numParticles; i++) {
+		S_sum = S_sum + S[i];
+	}
+	return S_sum/opt.numParticles;
+}
 
 floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, options OPT) {
 	double t0 = 0.0;

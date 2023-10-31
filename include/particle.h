@@ -282,12 +282,13 @@ public:
 	floquetDiagonalization initializeSpectra(CovarianceSpectrum& cspec, options OPT);
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
-	
+	coords spinMean();
 private:
     options opt;
     int numPartsPerBlock;
     int numBlocks;
-    coords *S;
+
+	coords *S;
     coords *v;
     coords *v_old;
     coords *pos;

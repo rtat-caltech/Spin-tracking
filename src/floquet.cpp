@@ -190,7 +190,8 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 		}
 	}
 
-	for (int k = 0; k <= kmax*2; k++) {		
+
+	for (int k = 0; k <= kmax*2; k++) {
 		X[0][0][k] = sq(Xq[k].w) + sq(Xq[k].z);
 		X[1][1][k] = X[0][0][k];
 		X[0][1][k] = sq(Xq[k].x) + sq(Xq[k].y);
@@ -203,9 +204,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 			for (int j = 0; j < 2; j++) {
 				double f = (es[j] - es[i]) + (k - NK/2) * omega;
 				Delta[i][j][k] = f;
-				double power = 1/(pow(f * period, 2) + 1);
 				Gamma[i][j][k] = 2 * M_PI * X[i][j][k] * spec.lookup(f) * heaviside(f);
-				//Gamma[i][j][k] = 2 * M_PI * X[i][j][k] * power * heaviside(f);
 			}
 		}
 	}
@@ -235,7 +234,7 @@ Matrix2cd bloch_to_density(coords bloch, quaternion basis) {
 	Matrix2cd rho;
 	rho << (1 + z), (x - y * im_unit),
 		(x + y * im_unit), (1 - z);
-	return basis_matrix.adjoint() * rho * basis_matrix/2.0;
+	return basis_matrix * rho * basis_matrix.adjoint()/2.0;
 }
 
 coords density_to_bloch(Matrix2cd rho) {
@@ -252,6 +251,6 @@ coords density_to_bloch(Matrix2cd rho, quaternion basis) {
 		(0.0 + 1.0 * im_unit), 0;
 	sz << 1, 0,
 		0, -1;
-	Matrix2cd rho_lab = basis_matrix * rho * basis_matrix.adjoint();
-	return coords {abs((rho_lab * sx).trace()), abs((rho_lab * sy).trace()), abs((rho_lab * sz).trace())};
+	Matrix2cd rho_lab = basis_matrix.adjoint() * rho * basis_matrix;
+	return coords {(rho_lab * sx).trace().real(), (rho_lab * sy).trace().real(), (rho_lab * sz).trace().real()};
 }
