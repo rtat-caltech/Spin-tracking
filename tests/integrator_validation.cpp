@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_SUITE(IntegratorValidation)
 BOOST_AUTO_TEST_CASE(free_precession, * utf::tolerance(1e-9)) {
 	// Free precession test;
 	cout << "Testing free precession. With tol=1e-12 for T=0.1s, error should be < 1e-9" << endl;
-    double t0 = 0.1;
+	double t0 = 0.1;
 	double tf = 1.2;
 	coords y;
 	coords p_old = (coords) {0, 0, 0};

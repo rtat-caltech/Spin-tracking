@@ -80,7 +80,7 @@ void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                              unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *pspecagg, _PREC nextTOut);
+		      unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, _PREC nextTOut);
 #endif
 
 class particle
@@ -239,28 +239,16 @@ public:
     };
     void initParticles(){
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
-        initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old,
-                              pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-														  state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
+	    initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, 
+	                                                      pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
+	                                                      state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
         #else
-        initParticlesCPU(opt, S, v, v_old,
-                              pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-						 state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
+	    initParticlesCPU(opt, S, v, v_old,
+	                     pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
+	                     state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
         #endif
+        fd = initializeSpectra(cspec, opt);
     };
-    void runSimulation(_PREC nextTOut){
-        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
-        runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
-                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-														  partID, failureState, stopParticle,  coll_type, wall_hit, specagg, nextTOut);
-        #else
-        runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
-                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-						 partID, failureState, stopParticle, coll_type, wall_hit, specagg, nextTOut);
-        #endif
-        
-    
-    }
     void outputData(FILE *f){
         #if defined(__HIPCC__)
         hipDeviceSynchronize();
@@ -269,6 +257,7 @@ public:
         #else
         
         #endif
+	
         fwrite(t, sizeof(_PREC), opt.numParticles, f);
         fwrite(pos, sizeof(coords), opt.numParticles, f);
         fwrite(v, sizeof(coords), opt.numParticles, f);
@@ -278,10 +267,13 @@ public:
         fwrite(n_bounce, sizeof(size_t), opt.numParticles, f);
         fwrite(n_steps, sizeof(size_t), opt.numParticles, f);
     }
+	void runSimulation(_PREC nextTOut);
 	void aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles);
 	floquetDiagonalization initializeSpectra(CovarianceSpectrum& cspec, options OPT);
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
+	coords floquetResults();
+	void postProcess(FILE *f);
 	coords spinMean();
 private:
     options opt;
@@ -331,7 +323,10 @@ private:
     bool *stopParticle_out;
     char *coll_type_out;
     char *wall_hit_out;
+    //Floquet stuff
     SpectrumAggregator *specagg;
+    CovarianceSpectrum cspec;
+    floquetDiagonalization fd;
 };
 
 __PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, 
