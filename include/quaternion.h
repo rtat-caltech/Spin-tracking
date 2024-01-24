@@ -19,7 +19,7 @@ using Eigen::Matrix2cd;
 
 using namespace std;
 
-const complex im_unit = complex<double>(0.0, 1.0);
+const complex<double> im_unit = complex<double>(0.0, 1.0);
 
 struct quaternion{
 	double w = 0.0;

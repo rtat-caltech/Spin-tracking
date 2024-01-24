@@ -583,6 +583,7 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
         char coll_type = pcoll_type[ipart];
         char wall_hit = pwall_hit[ipart];
 		SpectrumAggregator specagg = pspecagg[ipart];
+		specagg.reset();
         dt = nextTOut - t;
         tf = nextTOut;
         bool finished = false;
@@ -770,6 +771,7 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
         char coll_type = pcoll_type[ipart];
         char wall_hit = pwall_hit[ipart];
 		SpectrumAggregator specagg = pspecagg[ipart];
+		specagg.reset();
         dt = nextTOut - t;
         tf = nextTOut;
         bool finished = false;
@@ -876,13 +878,12 @@ floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, op
 	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
 	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
 
-	double ea = atan2(eigen_values.x, eigen_values.w);
-	double eb = -atan2(eigen_values.x, eigen_values.w);
+	double ea = -atan2(eigen_values.z, eigen_values.w)/(tf - t0);
+	double eb = atan2(eigen_values.z, eigen_values.w)/(tf - t0);
 	double deltaE = ea - eb;
-
 	double frequencies[NW];
 	int count = 0;
-	for(int k=0; k < NK/2; k++) {
+	for(int k=0; k <= NK/2; k++) {
 		for (int i=-1; i < 2; i++) {
 			double w = deltaE * i + k * OPT.w;
 			if (w >= 0) {

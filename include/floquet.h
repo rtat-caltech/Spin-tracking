@@ -35,10 +35,10 @@ using Eigen::Vector2d;
 class Spectrum {
 public:
 	double frequencies[NW] = {0};
-	double power[NW] = {0};
+	complex<double> power[NW] = {0};
 	int size = NW;
 	int n_samples = 0;
-	double lookup(double frequency);
+	complex<double> lookup(double frequency);
 };
 
 class CovarianceSpectrum {
@@ -62,15 +62,19 @@ private:
 	int size = NW;
 };
 
+struct covMat {
+	// Compact representation of 3x3 covariance matrix state
+	coords real_diag;
+	coords imag_diag;
+	coords real_off_diag;
+	coords imag_off_diag;
+	__PREPROC__ void add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag);
+};	
+
 class SpectrumAggregator {
 public:
-	__PREPROC__ SpectrumAggregator()
-	{
-		for (int i = 0; i < NW; i++) {
-			s1[i] = {0, 0, 0};
-			s2[i] = {0, 0, 0};
-		}
-		n_samples = 0;
+	__PREPROC__ SpectrumAggregator() {
+		reset();
 	}
 	__PREPROC__ void initialize(double (&freq)[NW], double dt);
 	__PREPROC__ CovarianceSpectrum get_covariance_spectrum();
@@ -81,6 +85,7 @@ public:
 private:
 	coords s1[NW];
 	coords s2[NW];
+	covMat cmat[NW];
 	double w[NW];
 	double dt;
 	__PREPROC__ void set_frequencies(double (&freq)[NW]);
@@ -93,9 +98,9 @@ struct floquetDiagonalization {
 	int n_prop;
 };
 
-void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], double (&Gamma)[2][2][NK], double (&A)[2][2]);
+void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]);
 
-void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], double (&Gamma)[2][2][NK], double (&A)[2][2]);
+void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]);
 
 Matrix2cd bloch_to_density(coords bloch);
 Matrix2cd bloch_to_density(coords bloch, quaternion basis);

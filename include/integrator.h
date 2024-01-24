@@ -61,7 +61,7 @@ __PREPROC__ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specag
 
 int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h);
 
-Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, Matrix2cd rho, const _PREC (&A)[2][2]);
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2]);
 
 _PREC first_sample_point(_PREC, _PREC);
 

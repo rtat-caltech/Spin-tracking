@@ -18,6 +18,8 @@ using Eigen::Vector3cd;
 #define __PREPROC__ 
 #endif
 
+#define LAPLACE true
+
 using namespace std;
 
 __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt) {
@@ -26,6 +28,13 @@ __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, doubl
 	s2 = s1;
 	s1 = new_s;
 	return;
+}
+
+__PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const coords& s2, double w, double dt) {
+	double angle = w * dt;
+	coords a = s1 - cos(angle) * s2;
+	coords b = sin(angle) * s2;
+	return pair<coords, coords>(a, b);
 }
 
 __PREPROC__ Matrix3cd goertzel_stage_2(const coords& s1, const coords& s2, double w, double dt) {
@@ -47,7 +56,10 @@ void diagonalize(Matrix3cd H) {
 	return;
 }
 
-double Spectrum::lookup(double frequency) {
+complex<double> Spectrum::lookup(double frequency) {
+	if (frequency < 0) {
+		return conj(lookup(-frequency));
+	}
 	double bestdiff = numeric_limits<double>::infinity();
 	for (int i = 0; i < NW; i++) {
 		double diff = abs(frequencies[i] - frequency);
@@ -91,7 +103,7 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 		Spectrum spec;
 		for (int j = 0; j < NW; j++) {
 			spec.frequencies[j] = frequencies[j];
-			spec.power[j] = abs(variance[j](i, i));
+			spec.power[j] = variance[j](i, i);
 		}
 		pair<quaternion, Spectrum> p (c_ops[i], spec);
 		out.push_back(p);
@@ -99,9 +111,18 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 	return out;
 }
 
+__PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag) {
+	// Computes c + u v^dag
+	imag_diag = imag_diag + (u_imag * v_real - u_real * v_imag);
+}
+
+
 __PREPROC__ void SpectrumAggregator::update(const coords& x) {
 	for (int i=0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
+		pair<coords, coords> p = goertzel_stage_2_vector(s1[i], s2[i], w[i], dt);
+		//cmat[i] = cmat[i] + c * d.adjoint() - d * d.adjoint()/2;
+		cmat[i].add_outer(p.first, p.second, x, (coords) {0, 0, 0});
 	}
 	n_samples += 1;
 }
@@ -110,6 +131,10 @@ __PREPROC__ void SpectrumAggregator::reset() {
 	for (int i = 0; i < NW; i++) {
 		s1[i] = {0, 0, 0};
 		s2[i] = {0, 0, 0};
+		cmat[i].real_diag = {0, 0, 0};
+		cmat[i].imag_diag = {0, 0, 0};
+		cmat[i].real_off_diag = {0, 0, 0};
+		cmat[i].imag_off_diag = {0, 0, 0};		
 	}
 	n_samples = 0;
 }
@@ -118,7 +143,14 @@ __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	CovarianceSpectrum spec;
 	spec.initialize(w, dt, n_samples);
 	for (int i=0; i < NW; i++) {
-		spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
+		if (LAPLACE) {
+			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
+			spec.variance[i](0, 0) += complex<double> (0, cmat[i].imag_diag.x);
+			spec.variance[i](1, 1) += complex<double> (0, cmat[i].imag_diag.y);
+			spec.variance[i](2, 2) += complex<double> (0, cmat[i].imag_diag.z);
+		} else {
+			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
+		}
 	}
 	return spec;
 }
@@ -147,7 +179,11 @@ double sign(double x) {
 }
 
 double heaviside(double x) {
-	return (sign(x)+1)/2;
+	if (x == 0.0) {
+		return 0.5;
+	} else {
+		return (sign(x)+1)/2;
+	}
 }
 
 void print_as_su2(quaternion q) {
@@ -160,11 +196,11 @@ double sq(double x) {
 	return x * x;
 }
 
-void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], double (&Gamma)[2][2][NK], double (&A)[2][2]) {
-	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, period, spec, Delta, X, Gamma, A);
+void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]) {
+	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, period, spec, Delta, X, Gamma, Zeta);
 }
 
-void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], double (&Gamma)[2][2][NK], double (&A)[2][2]) {
+void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]) {
 	// The Floquet tensors will be stored in Delta, X, Gamma, A
 	// The inital contents of Delta, X, Gamma do not matter (and will be overwritten).
 	// The newly computed A will be added to its inital contents.
@@ -204,16 +240,16 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 			for (int j = 0; j < 2; j++) {
 				double f = (es[j] - es[i]) + (k - NK/2) * omega;
 				Delta[i][j][k] = f;
-				Gamma[i][j][k] = 2 * M_PI * X[i][j][k] * spec.lookup(f) * heaviside(f);
+				Gamma[i][j][k] = X[i][j][k] * spec.lookup(f);
 			}
 		}
 	}
 
-	// Now compute A
+	// Now compute Zeta (A = Zeta + Zeta^T)
 	for (int k = 0; k <= kmax * 2; k++) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
-				A[i][j] = A[i][j] + Gamma[i][j][k];
+				Zeta[i][j] = Zeta[i][j] + Gamma[i][j][k];
 			}
 		}
 	}
@@ -234,7 +270,7 @@ Matrix2cd bloch_to_density(coords bloch, quaternion basis) {
 	Matrix2cd rho;
 	rho << (1 + z), (x - y * im_unit),
 		(x + y * im_unit), (1 - z);
-	return basis_matrix * rho * basis_matrix.adjoint()/2.0;
+	return basis_matrix* rho * basis_matrix.adjoint()/2.0;
 }
 
 coords density_to_bloch(Matrix2cd rho) {

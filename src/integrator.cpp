@@ -782,31 +782,22 @@ __PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options 
 	return 0;
 }
 
-Matrix2d drhodt(Matrix2d rho, Matrix2d A) {
-	Matrix2d m;
-	m(0, 0) = -A(1,0) * rho(0,0) + A(0,1) * rho(1,1);
-	m(1, 1) = -m(0, 0);
-	m(0, 1) = -0.5 * m(0,1) * (A(0,0) + A(0,1) + A(1,0) + A(1,1));
-	m(1, 0) = -0.5 * m(1,0) * (A(0,0) + A(0,1) + A(1,0) + A(1,1));
-	return m;
-}
-
-Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const _PREC (&A)[2][2]) {
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2]) {
 	//_PREC diagonal_decay = -(A(0, 0) + A(1, 1));
-	_PREC off_diagonal_decay = -0.5 * (A[0][0] + A[0][1] + A[1][0] + A[1][1]);
 	_PREC dt = tf - t0;
 	Vector2cd p_diag_0;
 	p_diag_0 << rho(0, 0), rho(1, 1);
-	Matrix2d A_diag;
-	A_diag << -A[1][0], A[0][1],
-		A[1][0], -A[0][1];
-
-	Matrix2d A_exp = (A_diag * dt).exp();
+	Matrix2cd A_diag {
+		{-Zeta[1][0]+Zeta[0][1], Zeta[0][1]+Zeta[1][0]},
+		{Zeta[1][0]+Zeta[0][1], -Zeta[1][0]+Zeta[0][1]},
+	};
+	Matrix2cd A_exp = (A_diag * dt).exp();
 	Vector2cd p_diag_1 = A_exp * p_diag_0;
 	rho(0, 0) = p_diag_1(0);
 	rho(1, 1) = p_diag_1(1);
-	_PREC decay_factor = exp(off_diagonal_decay * dt);
-	rho(0, 1) = rho(0, 1) * decay_factor;
-	rho(1, 0) = rho(1, 0) * decay_factor;
+	complex<_PREC> decay_01 = -(Zeta[0][0] + Zeta[0][1] + Zeta[0][1] + Zeta[1][1]);
+	complex<_PREC> decay_10 = -(Zeta[1][0] + Zeta[1][1] + Zeta[0][0] + Zeta[1][0]);	
+	rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
+	rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
 	return rho;
 }

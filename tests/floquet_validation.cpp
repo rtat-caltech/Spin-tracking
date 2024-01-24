@@ -92,8 +92,8 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 
 	double Delta[2][2][NK] = {{{0}}};
 	double X[2][2][NK] = {{{0}}};
-	double Gamma[2][2][NK] = {{{0}}};
-	double A[2][2] = {{0}};
+	complex<double> Gamma[2][2][NK] = {{{0}}};
+	complex<double> Zeta[2][2] = {{0}};
 	
 	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
 	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
@@ -116,21 +116,21 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 		}
 	}
 	
-	floquet_master_equation_rates(eigen_vectors, eigen_values, c_op, propagators, n_prop, tf - t0, spec, Delta, X, Gamma, A);
+	floquet_master_equation_rates(eigen_vectors, eigen_values, c_op, propagators, n_prop, tf - t0, spec, Delta, X, Gamma, Zeta);
 
 	for (int i=0; i < 2; i++) {
 		for (int j=0; j < 2; j++) {
-			BOOST_TEST(A[i][j] == A_ref[i][j]);
+			BOOST_TEST(Zeta[i][j] + Zeta[j][i] == A_ref[i][j]);
 			for (int k = 0; k < NK; k++) {
 				BOOST_TEST(Delta[i][j][k] == Delta_ref[i][j][k]);
 				BOOST_TEST(X[i][j][k] - X_ref[i][j][k] == 0);
-				BOOST_TEST(Gamma[i][j][k] - Gamma_ref[i][j][k] == 0);
+				BOOST_TEST(abs(Gamma[i][j][k]) - Gamma_ref[i][j][k] == 0);
 			}
 		}
 	}
 
 	Matrix2cd rho = bloch_to_density(s0);
-	rho = integrateFloquetMarkov(t0, (tf - t0) * 10 + t0, rho, A);
+	rho = integrateFloquetMarkov(t0, (tf - t0) * 10 + t0, rho, Zeta);
 	coords sf = density_to_bloch(rho);
 	BOOST_TEST(sf.x == b_ref.x);
 	BOOST_TEST(sf.y == b_ref.y);
