@@ -16,7 +16,7 @@ ostream& operator<<(ostream& os, const quaternion& q) {
 	os << '{' << q.w << ", " << q.x << ", " << q.y << ", " << q.z << '}';
 	return os;
 }
-	
+
 __PREPROC__ quaternion qConjugate(const quaternion a){
 	quaternion out;
 	out.w = a.w;
@@ -47,7 +47,7 @@ __PREPROC__ quaternion operator+(const quaternion q1, const quaternion q2){
 	out.w = q1.w + q2.w;
 	out.x = q1.x + q2.x;
 	out.y = q1.y + q2.y;
-	out.z = q1.z + q2.z;	
+	out.z = q1.z + q2.z;
 	return out;
 }
 
@@ -156,9 +156,9 @@ __PREPROC__ quaternion rodriguezQuat(const coords k, const double dt){
 }
 
 __PREPROC__ coords rodriguez(const coords k, const coords v1){
-	double angle = len(k);
-	double s =  sin(angle);
-	double c = cos(angle);
+	const _PREC angle = len(k);
+	const _PREC s =  sin(angle);
+	const _PREC c = cos(angle);
 	return v1 * c + (cross(v1, k) * (s/angle)) + k * (dot(k, v1) * (1.0 - c)/(angle * angle));
 }
 
@@ -178,8 +178,12 @@ __PREPROC__ quaternion qEigenvec(const quaternion q) {
 
 Matrix2cd toSU2(const quaternion q) {
 	Matrix2cd out;
-	out << q.w + im_unit * q.z, q.y + im_unit * q.x,
-		-q.y + im_unit * q.x, q.w - im_unit * q.z;
+	complex<double> a, b, c, d;
+	a = q.w + im_unit * q.z;
+	b = q.y + im_unit * q.x;
+	c = -q.y + im_unit * q.x;
+	d = q.w - im_unit * q.z;
+	out << a, b, c, d;
 	return out;
 }
 
@@ -193,5 +197,5 @@ quaternion pow(quaternion q, int n) {
 		quaternion q2 = pow(q, half);
 		quaternion qr = pow(q, n - half - half);
 		return q2 * q2 * qr;
-	}	
+	}
 }

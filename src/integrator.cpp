@@ -391,7 +391,7 @@ __PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const 
         yy1 = y + h*RKF45COEF::B61*k1 + h*RKF45COEF::B62*k2 + h*RKF45COEF::B63*k3 + h*RKF45COEF::B64*k4 + h*RKF45COEF::B65*k5;
         Bloch(t+RKF45COEF::A6*h, yy1, k6, OPT, t0, tf, p_old, p_new, v_old, v_new);
         weightedStep = y + h*(k1*RKF45COEF::C1+k2*RKF45COEF::C2+k3*RKF45COEF::C3+k4*RKF45COEF::C4+k5*RKF45COEF::C5+k6*RKF45COEF::C6);
-        TE2 = y + h*(RKF45COEF::CR1*k1 + RKF45COEF::CR2*k2 + RKF45COEF::CR3*k3 + RKF45COEF::CR4*k4 + RKF45COEF::CR5*k5 + RKF45COEF::CR6*k6);
+        TE2 = h*(RKF45COEF::CR1*k1 + RKF45COEF::CR2*k2 + RKF45COEF::CR3*k3 + RKF45COEF::CR4*k4 + RKF45COEF::CR5*k5 + RKF45COEF::CR6*k6);
 		error = len(TE2);
 		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
 		tol = OPT.rtol; // TODO: incorporate abs and rel tols
@@ -733,6 +733,7 @@ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coo
 		t += h;
 		n_steps++;
 	}
+	
 	return n_steps;
 }
 

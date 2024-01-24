@@ -26,9 +26,9 @@ struct quaternion{
 	double x = 0.0; 
 	double y = 0.0;
 	double z = 0.0;
-quaternion() : w(0.0), x(0.0), y(0.0), z(0.0) {};
-quaternion(double real) : w(real), x(0.0), y(0.0), z(0.0) {};
-quaternion(double a, double b, double c, double d) : w(a), x(b), y(c), z(d) {};
+    __PREPROC__ quaternion() : w(0.0), x(0.0), y(0.0), z(0.0) {};
+    __PREPROC__ quaternion(double real) : w(real), x(0.0), y(0.0), z(0.0) {};
+    __PREPROC__ quaternion(double a, double b, double c, double d) : w(a), x(b), y(c), z(d) {};
 	friend ostream& operator<<(ostream& os, const quaternion& q);
 };
 

@@ -74,8 +74,6 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 		//now initialize all of the particles in the system
 		particle p(opt);
 		p.initParticles();
-		CovarianceSpectrum cspec;
-		floquetDiagonalization fd = p.initializeSpectra(cspec, opt);
 		p.outputData(f); //save the initial states
 		unsigned int numIterations = int(floor(_PREC(opt.tf - opt.t0)/opt.ioutInt));
 		
@@ -86,37 +84,13 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			_PREC nextTime = ((_PREC)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
 			start = std::chrono::high_resolution_clock::now();
 			p.runSimulation(nextTime);
-			if (opt.integratorType == 6) {
-				int n_samp = first_sample_point(((double) i)*opt.ioutInt, opt.h) - first_sample_point(nextTime, opt.h);
-				p.aggregateSpectrum(cspec, opt.numParticles);
-			} else {
-				p.outputData(f);
-			}
+			p.outputData(f);
 			
 			stop = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
-		cspec.normalize();
-		double Delta[2][2][NK] = {{{0}}};
-		double X[2][2][NK] = {{{0}}};
-		double Gamma[2][2][NK] = {{{0}}};
-		double A[2][2] = {{0}};
-
-		vector<pair<quaternion, Spectrum>> specs = cspec.extract();
-		Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
-		for (int i = 0; i < specs.size(); i++) {
-			quaternion c_op = specs.at(i).first;
-			Spectrum spec = specs.at(i).second;
-			floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w, spec, Delta, X, Gamma, A);
-		}
-		rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
-		int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
-		coords b_end = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
-
-		cout << "Final Bloch Vector:" << endl;
-		cout << b_end << endl;
-
+		p.postProcess(f);
 		fclose(f);
 		//destroyOutputBuffers(buffers, opt);
 	}
