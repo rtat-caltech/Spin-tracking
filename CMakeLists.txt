@@ -11,16 +11,16 @@ set(HEADER_DIRECTORY include)
 set(TEST_DIRECTORY tests)
 set(SOURCE_DIRECTORY src)
 
-file(GLOB SOURCES CONFIGURE_DEPENDS "${SOURCE_DIRECTORY}/*.cpp")
-file(GLOB UNIT_TESTS CONFIGURE_DEPENDS "${TEST_DIRECTORY}/*.cpp")
-file(GLOB LOCAL_HEADERS CONFIGURE_DEPENDS "${HEADER_DIRECTORY}/*.h")
+file(GLOB SOURCES CONFIGURE_DEPENDS "${SOURCE_DIRECTORY}/[a-zA-Z]*.cpp")
+file(GLOB UNIT_TESTS CONFIGURE_DEPENDS "${TEST_DIRECTORY}/[a-zA-Z]*.cpp")
+file(GLOB LOCAL_HEADERS CONFIGURE_DEPENDS "${HEADER_DIRECTORY}/[a-zA-Z]*.h")
 
 # Create library
 add_library(mainlib ${SOURCES} ${LOCAL_HEADERS})
 target_include_directories(mainlib PRIVATE ${HEADER_DIRECTORY})
 
 target_compile_features(mainlib PUBLIC cxx_std_17)
-target_compile_options(mainlib PRIVATE -w) # Suppress warnings
+target_compile_options(mainlib PRIVATE -w -lineinfo) # Suppress warnings
 
 IF (CMAKE_CUDA_ARCHITECTURES)
   find_package(CUDA 11.8 REQUIRED)
