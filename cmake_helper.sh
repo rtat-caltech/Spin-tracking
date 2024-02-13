@@ -21,6 +21,14 @@ cmake -DCMAKE_CUDA_ARCHITECTURES=60 -S . -B build/cuda # CUDA
 
 cmake -S . -B build/cpu #CPU
 
+################
+# Debug Builds #
+################
+
+# For debug builds, add the flag -DCMAKE_BUILD_TYPE=Debug so for example,
+
+cmake -DCMAKE_CUDA_ARCHITECTURES=60 -DCMAKE_BUILD_TYPE=Debug -S . -B build/cuda_debug # CUDA
+
 #########################
 # All subsequent builds #
 #########################

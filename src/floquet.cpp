@@ -196,15 +196,16 @@ double sq(double x) {
 	return x * x;
 }
 
-void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]) {
-	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, period, spec, Delta, X, Gamma, Zeta);
+void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
+	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, period, spec, Delta, X, Gamma, Zeta, Omicron);
 }
 
-void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], double (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2]) {
+void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
 	// The Floquet tensors will be stored in Delta, X, Gamma, A
 	// The inital contents of Delta, X, Gamma do not matter (and will be overwritten).
 	// The newly computed A will be added to its inital contents.
 	quaternion Xq[NK] = {0};
+	double Xsq[2][2][NK] = {{{0}}};
 	quaternion Xqr[NK] = {0};
 	quaternion Xqi[NK] = {0};
 	double omega = 2 * M_PI/period;
@@ -226,12 +227,17 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 		}
 	}
 
-
 	for (int k = 0; k <= kmax*2; k++) {
-		X[0][0][k] = sq(Xq[k].w) + sq(Xq[k].z);
-		X[1][1][k] = X[0][0][k];
-		X[0][1][k] = sq(Xq[k].x) + sq(Xq[k].y);
-		X[1][0][k] = sq(Xq[2*kmax-k].x) + sq(Xq[2*kmax-k].y);
+		X[0][0][k] = Xq[k].z - im_unit * Xq[k].w;
+		X[1][1][k] = conj(X[0][0][k]);
+		X[0][1][k] = Xq[k].x - im_unit * Xq[k].y;
+		X[1][0][k] = Xq[2*kmax-k].x + im_unit * Xq[2*kmax-k].y;
+
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 2; j++) {
+				Xsq[i][j][k] = norm(X[i][j][k]);
+			}
+		}
 	}
 
 	// Now compute Gamma
@@ -240,7 +246,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 			for (int j = 0; j < 2; j++) {
 				double f = (es[j] - es[i]) + (k - NK/2) * omega;
 				Delta[i][j][k] = f;
-				Gamma[i][j][k] = X[i][j][k] * spec.lookup(f);
+				Gamma[i][j][k] = Xsq[i][j][k] * spec.lookup(f) * 2.0 * M_PI * heaviside(f);
 			}
 		}
 	}
@@ -249,7 +255,18 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	for (int k = 0; k <= kmax * 2; k++) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
-				Zeta[i][j] = Zeta[i][j] + Gamma[i][j][k];
+				Zeta[i][j] = Zeta[i][j] + Xsq[i][j][k] * spec.lookup(Delta[i][j][k]);
+			}
+		}
+	}
+
+	// Now compute Omicron
+	for (int k = 0; k <= kmax * 2; k++) {
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 2; j++) {
+				double f = (k - NK/2) * omega;
+				Omicron[i][j] = Omicron[i][j] + spec.lookup(f)
+					* X[i][i][k] * conj(X[j][j][k]);
 			}
 		}
 	}

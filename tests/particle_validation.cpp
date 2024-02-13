@@ -32,8 +32,6 @@ BOOST_AUTO_TEST_CASE(initialization) {
 		vsum = vsum + vp;
 		vsqsum = pow(len(vp), 2) + vsqsum;
 	}
-	cout << vsum << endl;
-	cout << vsqsum << endl;
 	// Pretty loose test of MB distribution
 	BOOST_TEST(abs(vsum.x/ntrial/sqrt(k * opt.T/opt.m)) < 2e-2); // This is around 7 sigma
 	BOOST_TEST(abs(vsum.y/ntrial/sqrt(k * opt.T/opt.m)) < 2e-2);

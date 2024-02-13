@@ -39,15 +39,10 @@ __PREPROC__ coords testNoise(const _PREC t, coords a, coords w) {
 
 __PREPROC__ coords pulse(const _PREC t, _PREC a, _PREC w){
 	return {0.0, 0.0, a * cos(w*t)};
-	//return {0.0, 0.0, 64.7766232e-6*cos(10000.0*t)};
-	//return {0.0, 0.0, 38.7505920e-6*cos(6000.0*t)};
-	//return {0.0, 0.0, 19.1024180e-6*cos(3000.0*t)};
-	//return {0.0, 0.0, 0.0};
 }
 
-__PREPROC__ coords grad(coords& pos){
-	//return {0.0, 0.0, pos.x*1.0e-9};
-	return {0.0, 0.0, 0.0};
+__PREPROC__ coords grad(coords& pos, const options OPT){
+	return {dot(pos, OPT.Gx), dot(pos, OPT.Gy), dot(pos, OPT.Gz)};
 }
 
 __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, 
@@ -69,7 +64,7 @@ __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t
 					 const coords p_new, const coords v_old, const coords v_new){
 	coords p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
-	G = grad(p);
+	G = grad(p, OPT);
 	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
 	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G + N;
 	return OPT.gamma * B;
@@ -783,7 +778,7 @@ __PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options 
 	return 0;
 }
 
-Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2]) {
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2], const complex<_PREC> (&Omicron)[2][2]) {
 	//_PREC diagonal_decay = -(A(0, 0) + A(1, 1));
 	_PREC dt = tf - t0;
 	Vector2cd p_diag_0;
@@ -792,13 +787,26 @@ Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const compl
 		{-Zeta[1][0]+Zeta[0][1], Zeta[0][1]+Zeta[1][0]},
 		{Zeta[1][0]+Zeta[0][1], -Zeta[1][0]+Zeta[0][1]},
 	};
+
 	Matrix2cd A_exp = (A_diag * dt).exp();
 	Vector2cd p_diag_1 = A_exp * p_diag_0;
 	rho(0, 0) = p_diag_1(0);
 	rho(1, 1) = p_diag_1(1);
 	complex<_PREC> decay_01 = -(Zeta[0][0] + Zeta[0][1] + Zeta[0][1] + Zeta[1][1]);
-	complex<_PREC> decay_10 = -(Zeta[1][0] + Zeta[1][1] + Zeta[0][0] + Zeta[1][0]);	
-	rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
-	rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
+	complex<_PREC> decay_10 = -(Zeta[1][0] + Zeta[1][1] + Zeta[0][0] + Zeta[1][0]);
+	
+	Matrix2cd A_off_diag {
+		{Omicron[0][1] + decay_01, Omicron[1][0]},
+		{Omicron[0][1], Omicron[1][0] + decay_10},
+	};
+	Matrix2cd A_off_diag_exp = (A_off_diag * dt).exp();
+	Vector2cd p_off_diag_0;
+	p_off_diag_0 << rho(0, 1), rho(1, 0);
+	Vector2cd p_off_diag_1 = A_off_diag_exp * p_off_diag_0;
+	rho(0, 1) = p_off_diag_1(0);
+	rho(1, 0) = p_off_diag_1(1);
+	
+	//rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
+	//rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
 	return rho;
 }

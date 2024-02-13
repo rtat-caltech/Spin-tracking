@@ -53,6 +53,16 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "yi"){
 		opt.yi = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
+	else if(elements.at(0) == "Gx"){
+		opt.Gx = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+	else if(elements.at(0) == "Gy"){
+		opt.Gy = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+	else if(elements.at(0) == "Gz"){
+		opt.Gz = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+
 	else if(elements.at(0) == "dist"){
 		opt.dist = elements.at(1)[0];
 	}

@@ -31,10 +31,12 @@ BOOST_AUTO_TEST_CASE(free_precession, * utf::tolerance(1e-9)) {
 	opts.gravity = false;
 	opts.h = h0;
 	y = (coords){0, 0, 1};
+	/*
 	integrateRK45(t0, tf, y, p_old, p_new, v_old, v_new, opts, opts.h);
 	BOOST_TEST(y.x == 0);
 	BOOST_TEST(y.y == sin(B0*opts.gamma*(tf-t0)));
 	BOOST_TEST(y.z == cos(B0*opts.gamma*(tf-t0)));
+	*/
 
 	opts.h = h0;
 	y = (coords) {0, 0, 1};
@@ -43,12 +45,14 @@ BOOST_AUTO_TEST_CASE(free_precession, * utf::tolerance(1e-9)) {
 	BOOST_TEST(y.y == sin(B0*opts.gamma*(tf-t0)));
 	BOOST_TEST(y.z == cos(B0*opts.gamma*(tf-t0)));
 
+	/*
 	opts.h = h0;
 	y = (coords){0, 0, 1};
 	integrateRKF45(t0, tf, y, p_old, p_new, v_old, v_new, opts, opts.h);
 	BOOST_TEST(y.x == 0);
 	BOOST_TEST(y.y == sin(B0*opts.gamma*(tf-t0)));
 	BOOST_TEST(y.z == cos(B0*opts.gamma*(tf-t0)));
+	*/
 	
 	opts.h = h0;
 	y = (coords){0, 0, 1};

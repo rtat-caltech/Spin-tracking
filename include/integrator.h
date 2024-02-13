@@ -45,7 +45,7 @@ __PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options 
 
 __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, coords& p_out, coords& v_out, const options OPT);
 
-__PREPROC__ coords grad(coords&);
+__PREPROC__ coords grad(coords&, const options);
 
 __PREPROC__ int integrateDOP(_PREC t0, _PREC tf, coords& y, const coords& p_old, const coords& p_new, 
 	const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
@@ -61,7 +61,7 @@ __PREPROC__ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specag
 
 int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h);
 
-Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2]);
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2], const complex<_PREC> (&Omicron)[2][2]);
 
 _PREC first_sample_point(_PREC, _PREC);
 

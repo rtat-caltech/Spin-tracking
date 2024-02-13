@@ -12,6 +12,9 @@ struct options{
 	coords E = {75e5, 0.0, 0.0};
 	coords L = {0.07, 0.1, 0.4};
 	coords yi = {0.0, 0.0, 1.0};
+	coords Gx = {0.0, 0.0, 0.0};
+	coords Gy = {0.0, 0.0, 0.0};
+	coords Gz = {0.0, 0.0, 0.0};	
 	
 	_PREC m = 1.20239e-26; //2.2*5e-27; 
 	_PREC t0 = 0.0;

@@ -63,7 +63,7 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator* specagg);
+								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator* specagg, floquetDiagonalization fd);
 __global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_old,
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
@@ -75,7 +75,7 @@ void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                               rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg);
+					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg, floquetDiagonalization fd);
 void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
                               coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                               _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
@@ -238,16 +238,16 @@ public:
         #endif
     };
     void initParticles(){
+		fd = initializeSpectra(cspec, opt);
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 	    initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, 
 	                                                      pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-	                                                      state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
+	                                                      state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg, fd);
         #else
 	    initParticlesCPU(opt, S, v, v_old,
 	                     pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
-	                     state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg);
+	                     state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg, fd);
         #endif
-        fd = initializeSpectra(cspec, opt);
     };
     void outputData(FILE *f){
         #if defined(__HIPCC__)

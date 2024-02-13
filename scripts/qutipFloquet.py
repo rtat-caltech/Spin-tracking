@@ -31,7 +31,7 @@ f_modes_table_t = qutip.floquet_modes_table(f_modes_0, f_energies, tlist, H, T, 
 Delta, X, Gamma, A = qutip.floquet_master_equation_rates(f_modes_0, f_energies, c_op, H, T, args, J_cb, w_th, kmax=5, f_modes_table_t=f_modes_table_t)
 
 rho0 = (qutip.sigmay() + qutip.qeye(2))/2
-R = qutip.floquet_master_equation_tensor([A], f_energies)
+R = qutip.floquet_master_equation_tensor([(A + A.T)/np.pi], f_energies)
 res = qutip.floquet_markov_mesolve(R, rho0, [0, T * 10], [qutip.sigmax(), qutip.sigmay(), qutip.sigmaz()], options=options).expect
 
 bx, by, bz = res
@@ -54,6 +54,8 @@ directory = join(scripts_directory, 'floquet_matrices')
 print(f'Saved tensors to {directory}')
 save(join(directory, 'Delta.txt'), Delta)
 save(join(directory, 'X.txt'), np.abs(X)*np.abs(X))
+save(join(directory, 'X_re.txt'), np.real(X))
+save(join(directory, 'X_im.txt'), np.imag(X))
 save(join(directory, 'Gamma.txt'), Gamma)
 save(join(directory, 'A.txt'), A)
 save(join(directory, 'b.txt'), b)

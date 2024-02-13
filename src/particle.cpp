@@ -451,7 +451,7 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
                                  coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
                                  _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
                                  rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-                                 unsigned int *partID, int * failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg) {
+                                 unsigned int *partID, int * failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg, floquetDiagonalization fd) {
 	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
 	if(ipart < opt.numParticles) {
 		rngState rng;
@@ -518,6 +518,7 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
 		stopParticle[ipart] = false;
 		coll_type[ipart] = 'W';
 		specagg[ipart] = SpectrumAggregator();
+		specagg[ipart].initialize(fd.frequencies, fd.dt);
 	}
 }
 
@@ -638,7 +639,7 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
                       coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
                       _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
                       rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
-                      unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit, SpectrumAggregator *specagg) {
+                      unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit, SpectrumAggregator *specagg, floquetDiagonalization fd) {
 #if defined(_OPENMP)
 #pragma omp parallel for
 #endif
@@ -701,6 +702,7 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pcoll_type[ipart] = 'W';
 		pfailureState[ipart] = 0;
 		specagg[ipart] = SpectrumAggregator();
+		specagg[ipart].initialize(fd.frequencies, fd.dt);
 	}
 }
 
@@ -832,9 +834,10 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 coords particle::floquetResults() {
 	cspec.normalize();
 	double Delta[2][2][NK] = {{{0}}};
-	double X[2][2][NK] = {{{0}}};
-	double Gamma[2][2][NK] = {{{0}}};
-	double A[2][2] = {{0}};
+	complex<double> X[2][2][NK] = {{{0}}};
+	complex<double> Gamma[2][2][NK] = {{{0}}};
+	complex<double> Zeta[2][2] = {{0}};
+	complex<double> Omicron[2][2] = {{0}};
   
 	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
 	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
@@ -842,9 +845,9 @@ coords particle::floquetResults() {
 		quaternion c_op = specs.at(i).first;
 		Spectrum spec = specs.at(i).second;
 		floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w,spec, 
-		                              Delta, X, Gamma, A);
+		                              Delta, X, Gamma, Zeta, Omicron);
 	}
-	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, A);
+	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
 	int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
 	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 }
@@ -913,15 +916,16 @@ floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, op
 			}
 		}
 	}
-	for(unsigned int tid = 0; tid < OPT.numParticles; tid++) {
-		specagg[tid].initialize(frequencies, (tf - t0)/n_prop);
-	}
 	cspec.initialize(frequencies, (tf - t0)/n_prop);
 
 	floquetDiagonalization fd;
 	fd.propagators = propagators;
 	fd.f_modes_0 = eigen_vectors;
 	fd.f_energies = eigen_values;
+	for(int i = 0; i < NW; i++) {
+		fd.frequencies[i] = frequencies[i];
+	}
+	fd.dt = (tf - t0)/n_prop;
 	fd.n_prop = n_prop;
 	return fd;
 }
