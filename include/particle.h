@@ -45,6 +45,7 @@ inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=tr
 #include "integrator.h"
 #include "options.h"
 #include "double3.h"
+#include "outputHandling.h"
 
 struct rngState{
     uint64_t x;
@@ -254,7 +255,8 @@ public:
         
     
     }
-    void outputData(FILE *f){
+    void outputData(OutputHandler out){
+		// n * t * d
         #if defined(__HIPCC__)
         hipDeviceSynchronize();
         #elif defined(__NVCOMPILER) || defined(__NVCC__)
@@ -262,6 +264,7 @@ public:
         #else
         
         #endif
+		/*
         fwrite(t, sizeof(_PREC), opt.numParticles, f);
         fwrite(pos, sizeof(coords), opt.numParticles, f);
         fwrite(v, sizeof(coords), opt.numParticles, f);
@@ -270,6 +273,15 @@ public:
         fwrite(n_coll, sizeof(size_t), opt.numParticles, f);
         fwrite(n_bounce, sizeof(size_t), opt.numParticles, f);
         fwrite(n_steps, sizeof(size_t), opt.numParticles, f);
+		*/
+		out.write<_PREC>(t, "Time");
+		out.write<coords>(pos, "Position");
+		out.write<coords>(v, "Velocity");
+		out.write<coords>(S, "Spin");
+		out.write<int>(failureState, "Failure State");
+		out.write<size_t>(n_coll, "Num Collisions");
+		out.write<size_t>(n_bounce, "Num Bounces");
+		out.write<size_t>(n_steps, "Num Steps");
     }
 private:
     options opt;

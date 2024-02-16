@@ -11,6 +11,7 @@
 #include "../include/options.h"
 #include "../include/coeff.h"
 #include "../include/particle.h"
+#include "../include/outputHandling.h"
 
 #if defined(__HIPCC__)
 #include <hip/hip_runtime.h>
