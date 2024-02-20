@@ -31,6 +31,7 @@ public:
 	// It is assumed that the number of items to write = # of particles
 	template <typename T> void write(T* data, char* datasetName) {
 		if (use_hdf5) {
+			/*
 			DataType myType = get_h5_type(data);
 			hsize_t fdim[] = {opt.numParticles, nsave};
 			DataSpace fspace(2, fdim);
@@ -44,6 +45,8 @@ public:
 				att.write(PredType::NATIVE_INT, &nt0);
 				delete dset;
 			}
+			*/
+			/*
 			DataSet* dataset = new DataSet(f5->openDataSet(datasetName));
 			// Add row
 			Attribute attr = dataset->openAttribute("nt");
@@ -62,6 +65,7 @@ public:
 			//mspace.selectHypevectorrslab(H5S_SELECT_SET, count_m, start_m);			
 			dataset->write(data, myType, mspace, fspace);
 			delete dataset;
+			*/
 		} else {
 			fwrite(data, sizeof(int), opt.numParticles, f);
 		}

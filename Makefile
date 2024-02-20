@@ -9,7 +9,7 @@ vpath %.h include/
 ##This is the CPU compilation section
 CC = g++ 
 LIBRARY_PATH= -L /usr/local/lib
-CC_FLAGS= -g -w -O3 -std=c++17 -fPIC -fopenmp
+CC_FLAGS= -g -w -O3 -std=c++17 -fPIC
 CC_INCLUDES = -I /usr/local/include
 LIBRARIES = -lhdf5 -lhdf5_hl -lhdf5_cpp
 
@@ -48,7 +48,7 @@ BUILD = build/
 
 TEST = tests/
 TEST_MAIN = test_main
-TEST_SOURCES = integrator_validation.cpp particle_validation.cpp
+TEST_SOURCES = output_tests.cpp
 
 EXECS = bit64
 
