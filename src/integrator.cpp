@@ -32,17 +32,17 @@ __PREPROC__ _PREC max_d(_PREC a, _PREC b)
   return (a > b)?a:b;
 }
 
-__PREPROC__ coords pulse(const _PREC t, _PREC a, _PREC w){
-	return {0.0, 0.0, a * cos(w*t)};
-	//return {0.0, 0.0, 64.7766232e-6*cos(10000.0*t)};
-	//return {0.0, 0.0, 38.7505920e-6*cos(6000.0*t)};
-	//return {0.0, 0.0, 19.1024180e-6*cos(3000.0*t)};
-	//return {0.0, 0.0, 0.0};
+// Extra pulse used for testing purposes
+__PREPROC__ coords testNoise(const _PREC t, coords a, coords w) {
+	return a * ((coords) {sin(w.x * t), sin(w.y * t), sin(w.z * t)});
 }
 
-__PREPROC__ coords grad(coords& pos){
-	//return {0.0, 0.0, pos.x*1.0e-9};
-	return {0.0, 0.0, 0.0};
+__PREPROC__ coords pulse(const _PREC t, _PREC a, _PREC w){
+	return {0.0, 0.0, a * cos(w*t)};
+}
+
+__PREPROC__ coords grad(coords& pos, const options OPT){
+	return {dot(pos, OPT.Gx), dot(pos, OPT.Gy), dot(pos, OPT.Gz)};
 }
 
 __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, 
@@ -62,10 +62,11 @@ __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf,
 
 __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t0, const _PREC tf, const coords p_old,
 					 const coords p_new, const coords v_old, const coords v_new){
-	coords p, v;
+	coords p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
-	const coords G = grad(p);
-	const coords B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
+	G = grad(p, OPT);
+	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
+	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G + N;
 	return OPT.gamma * B;
 }
 
@@ -268,10 +269,11 @@ __PREPROC__ int integrateRK45(const _PREC t0, const _PREC tf, coords& y, const c
         else{
             //otherwise make sure h is in the valid range
             //only throw an error if it takes too small of a step because that can kill the code
-            if(h > OPT.hmax)
-                h = min(h, OPT.hmax);
-            else if(h < OPT.hmin)
+            if(h > OPT.hmax) {
+                h = min(h, OPT.hmax);			
+            } else if(h < OPT.hmin) {
                 return -1;
+			}
         }
 		if(h >= endOfSimulDt){
             //now check if h is too large for the amount of time left, if so make it the right size
@@ -365,10 +367,11 @@ __PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const 
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+                } else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         Bloch(t, yy1, k1, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -383,7 +386,7 @@ __PREPROC__ int integrateRKF45(const _PREC t0, const _PREC tf, coords& y, const 
         yy1 = y + h*RKF45COEF::B61*k1 + h*RKF45COEF::B62*k2 + h*RKF45COEF::B63*k3 + h*RKF45COEF::B64*k4 + h*RKF45COEF::B65*k5;
         Bloch(t+RKF45COEF::A6*h, yy1, k6, OPT, t0, tf, p_old, p_new, v_old, v_new);
         weightedStep = y + h*(k1*RKF45COEF::C1+k2*RKF45COEF::C2+k3*RKF45COEF::C3+k4*RKF45COEF::C4+k5*RKF45COEF::C5+k6*RKF45COEF::C6);
-        TE2 = y + h*(RKF45COEF::CR1*k1 + RKF45COEF::CR2*k2 + RKF45COEF::CR3*k3 + RKF45COEF::CR4*k4 + RKF45COEF::CR5*k5 + RKF45COEF::CR6*k6);
+        TE2 = h*(RKF45COEF::CR1*k1 + RKF45COEF::CR2*k2 + RKF45COEF::CR3*k3 + RKF45COEF::CR4*k4 + RKF45COEF::CR5*k5 + RKF45COEF::CR6*k6);
 		error = len(TE2);
 		error = max(error, 1.0E-16); //do this to prevent the step size from collapsing
 		tol = OPT.rtol; // TODO: incorporate abs and rel tols
@@ -453,10 +456,11 @@ __PREPROC__ int integrateRK45Quaternion(const _PREC t0, const _PREC tf, coords& 
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+                } else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -548,10 +552,11 @@ __PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords&
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+				} else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
         k1 = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -602,7 +607,7 @@ __PREPROC__ int integrateRKF45Quaternion(const _PREC t0, const _PREC tf, coords&
 	return 0;
 }
 
-int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
+__PREPROC__ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords& p_old,
 						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h){
 	// An implementation of the 8-th order scheme from https://arxiv.org/pdf/1102.5071.pdf
 	_PREC t = t0;
@@ -643,10 +648,11 @@ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords&
                 lastH = h;
                 stop = false;
                 //make sure the new h value is allowed then
-                if(h > OPT.hmax)
+                if(h > OPT.hmax) {
                     h = min(h, OPT.hmax);
-                else if(h < OPT.hmin)
+				} else if(h < OPT.hmin) {
                     return -1;
+				}
             }
         }
 		B1 = findCrossTerm(t+GL5::X1*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
@@ -703,4 +709,171 @@ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, const coords&
 		prev_ratio = ratio;
 	}
 	return 0;
+}
+
+_PREC first_sample_point(_PREC t0, _PREC h) {
+	// Returns the first Spectrum sample point for a time interval starting at t0.
+	// With sampling interval h
+	return (floor(t0/h)+1)*h; // The smallest multiple of h greater than t0
+}
+
+int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, options OPT, const _PREC h) {
+	// I'm doing it this way because I'm worried about floating point error
+	_PREC t = first_sample_point(t0, h);
+	_PREC next_t = first_sample_point(tf, h);
+	int n_steps = 0;
+	while (t < next_t - (h/2)) {
+		coords B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
+		specagg.update(B);
+		t += h;
+		n_steps++;
+	}
+	
+	return n_steps;
+}
+
+__PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h) {
+	_PREC t = t0;
+	quaternion q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11;
+	coords B1, B2, B3, B4, B5;
+	coords dummy = {0.0, 0.0, 0.0};
+	coords p_old = dummy;
+	coords p_new = dummy;
+	coords v_old = dummy;
+	coords v_new = dummy;
+
+	_PREC endOfSimulDt = 0.0;
+	unsigned int nstep = 0;
+	while (t < tf){
+		nstep++;
+        if (nstep > OPT.nmax){
+            return -2;
+        }
+		endOfSimulDt = tf - t;
+		if(h >= endOfSimulDt){
+			h = endOfSimulDt;
+		}
+		
+		B1 = findCrossTerm(t+GL5::X1*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B2 = findCrossTerm(t+GL5::X2*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B3 = findCrossTerm(t+GL5::X3*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B4 = findCrossTerm(t+GL5::X4*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		B5 = findCrossTerm(t+GL5::X5*h, OPT, t0, tf, p_old, p_new, v_old, v_new);
+
+		q11 = rodriguezQuat((CFET8::G15 * B1 + CFET8::G14 * B2 + CFET8::G13 * B3 + CFET8::G12 * B4 + CFET8::G11 * B5), h);
+		q10 = rodriguezQuat((CFET8::G25 * B1 + CFET8::G24 * B2 + CFET8::G23 * B3 + CFET8::G22 * B4 + CFET8::G21 * B5), h);
+		q9 = rodriguezQuat((CFET8::G35 * B1 + CFET8::G34 * B2 + CFET8::G33 * B3 + CFET8::G32 * B4 + CFET8::G31 * B5), h);
+		q8 = rodriguezQuat((CFET8::G45 * B1 + CFET8::G44 * B2 + CFET8::G43 * B3 + CFET8::G42 * B4 + CFET8::G41 * B5), h);
+		q7 = rodriguezQuat((CFET8::G55 * B1 + CFET8::G54 * B2 + CFET8::G53 * B3 + CFET8::G52 * B4 + CFET8::G51 * B5), h);
+		q6 = rodriguezQuat((CFET8::G61 * B1 + CFET8::G62 * B2 + CFET8::G63 * B3 + CFET8::G64 * B4 + CFET8::G65 * B5), h);
+		q5 = rodriguezQuat((CFET8::G51 * B1 + CFET8::G52 * B2 + CFET8::G53 * B3 + CFET8::G54 * B4 + CFET8::G55 * B5), h);
+		q4 = rodriguezQuat((CFET8::G41 * B1 + CFET8::G42 * B2 + CFET8::G43 * B3 + CFET8::G44 * B4 + CFET8::G45 * B5), h);
+		q3 = rodriguezQuat((CFET8::G31 * B1 + CFET8::G32 * B2 + CFET8::G33 * B3 + CFET8::G34 * B4 + CFET8::G35 * B5), h);
+		q2 = rodriguezQuat((CFET8::G21 * B1 + CFET8::G22 * B2 + CFET8::G23 * B3 + CFET8::G24 * B4 + CFET8::G25 * B5), h);
+		q1 = rodriguezQuat((CFET8::G11 * B1 + CFET8::G12 * B2 + CFET8::G13 * B3 + CFET8::G14 * B4 + CFET8::G15 * B5), h);
+
+		y = q1 * q2 * q3 * q4 * q5 * q6 * q7 * q8 * q9 * q10 * q11 * y;
+		t += h;			
+	}
+	return 0;
+}
+
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2], const complex<_PREC> (&Omicron)[2][2]) {
+	//_PREC diagonal_decay = -(A(0, 0) + A(1, 1));
+	_PREC dt = tf - t0;
+	Vector2cd p_diag_0;
+	p_diag_0 << rho(0, 0), rho(1, 1);
+	Matrix2cd A_diag {
+		{-Zeta[1][0]+Zeta[0][1], Zeta[0][1]+Zeta[1][0]},
+		{Zeta[1][0]+Zeta[0][1], -Zeta[1][0]+Zeta[0][1]},
+	};
+
+	Matrix2cd A_exp = (A_diag * dt).exp();
+	Vector2cd p_diag_1 = A_exp * p_diag_0;
+	rho(0, 0) = p_diag_1(0);
+	rho(1, 1) = p_diag_1(1);
+	complex<_PREC> decay_01 = -(Zeta[0][0] + Zeta[0][1] + Zeta[0][1] + Zeta[1][1]);
+	complex<_PREC> decay_10 = -(Zeta[1][0] + Zeta[1][1] + Zeta[0][0] + Zeta[1][0]);
+	
+	Matrix2cd A_off_diag {
+		{Omicron[0][1] + decay_01, Omicron[1][0]},
+		{Omicron[0][1], Omicron[1][0] + decay_10},
+	};
+	Matrix2cd A_off_diag_exp = (A_off_diag * dt).exp();
+	Vector2cd p_off_diag_0;
+	p_off_diag_0 << rho(0, 1), rho(1, 0);
+	Vector2cd p_off_diag_1 = A_off_diag_exp * p_off_diag_0;
+	rho(0, 1) = p_off_diag_1(0);
+	rho(1, 0) = p_off_diag_1(1);
+	
+	//rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
+	//rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
+	return rho;
+}
+
+floquetDiagonalization floquet_diagonalize(options OPT) {
+	double t0 = 0.0;
+	double tf = (2*M_PI)/OPT.w; //TODO
+	int n_prop = 100;
+	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	quaternion y = {1, 0, 0, 0};
+	double h = 1e-6;
+	for (int i=0; i < n_prop; i++) {
+		double t1 = t0 + (tf - t0) * i/n_prop;
+		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
+		integrateHamiltonian(t1, t2, y, OPT, h);
+		propagators[i] = y;
+	}
+
+	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
+	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
+
+	double ea = abs(atan2(eigen_values.z, eigen_values.w))/(tf - t0);
+	double eb = -ea;
+	double deltaE = ea - eb;
+	double frequencies[NW];
+	int count = 0;
+	for(int k=0; k <= NK/2; k++) {
+		for (int i=-1; i < 2; i++) {
+			double w = deltaE * i + k * OPT.w;
+			int index = k*3 + i;
+			if (index >= 0) {
+				frequencies[index] = w;
+				count++;
+			}
+		}
+	}
+	floquetDiagonalization fd;
+	fd.propagators = propagators;
+	fd.f_modes_0 = eigen_vectors;
+	fd.f_energies = eigen_values;
+	for(int i = 0; i < NW; i++) {
+		fd.frequencies[i] = frequencies[i];
+	}
+	fd.dt = (tf - t0)/n_prop;
+	fd.n_prop = n_prop;
+	return fd;
+
+}
+
+coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
+	cspec.normalize();
+	double Delta[2][2][NK] = {{{0}}};
+	complex<double> X[2][2][NK] = {{{0}}};
+	complex<double> Gamma[2][2][NK] = {{{0}}};
+	complex<double> Zeta[2][2] = {{0}};
+	complex<double> Omicron[2][2] = {{0}};
+  
+	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
+	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
+	double period = fd.dt * fd.n_prop;
+	for (int i = 0; i < specs.size(); i++) {
+		quaternion c_op = specs.at(i).first;
+		Spectrum spec = specs.at(i).second;
+		floquet_master_equation_rates(fd, c_op, period, spec, 
+		                              Delta, X, Gamma, Zeta, Omicron);
+	}
+	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
+	int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
+	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 }

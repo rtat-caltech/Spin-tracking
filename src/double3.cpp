@@ -11,6 +11,13 @@
 #define __PREPROC__
 #endif
 
+using namespace std;
+
+ostream& operator<<(ostream& os, const coords& x) {
+	os << '{' << x.x << ", " << x.y << ", " << x.z << '}';
+	return os;
+}
+
 __PREPROC__ coords operator+(const coords a, const coords b){
 	coords out;
 	out.x = a.x + b.x;
@@ -136,50 +143,3 @@ __PREPROC__ coords sgn(const coords a){
 	out.z = sgn(a.z);
 	return out;
 }
-
-__PREPROC__ quaternion qConjugate(const quaternion a){
-	quaternion out;
-	out.w = a.w;
-	out.x = -a.x;
-	out.y = -a.y;
-	out.z = -a.z;
-	return out;
-}
-
-__PREPROC__ quaternion qMult(const quaternion q1, const quaternion q2){
-	quaternion out;
-	out.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
-	out.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
-	out.y = q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z;
-	out.z = q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x;
-	return out;
-}
-
-__PREPROC__ coords qv_mult(const quaternion q1, const coords v1){
-	coords out;
-	quaternion q2;
-	q2.x = v1.x;
-	q2.y = v1.y;
-	q2.z = v1.z;
-	q2 = qMult(qMult(q1, q2), qConjugate(q1));
-	out.x = q2.x;
-	out.y = q2.y;
-	out.z = q2.z;
-	return out;
-}
-
-__PREPROC__ quaternion rodriguezQuat(const coords k, const _PREC dt){
-	const _PREC angle = len(k);
-	coords norm = k/angle;
-	const _PREC h = angle * dt;
-	norm = norm * -sin(h/2.0);
-	return {(_PREC)cos((double)h/2.0), norm.x, norm.y, norm.z};
-}
-
-__PREPROC__ coords rodriguez(const coords k, const coords v1){
-	const _PREC angle = len(k);
-	const _PREC s =  sin(angle);
-	const _PREC c = cos(angle);
-	return v1 * c + (cross(v1, k) * (s/angle)) + k * (dot(k, v1) * (1.0 - c)/(angle * angle));
-}
-

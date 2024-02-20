@@ -1,7 +1,8 @@
 #include "../include/simulation.h"
 #include <unistd.h>
 #include <chrono>
-
+#include <iostream>
+#include <fstream>
 
 //this functions does the actual analysis and integration
 void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int seed){
@@ -84,11 +85,11 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			p.runSimulation(nextTime);
 			p.outputData(oh);
 			stop = std::chrono::high_resolution_clock::now();
-            		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
+		p.postProcess(f);
 		oh.close();
-		//destroyOutputBuffers(buffers, opt);
 	}
 	#endif
 	return;

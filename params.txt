@@ -1,16 +1,19 @@
 dist, C
 T, 0.4
 gas_coll, true
-diffuse, true
+diffuse, 0.3
 rtol, 1.0e-12
 gravity, true
 B0, 3.0e-6, 0, 0
-E, 0, 0, 0,
-h, 0.0001
-numParticles, 16384
+yi, 0, 0, 1
+h, 0.00005
+numParticles, 1024
 numPerGPUBlock, 256
 t0, 0.0
-tf, 1000
+tf, 10
 ioutInt, 0.5
 integratorType, 0
-output, n
+output, a
+a, 0
+w, 6.28318531e3
+E, 3e8, 0, 0

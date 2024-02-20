@@ -2,6 +2,7 @@
 #define __OPTIONS_H_DEFINED__
 
 #include "double3.h"
+#include "quaternion.h"
 
 const _PREC G_CONST = -9.81;
 const _PREC c2 = 299792458.0 * 299792458.0;
@@ -11,6 +12,9 @@ struct options{
 	coords E = {75e5, 0.0, 0.0};
 	coords L = {0.07, 0.1, 0.4};
 	coords yi = {0.0, 0.0, 1.0};
+	coords Gx = {0.0, 0.0, 0.0};
+	coords Gy = {0.0, 0.0, 0.0};
+	coords Gz = {0.0, 0.0, 0.0};	
 	
 	_PREC m = 1.20239e-26; //2.2*5e-27; 
 	_PREC t0 = 0.0;
@@ -52,6 +56,9 @@ struct options{
 	bool fixedStepSize = false; //do we use adaptive step size or fixed
    	bool keepStepSize = false; //do we pass the last step size to the next step or reset each time
 	//these are x, y, z coordinates
+	bool noiseEnable = false; // Turns on the test noise function
+	coords noiseAmplitudes = {0, 0, 0};
+	coords noiseFrequencies = {0, 0, 0};
 };
 
 #endif
