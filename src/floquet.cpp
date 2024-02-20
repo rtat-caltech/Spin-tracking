@@ -38,22 +38,12 @@ __PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const
 }
 
 __PREPROC__ Matrix3cd goertzel_stage_2(const coords& s1, const coords& s2, double w, double dt) {
-	double angle = w * dt;
-	coords a = s1 - cos(angle) * s2;
-	coords b = sin(angle) * s2;
+	pair<coords, coords> p = goertzel_stage_2_vector(s1, s2, w, dt);
+	coords a = p.first;
+	coords b = p.second;
 	Vector3cd c = {complex<double> (a.x, b.x), complex<double> (a.y, b.y), complex<double> (a.z, b.z)};
 	Matrix3cd m = c * c.adjoint();
 	return m;
-}
-
-void diagonalize(Matrix3cd H) {
-	/*
-	SelfAdjointEigenSolver<Matrix3cd> es;
-	es.computeDirect(H);
-	es.eigenvalues();
-	es.eigenvectors();
-	*/
-	return;
 }
 
 complex<double> Spectrum::lookup(double frequency) {
@@ -113,7 +103,7 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 
 __PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag) {
 	// Computes c + u v^dag
-	imag_diag = imag_diag + (u_imag * v_real - u_real * v_imag);
+	imag_diag = imag_diag + 2 * (u_imag * v_real - u_real * v_imag);
 }
 
 
@@ -121,7 +111,6 @@ __PREPROC__ void SpectrumAggregator::update(const coords& x) {
 	for (int i=0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
 		pair<coords, coords> p = goertzel_stage_2_vector(s1[i], s2[i], w[i], dt);
-		//cmat[i] = cmat[i] + c * d.adjoint() - d * d.adjoint()/2;
 		cmat[i].add_outer(p.first, p.second, x, (coords) {0, 0, 0});
 	}
 	n_samples += 1;
@@ -269,8 +258,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 					* X[i][i][k] * conj(X[j][j][k]);
 			}
 		}
-	}
-	
+	}	
 	return;
 }
 

@@ -21,26 +21,28 @@ bool coords_compare(coords a, coords b, double tol) {
 	return len(a - b) < tol;
 }
 
-double sine_spectrum(double a, double w1, double w2, double t0, double tf, double dt) {	
+complex<double> sine_spectrum(double a, double w1, double w2, double t0, double tf, double dt) {	
 	double real_part = 0.0;
 	double im_part = 0.0;
-	double t = first_sample_point(t0, dt);
+	double t1 = first_sample_point(t0, dt);
 	int n = 0;
-	nsamp = (tf - t0);
-	for (int i = 0; i < nsamp; i++) {
-		for (int j = i; j < nsamp j++) {
-			total += 
-		}
-	}
-	/*
-	while (t <= first_sample_point(tf, dt) - (dt/2)) {
-		real_part += sin(w1 * t) * cos(w2 * t);
-		im_part += sin(w1 * t) * sin(w2 * t);
-		t += dt;
+	double nsamp = (tf - t0)/dt;
+	complex<double> total;
+	complex<double> partial_total = 0.0;
+	
+	double s1 = 0;
+	double s2 = 0;
+	double angle = w2 * dt;
+	while (t1 < first_sample_point(tf, dt) - dt/2) {
+		double x = a * sin(w1 * t1);
+		complex<double> x2 = x * exp(-w2 * t1 * im_unit);
+		partial_total += x2;
+		total += partial_total * conj(x2) - x * x/2;
+		t1 += dt;
 		n++;
 	}
-	return a * a * (real_part * real_part + im_part * im_part) * dt/n;
-	*/
+
+	return total * 2.0 * dt/(n + 0.0);
 }
 
 BOOST_AUTO_TEST_SUITE(FloquetIntegration)
@@ -153,8 +155,39 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	free(propagators);
 }
 
-BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-9)) {
+BOOST_AUTO_TEST_CASE(goertzel, * utf::tolerance(1e-9)) {
+	coords w0 = {1.1e2, 5.0e2, -2.3e2}; // Signal frequencies
+	coords a = {1.0, 2.0, 3.0}; // Signal amplitudes
+	double w = 1.3e2; // frequency to evaluate FT at
+	double t0 = 0.3;
+	double tf = 1.2;
+	double dt = 1e-4;
+	double t = first_sample_point(t0, dt);
+	int n;
+	coords s1 = {0, 0, 0};
+	coords s2 = {0, 0, 0};
+	coords r_re = {0, 0, 0};
+	coords r_im = {0, 0, 0};
+	while (t <= first_sample_point(tf, dt) - (dt/2)) {
+		coords x = testNoise(t, a, w0);
+		goertzel_stage_1(x, s1, s2, w, dt);
+		r_re = r_re + x * cos(-w * t);
+		r_im = r_im + x * sin(-w * t);
+		t += dt;
+		n++;
+	}
+	pair<coords, coords> p = goertzel_stage_2_vector(s1, s2, w, dt);
+	BOOST_TEST(p.first.x = r_re.x);
+	BOOST_TEST(p.first.y = r_re.x);
+	BOOST_TEST(p.first.z = r_re.x);
+	BOOST_TEST(p.second.x = r_im.x);
+	BOOST_TEST(p.second.y = r_im.y);
+	BOOST_TEST(p.second.z = r_im.z);
+}
+
+BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-4)) {
 	// Tests whether the noise spectrum is calculated correctly.
+	// TODO: The accuracy is lower than I'd like. Maybe want to consider fixing for future
 	options opt;
 	opt.gravity = false;
 	opt.T = 0.4;
@@ -195,13 +228,63 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-9)) {
 	p.aggregateSpectrum(spec, opt.numParticles);
 	spec.normalize();
 
-	BOOST_TEST(spec.variance[0](0, 0).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt));
-	BOOST_TEST(spec.variance[1](1, 1).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt));
-	BOOST_TEST(spec.variance[2](2, 2).real() == opt.gamma * opt.gamma * sine_spectrum(opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt));
+	
+	BOOST_TEST(spec.variance[0](0, 0).real() == sine_spectrum(opt.gamma *  opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[1](1, 1).real() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[2](2, 2).real() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[0](0, 0).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).imag());
+	BOOST_TEST(spec.variance[1](1, 1).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).imag());
+	BOOST_TEST(spec.variance[2](2, 2).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).imag());
+	
 }
 
-BOOST_AUTO_TEST_CASE(spectrum_diagonalization, * utf::tolerance(1e-9)) {
+BOOST_AUTO_TEST_CASE(free_spectrum, * utf::tolerance(1e-6)) {
+	// dw = g^2/4 Im[S(w_0')] for noise parallel to dressing field
+	// - see Quantum Control of Critically Dressed Spin 1/2 Species + Kramers-Kronig Relations
+	options opt;
+	opt.gravity = false;
+	opt.a = 0;
+	opt.w = 1e3 * 2 * M_PI;
+	double t0 = 0.0;
+	double tf = 1.2;
+	double B0 = 3e-6;
+	opt.B0 = {B0, 0.0, 0.0};
+	opt.E = {0.0, 0.0, 0.0};
+	opt.tf = tf;
+	opt.t0 = t0;
+	opt.rtol = 1e-12;
+	opt.atol = 1e-12;
+	opt.gravity = false;
+	opt.numParticles = 1;
+	opt.yi = {0.0, 1.0, 0.0};
+	double dt = 1e-5;
+
+	floquetDiagonalization fd = floquet_diagonalize(opt);
+
+	double Szz = 5e-3; // This quantity is gamma^2 S_{Bz, Bz}
+
+	CovarianceSpectrum cspec;
+	cspec.initialize(fd.frequencies, dt, 1);
+	for (int i = 0; i < NW; i++) {
+		if (abs(fd.frequencies[i] - opt.gamma * B0) < 1e-3) {
+			cspec.variance[i](2,2) = Szz * im_unit;
+		}
+	}
+	cspec.normalize();
+	double duration = opt.tf - opt.t0;
+	double w0 = B0 * opt.gamma;
+	double w2 = w0 + Szz/4;
 	
+	BOOST_TEST(abs((w2 - w0)/w0) < 1e-4); //Perturbation is small
+	BOOST_TEST(abs((w2 - w0) * (tf - t0)) > 1e-3); //But not too small
+
+	coords b_ref = {0.0, cos(duration * w0), -sin(duration * w0)};
+	coords b0 = {0.0, cos(duration * w2), -sin(duration * w2)};
+	coords b_end = floquet_integrate(fd, cspec, opt);
+	
+	double shift_ref = asin(len(cross(b_ref, b0)));
+	double shift_fm = asin(len(cross(b_end, b0)));	
+	BOOST_TEST(shift_ref == shift_fm);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

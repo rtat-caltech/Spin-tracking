@@ -885,51 +885,10 @@ coords particle::spinMean() {
 }
 
 floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, options OPT) {
-	double t0 = 0.0;
-	double tf = (2*M_PI)/OPT.w; //TODO
-	int n_prop = 100;
-	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
-	quaternion y = {1, 0, 0, 0};
-	double h = 1e-6;
-	for (int i=0; i < n_prop; i++) {
-		double t1 = t0 + (tf - t0) * i/n_prop;
-		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
-		integrateHamiltonian(t1, t2, y, OPT, h);
-		propagators[i] = y;
-	}
-
-	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
-	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
-
-	double ea = abs(atan2(eigen_values.z, eigen_values.w))/(tf - t0);
-	double eb = -ea;
-	double deltaE = ea - eb;
-	double frequencies[NW];
-	int count = 0;
-	for(int k=0; k <= NK/2; k++) {
-		for (int i=-1; i < 2; i++) {
-			double w = deltaE * i + k * OPT.w;
-			int index = k*3 + i;
-			if (index >= 0) {
-				frequencies[index] = w;
-				count++;
-			}
-		}
-	}
-	cspec.initialize(frequencies, (tf - t0)/n_prop);
-
-	floquetDiagonalization fd;
-	fd.propagators = propagators;
-	fd.f_modes_0 = eigen_vectors;
-	fd.f_energies = eigen_values;
-	for(int i = 0; i < NW; i++) {
-		fd.frequencies[i] = frequencies[i];
-	}
-	fd.dt = (tf - t0)/n_prop;
-	fd.n_prop = n_prop;
+	floquetDiagonalization fd = floquet_diagonalize(OPT);
+	cspec.initialize(fd.frequencies, fd.dt);
 	return fd;
 }
-
 
 void particle::aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles) {
 	for(unsigned int tid = 0; tid < numParticles; tid++) {

@@ -810,3 +810,70 @@ Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const compl
 	//rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
 	return rho;
 }
+
+floquetDiagonalization floquet_diagonalize(options OPT) {
+	double t0 = 0.0;
+	double tf = (2*M_PI)/OPT.w; //TODO
+	int n_prop = 100;
+	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	quaternion y = {1, 0, 0, 0};
+	double h = 1e-6;
+	for (int i=0; i < n_prop; i++) {
+		double t1 = t0 + (tf - t0) * i/n_prop;
+		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
+		integrateHamiltonian(t1, t2, y, OPT, h);
+		propagators[i] = y;
+	}
+
+	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
+	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
+
+	double ea = abs(atan2(eigen_values.z, eigen_values.w))/(tf - t0);
+	double eb = -ea;
+	double deltaE = ea - eb;
+	double frequencies[NW];
+	int count = 0;
+	for(int k=0; k <= NK/2; k++) {
+		for (int i=-1; i < 2; i++) {
+			double w = deltaE * i + k * OPT.w;
+			int index = k*3 + i;
+			if (index >= 0) {
+				frequencies[index] = w;
+				count++;
+			}
+		}
+	}
+	floquetDiagonalization fd;
+	fd.propagators = propagators;
+	fd.f_modes_0 = eigen_vectors;
+	fd.f_energies = eigen_values;
+	for(int i = 0; i < NW; i++) {
+		fd.frequencies[i] = frequencies[i];
+	}
+	fd.dt = (tf - t0)/n_prop;
+	fd.n_prop = n_prop;
+	return fd;
+
+}
+
+coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
+	cspec.normalize();
+	double Delta[2][2][NK] = {{{0}}};
+	complex<double> X[2][2][NK] = {{{0}}};
+	complex<double> Gamma[2][2][NK] = {{{0}}};
+	complex<double> Zeta[2][2] = {{0}};
+	complex<double> Omicron[2][2] = {{0}};
+  
+	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
+	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
+	double period = fd.dt * fd.n_prop;
+	for (int i = 0; i < specs.size(); i++) {
+		quaternion c_op = specs.at(i).first;
+		Spectrum spec = specs.at(i).second;
+		floquet_master_equation_rates(fd, c_op, period, spec, 
+		                              Delta, X, Gamma, Zeta, Omicron);
+	}
+	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
+	int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
+	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+}

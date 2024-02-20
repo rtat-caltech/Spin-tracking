@@ -47,6 +47,8 @@ __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, cons
 
 __PREPROC__ coords grad(coords&, const options);
 
+__PREPROC__ coords testNoise(const _PREC, coords, coords);
+
 __PREPROC__ int integrateDOP(_PREC t0, _PREC tf, coords& y, const coords& p_old, const coords& p_new, 
 	const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
@@ -82,5 +84,7 @@ __PREPROC__ _PREC min_d(_PREC, _PREC);
 
 __PREPROC__ _PREC max_d(_PREC, _PREC);
 
+floquetDiagonalization floquet_diagonalize(options OPT);
+coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt);
 
 #endif
