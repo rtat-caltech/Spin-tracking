@@ -5,7 +5,11 @@
 #include <fstream>
 
 //this functions does the actual analysis and integration
-void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int seed){
+void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned int seed){
+	_PREC k = 1.380649e-23;
+	opt.tc = 1.6e-4*opt.m/(k*pow(opt.T, 8.0));
+	opt.sqrtKT_m = sqrt(k*opt.T/opt.m);
+	
 	#if defined(__NVCOMPILER) || defined(__HIPCC__) || defined(__NVCC__)
 	{
 		//In this case we're going to use the GPU to do mostly everything
@@ -88,7 +92,7 @@ void mainAnalysis(options opt, int totalTime, char* outputName, unsigned int see
 			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
-		p.postProcess(f);
+		p.postProcess(oh);
 		oh.close();
 	}
 	#endif

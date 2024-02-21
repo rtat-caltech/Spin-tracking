@@ -701,6 +701,9 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pstopParticle[ipart] = false;
 		pcoll_type[ipart] = 'W';
 		pfailureState[ipart] = 0;
+		pn_bounce[ipart]  = 0;
+		pn_coll[ipart] = 0;
+		pn_steps[ipart] = 0;
 		specagg[ipart] = SpectrumAggregator();
 		specagg[ipart].initialize(fd.frequencies, fd.dt);
 	}
@@ -820,14 +823,16 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pspecagg[ipart] = specagg;
 		cspec_array[ipart] = specagg.get_covariance_spectrum();
 	}
-	for(unsigned int ipart = 0; ipart < opt.numParticles; ipart++) {
-		for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
-			if (ipart % (2 * s) == 0) {
-				cspec_array[ipart].add(cspec_array[ipart + s]);
+	if (opt.integratorType == 6) {
+		for(unsigned int ipart = 0; ipart < opt.numParticles; ipart++) {
+			for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
+				if (ipart % (2 * s) == 0) {
+					cspec_array[ipart].add(cspec_array[ipart + s]);
+				}
 			}
 		}
+		cspec.add(cspec_array[0]);
 	}
-	cspec.add(cspec_array[0]);
 	free(cspec_array);
 }
 
@@ -852,13 +857,15 @@ coords particle::floquetResults() {
 	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 }
 
-void particle::postProcess(FILE *f) {
+void particle::postProcess(OutputHandler oh) {
+	/*
 	if (opt.integratorType == 6) {
 		coords b_end = floquetResults();
 		fwrite(&b_end, sizeof(coords), 1, f);
 		cout << "Final Bloch Vector:" << endl;
 		cout << b_end << endl;
 	}
+	*/
 }
 #endif
 

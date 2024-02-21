@@ -59,7 +59,7 @@ struct outputBuffers{
 
 
 void createOutputBuffers(options opt, void** buffers);
-void mainAnalysis(const options opt, int totalTime, char* outputName, unsigned int seed);
+void mainAnalysis(const options opt, int totalTime, const char* outputName, unsigned int seed);
 
 #if defined(__HIPCC__)
 __global__ void runSimulation(particle * particles, outputBuffers* buffers, options OPT);

@@ -47,6 +47,7 @@ inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=tr
 #include "double3.h"
 #include "quaternion.h"
 #include "floquet.h"
+#include "outputHandling.h"
 
 struct rngState{
     uint64_t x;
@@ -249,19 +250,6 @@ public:
 	                     state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg, fd);
         #endif
     };
-    void runSimulation(_PREC nextTOut){
-        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
-        runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
-                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-                            partID, failureState, stopParticle,  coll_type, wall_hit, nextTOut);
-        #else
-        runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
-                            t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-                            partID, failureState, stopParticle, coll_type, wall_hit, nextTOut);
-        #endif
-        
-    
-    }
     void outputData(OutputHandler out){
 		// n * t * d
         #if defined(__HIPCC__)
@@ -296,7 +284,7 @@ public:
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
 	coords floquetResults();
-	void postProcess(FILE *f);
+	void postProcess(OutputHandler oh);
 	coords spinMean();
 private:
     options opt;

@@ -12,7 +12,7 @@ using namespace std;
 BOOST_AUTO_TEST_SUITE(ParticleTrajectories)
 
 BOOST_AUTO_TEST_CASE(initialization) {
-	cout << "testing initialization" << endl;
+	cout << "Testing Particle Initialization" << endl;
 	coords y0 = (coords) {0, 0, 1};
 	options opt;
 	double k = 1.380649e-23;
