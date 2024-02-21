@@ -91,13 +91,11 @@ public:
 		return PredType::NATIVE_UINT;
 	}
 	DataType get_h5_type(bool* data) {
-		return PredType::NATIVE_HBOOL;
+		return PredType::NATIVE_UCHAR;
 	}
 	DataType get_h5_type(char* data) {
-		return PredType::NATIVE_SCHAR;
+		return PredType::NATIVE_UCHAR;
 	}
-
-
 
 	void write_options() {
 		string coord_names[] = {"B0", "E", "L", "yi", "Gx", "Gy", "Gz", "testNoiseAmp", "testNoiseFreq"};
