@@ -56,7 +56,6 @@ struct options{
 	bool fixedStepSize = false; //do we use adaptive step size or fixed
    	bool keepStepSize = false; //do we pass the last step size to the next step or reset each time
 	//these are x, y, z coordinates
-	bool noiseEnable = false; // Turns on the test noise function
 	coords noiseAmplitudes = {0, 0, 0};
 	coords noiseFrequencies = {0, 0, 0};
 };

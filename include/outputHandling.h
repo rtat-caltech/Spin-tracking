@@ -87,17 +87,28 @@ public:
 	DataType get_h5_type(size_t* data) {
 		return PredType::NATIVE_ULONG;
 	}
+	DataType get_h5_type(unsigned int* data) {
+		return PredType::NATIVE_UINT;
+	}
+	DataType get_h5_type(bool* data) {
+		return PredType::NATIVE_HBOOL;
+	}
+	DataType get_h5_type(char* data) {
+		return PredType::NATIVE_SCHAR;
+	}
+
+
 
 	void write_options() {
-		string coord_names[] = {"B0", "E", "L", "yi", "Gx", "Gy", "Gz"};
-		coords coord_values[] = {opt.B0, opt.E, opt.L, opt.yi, opt.Gx, opt.Gy, opt.Gz};
-		mass_write_options<coords>(coord_names, coord_values, 7);
+		string coord_names[] = {"B0", "E", "L", "yi", "Gx", "Gy", "Gz", "testNoiseAmp", "testNoiseFreq"};
+		coords coord_values[] = {opt.B0, opt.E, opt.L, opt.yi, opt.Gx, opt.Gy, opt.Gz, opt.noiseAmplitudes, opt.noiseFrequencies};
+		mass_write_options<coords>(coord_names, coord_values, sizeof(coord_values)/sizeof(coords));
 		string double_names[] = {
 			"m", "t0", "tf", "rtol", "atol",
 			"beta", "uround", "safe", "fac1", "fac2",
 			"hmax", "hmin", "h", "T", "sqrtKT_m",
 			"tc", "gamma", "V", "a", "w",
-			"swqpStepSize", "maxPosStep", "ioutInt", "diffuse"
+			"swapStepSize", "maxPosStep", "ioutInt", "diffuse"
 		};
 		_PREC double_values[] = {
 			opt.m, opt.t0, opt.tf, opt.rtol, opt.atol,
@@ -106,7 +117,19 @@ public:
 			opt.tc, opt.gamma, opt.V, opt.a, opt.w,
 			opt.swapStepSize, opt.maxPosStep, opt.ioutInt, opt.diffuse
 		};
-		mass_write_options<double>(double_names, double_values, 7);
+		mass_write_options<double>(double_names, double_values, sizeof(double_values)/sizeof(double));
+
+		string int_names[] = {"integratorType", "numParticles", "numPerGPUBlock", "iout"};
+		int int_values[] = {opt.integratorType, opt.numParticles, opt.numPerGPUBlock, opt.iout};
+		mass_write_options<int>(int_names, int_values, sizeof(int_values)/sizeof(int));
+
+		string bool_names[] = {"gas_coll", "gravity", "fixedStepSize", "keepStepSize"};
+		bool bool_values[] = {opt.gas_coll, opt.gravity, opt.fixedStepSize, opt.keepStepSize};
+		mass_write_options<bool>(bool_names, bool_values, sizeof(bool_values)/sizeof(bool));
+
+		write_option<char>("dist", opt.dist);
+		write_option<unsigned int>("nmax", opt.nmax);
+		write_option<unsigned int>("seed", opt.seed);
 	}
 
 	template <typename T> void mass_write_options(string* names, T* values, int n) {
