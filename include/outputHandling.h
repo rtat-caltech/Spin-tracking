@@ -22,6 +22,7 @@ public:
 		std::string ext = std::string(fs::path(outputName).extension());
 		use_hdf5 = boost::iequals(ext, ".hdf5") || boost::iequals(ext, ".h5");
 		if (use_hdf5) {
+			// If file already exists, this will overwrite it
 			f5 = new H5::H5File(outputName, H5F_ACC_TRUNC);
 			write_options();
 		} else {
@@ -38,7 +39,6 @@ public:
 			if (!pathExists(f5->getId(), datasetName)) {
 				// Create Dataset
 				DataSet* dset = new DataSet(f5->createDataSet(datasetName, myType, fspace));
-				//IntType int_type(PredType::NATIVE_INT);
 				DataSpace att_space(H5S_SCALAR);
 				Attribute att = dset->createAttribute("nt", PredType::NATIVE_INT, att_space);
 				int nt0 = 0;
@@ -98,36 +98,40 @@ public:
 	}
 
 	void write_options() {
-		string coord_names[] = {"B0", "E", "L", "yi", "Gx", "Gy", "Gz", "testNoiseAmp", "testNoiseFreq"};
-		coords coord_values[] = {opt.B0, opt.E, opt.L, opt.yi, opt.Gx, opt.Gy, opt.Gz, opt.noiseAmplitudes, opt.noiseFrequencies};
-		mass_write_options<coords>(coord_names, coord_values, sizeof(coord_values)/sizeof(coords));
-		string double_names[] = {
-			"m", "t0", "tf", "rtol", "atol",
-			"beta", "uround", "safe", "fac1", "fac2",
-			"hmax", "hmin", "h", "T", "sqrtKT_m",
-			"tc", "gamma", "V", "a", "w",
-			"swapStepSize", "maxPosStep", "ioutInt", "diffuse"
-		};
-		_PREC double_values[] = {
-			opt.m, opt.t0, opt.tf, opt.rtol, opt.atol,
-			opt.beta, opt.uround, opt.safe, opt.fac1, opt.fac2,
-			opt.hmax, opt.hmin, opt.h, opt.T, opt.sqrtKT_m,
-			opt.tc, opt.gamma, opt.V, opt.a, opt.w,
-			opt.swapStepSize, opt.maxPosStep, opt.ioutInt, opt.diffuse
-		};
-		mass_write_options<double>(double_names, double_values, sizeof(double_values)/sizeof(double));
+		if (use_hdf5) {
+			string coord_names[] = {"B0", "E", "L", "yi", "Gx", "Gy", "Gz", "testNoiseAmp", "testNoiseFreq"};
+			coords coord_values[] = {opt.B0, opt.E, opt.L, opt.yi, opt.Gx, opt.Gy, opt.Gz, opt.noiseAmplitudes, opt.noiseFrequencies};
+			mass_write_options<coords>(coord_names, coord_values, sizeof(coord_values)/sizeof(coords));
+			string double_names[] = {
+				"m", "t0", "tf", "rtol", "atol",
+				"beta", "uround", "safe", "fac1", "fac2",
+				"hmax", "hmin", "h", "T", "sqrtKT_m",
+				"tc", "gamma", "V", "a", "w",
+				"swapStepSize", "maxPosStep", "ioutInt", "diffuse"
+			};
+			_PREC double_values[] = {
+				opt.m, opt.t0, opt.tf, opt.rtol, opt.atol,
+				opt.beta, opt.uround, opt.safe, opt.fac1, opt.fac2,
+				opt.hmax, opt.hmin, opt.h, opt.T, opt.sqrtKT_m,
+				opt.tc, opt.gamma, opt.V, opt.a, opt.w,
+				opt.swapStepSize, opt.maxPosStep, opt.ioutInt, opt.diffuse
+			};
+			mass_write_options<double>(double_names, double_values, sizeof(double_values)/sizeof(double));
 
-		string int_names[] = {"integratorType", "numParticles", "numPerGPUBlock", "iout"};
-		int int_values[] = {opt.integratorType, opt.numParticles, opt.numPerGPUBlock, opt.iout};
-		mass_write_options<int>(int_names, int_values, sizeof(int_values)/sizeof(int));
+			string int_names[] = {"integratorType", "numParticles", "numPerGPUBlock", "iout"};
+			int int_values[] = {opt.integratorType, opt.numParticles, opt.numPerGPUBlock, opt.iout};
+			mass_write_options<int>(int_names, int_values, sizeof(int_values)/sizeof(int));
 
-		string bool_names[] = {"gas_coll", "gravity", "fixedStepSize", "keepStepSize"};
-		bool bool_values[] = {opt.gas_coll, opt.gravity, opt.fixedStepSize, opt.keepStepSize};
-		mass_write_options<bool>(bool_names, bool_values, sizeof(bool_values)/sizeof(bool));
+			string bool_names[] = {"gas_coll", "gravity", "fixedStepSize", "keepStepSize"};
+			bool bool_values[] = {opt.gas_coll, opt.gravity, opt.fixedStepSize, opt.keepStepSize};
+			mass_write_options<bool>(bool_names, bool_values, sizeof(bool_values)/sizeof(bool));
 
-		write_option<char>("dist", opt.dist);
-		write_option<unsigned int>("nmax", opt.nmax);
-		write_option<unsigned int>("seed", opt.seed);
+			write_option<char>("dist", opt.dist);
+			write_option<unsigned int>("nmax", opt.nmax);
+			write_option<unsigned int>("seed", opt.seed);
+		} else {
+			fwrite(&opt, sizeof(options), 1, f);
+		}
 	}
 
 	template <typename T> void mass_write_options(string* names, T* values, int n) {
@@ -137,10 +141,14 @@ public:
 	}
 
 	template <typename T> void write_option(string name, T value) {
-		DataSpace att_space(H5S_SCALAR);
-		DataType myType = get_h5_type(&value);
-		Attribute attr = f5->createAttribute(name, myType, att_space);
-		attr.write(myType, &value);
+		if (use_hdf5) {
+			DataSpace att_space(H5S_SCALAR);
+			DataType myType = get_h5_type(&value);
+			Attribute attr = f5->createAttribute(name, myType, att_space);
+			attr.write(myType, &value);
+		} else {
+			fwrite(&value, sizeof(T), 1, f);
+		}
 	}
 
 	void close() {

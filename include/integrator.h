@@ -41,6 +41,8 @@ __PREPROC__ coords pulse(const _PREC t);
 
 __PREPROC__ coords findCrossTerm(const _PREC t, const coords& y, const options OPT, const _PREC t0, const _PREC tf ,const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new);
 
+__PREPROC__ coords findNoiseTerm(const _PREC t, const coords& y, const options OPT, const _PREC t0, const _PREC tf ,const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new);
+
 __PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options OPT, const _PREC t0, const _PREC tf ,const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new);
 
 __PREPROC__ void interpolate(const _PREC t, const _PREC t0, const _PREC tf, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, coords& p_out, coords& v_out, const options OPT);

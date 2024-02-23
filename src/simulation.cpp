@@ -37,10 +37,8 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
         gpuErrchk(hipDeviceSynchronize());
         #endif
 		//create the output file
-		//this automatically writes outputs to file
-		OutputHandler oh(opt, outputName);
-		//fwrite(&opt, sizeof(options), 1, f);//write the options that were used to create the simulation
-		
+		//this automatically writes parameters to file
+		OutputHandler oh(opt, outputName);		
 		p.outputData(oh); //save the initial states
 		unsigned int numIterations = int(floor(_PREC(opt.tf - opt.t0)/opt.ioutInt));
 		
@@ -58,9 +56,10 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
             #endif
 			p.outputData(oh);
 			stop = std::chrono::high_resolution_clock::now();
-            		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
+		p.postProcess(oh);
 		oh.close();		
 	}
 	#else

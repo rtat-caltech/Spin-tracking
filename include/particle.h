@@ -259,16 +259,6 @@ public:
         #else
         
         #endif
-		/*
-        fwrite(t, sizeof(_PREC), opt.numParticles, f);
-        fwrite(pos, sizeof(coords), opt.numParticles, f);
-        fwrite(v, sizeof(coords), opt.numParticles, f);
-        fwrite(S, sizeof(coords), opt.numParticles, f);
-        fwrite(failureState, sizeof(int), opt.numParticles, f);
-        fwrite(n_coll, sizeof(size_t), opt.numParticles, f);
-        fwrite(n_bounce, sizeof(size_t), opt.numParticles, f);
-        fwrite(n_steps, sizeof(size_t), opt.numParticles, f);
-		*/
 		out.write<_PREC>(t, "Time");
 		out.write<coords>(pos, "Position");
 		out.write<coords>(v, "Velocity");

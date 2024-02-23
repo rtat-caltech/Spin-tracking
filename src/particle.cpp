@@ -836,38 +836,18 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 	free(cspec_array);
 }
 
+#endif
+
 coords particle::floquetResults() {
-	cspec.normalize();
-	double Delta[2][2][NK] = {{{0}}};
-	complex<double> X[2][2][NK] = {{{0}}};
-	complex<double> Gamma[2][2][NK] = {{{0}}};
-	complex<double> Zeta[2][2] = {{0}};
-	complex<double> Omicron[2][2] = {{0}};
-  
-	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
-	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
-	for (int i = 0; i < specs.size(); i++) {
-		quaternion c_op = specs.at(i).first;
-		Spectrum spec = specs.at(i).second;
-		floquet_master_equation_rates(fd, c_op, 2*M_PI/opt.w,spec, 
-		                              Delta, X, Gamma, Zeta, Omicron);
-	}
-	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
-	int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
-	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+	return floquet_integrate(fd, cspec, opt);
 }
 
 void particle::postProcess(OutputHandler oh) {
-	/*
 	if (opt.integratorType == 6) {
 		coords b_end = floquetResults();
-		fwrite(&b_end, sizeof(coords), 1, f);
-		cout << "Final Bloch Vector:" << endl;
-		cout << b_end << endl;
+		oh.write_option<coords>("b_end", b_end);
 	}
-	*/
 }
-#endif
 
 void particle::runSimulation(_PREC nextTOut){
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)

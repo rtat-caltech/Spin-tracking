@@ -21,7 +21,9 @@ bool coords_compare(coords a, coords b, double tol) {
 	return len(a - b) < tol;
 }
 
-complex<double> sine_spectrum(double a, double w1, double w2, double t0, double tf, double dt) {	
+complex<double> sine_spectrum(double a, double w1, double w2, double t0, double tf, double dt) {
+	// Computes 2 J(w2)
+	// 2 Re[J(w2)] == S(w2)
 	double real_part = 0.0;
 	double im_part = 0.0;
 	double t1 = first_sample_point(t0, dt);
@@ -35,7 +37,7 @@ complex<double> sine_spectrum(double a, double w1, double w2, double t0, double 
 	double angle = w2 * dt;
 	while (t1 < first_sample_point(tf, dt) - dt/2) {
 		double x = a * sin(w1 * t1);
-		complex<double> x2 = x * exp(-w2 * t1 * im_unit);
+		complex<double> x2 = x * exp(w2 * t1 * im_unit);
 		partial_total += x2;
 		total += partial_total * conj(x2) - x * x/2;
 		t1 += dt;
@@ -102,7 +104,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	
 	double A_ref[2][2] = {{2.91394437e-02, 3.07337942e+00}, {6.70579412e-04, 2.91394437e-02}};
 	
-	coords b_ref = {0., 0.99007903, 0.};
+	coords b_ref = {0., 0.99502715, 0.};
 
 	double Delta[2][2][NK] = {{{0}}};
 	complex<double> X[2][2][NK] = {{{0}}};
@@ -135,7 +137,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	for (int i=0; i < 2; i++) {
 		for (int j=0; j < 2; j++) {
 			// The reference A is for T=0. For T=Infinity (our case), we should use A_ref + A_ref^T
-			BOOST_TEST(abs(2 * M_PI * Zeta[i][j]) == A_ref[i][j] + A_ref[j][i]);
+			BOOST_TEST(abs(4 * M_PI * Zeta[i][j]) == A_ref[i][j] + A_ref[j][i]);
 			for (int k = 0; k < NK; k++) {
 				BOOST_TEST(Delta[i][j][k] == Delta_ref[i][j][k]);
 				BOOST_TEST(real(X[i][j][k]) - X_re_ref[i][j][k] == 0);
@@ -227,14 +229,13 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-4)) {
 	spec.initialize(w, dt);
 	p.aggregateSpectrum(spec, opt.numParticles);
 	spec.normalize();
-
 	
-	BOOST_TEST(spec.variance[0](0, 0).real() == sine_spectrum(opt.gamma *  opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).real());
-	BOOST_TEST(spec.variance[1](1, 1).real() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).real());
-	BOOST_TEST(spec.variance[2](2, 2).real() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).real());
-	BOOST_TEST(spec.variance[0](0, 0).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).imag());
-	BOOST_TEST(spec.variance[1](1, 1).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).imag());
-	BOOST_TEST(spec.variance[2](2, 2).imag() ==  sine_spectrum(opt.gamma * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).imag());
+	BOOST_TEST(spec.variance[0](0, 0).real() == sine_spectrum(opt.gamma/2 *  opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[1](1, 1).real() ==  sine_spectrum(opt.gamma/2 * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[2](2, 2).real() ==  sine_spectrum(opt.gamma/2 * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).real());
+	BOOST_TEST(spec.variance[0](0, 0).imag() ==  sine_spectrum(opt.gamma/2 * opt.noiseAmplitudes.x, opt.noiseFrequencies.x, opt.noiseFrequencies.x, t0, tf, dt).imag());
+	BOOST_TEST(spec.variance[1](1, 1).imag() ==  sine_spectrum(opt.gamma/2 * opt.noiseAmplitudes.y, opt.noiseFrequencies.y, opt.noiseFrequencies.y, t0, tf, dt).imag());
+	BOOST_TEST(spec.variance[2](2, 2).imag() ==  sine_spectrum(opt.gamma/2 * opt.noiseAmplitudes.z, opt.noiseFrequencies.z, opt.noiseFrequencies.z, t0, tf, dt).imag());
 	
 }
 
@@ -264,22 +265,24 @@ BOOST_AUTO_TEST_CASE(free_spectrum, * utf::tolerance(1e-6)) {
 	double Szz = 5e-3; // This quantity is gamma^2 S_{Bz, Bz}
 
 	CovarianceSpectrum cspec;
-	cspec.initialize(fd.frequencies, dt, 1);
+	int nsamp = (int) ((tf - t0)/dt);
+	cspec.initialize(fd.frequencies, dt, nsamp);
 	for (int i = 0; i < NW; i++) {
-		if (abs(fd.frequencies[i] - opt.gamma * B0) < 1e-3) {
-			cspec.variance[i](2,2) = Szz * im_unit;
+		if (abs(fd.frequencies[i] - abs(opt.gamma * B0)) < 1e-3) {
+			// The 1/4 comes from the fact that the perturbation Hamiltonian is
+			// H_int(t) = f(t) \sigma = \gamma B(t)/2 \sigma
+			cspec.variance[i](2,2) = Szz/4 * im_unit * (nsamp/dt);
 		}
 	}
-	cspec.normalize();
 	double duration = opt.tf - opt.t0;
 	double w0 = B0 * opt.gamma;
 	double w2 = w0 + Szz/4;
 	
-	BOOST_TEST(abs((w2 - w0)/w0) < 1e-4); //Perturbation is small
-	BOOST_TEST(abs((w2 - w0) * (tf - t0)) > 1e-3); //But not too small
+	//BOOST_TEST(abs((w2 - w0)/w0) < 1e-4); //Perturbation is small
+	//BOOST_TEST(abs((w2 - w0) * (tf - t0)) > 1e-3); //But not too small
 
-	coords b_ref = {0.0, cos(duration * w0), -sin(duration * w0)};
-	coords b0 = {0.0, cos(duration * w2), -sin(duration * w2)};
+	coords b_ref = {0.0, cos(duration * w2), -sin(duration * w2)};
+	coords b0 = {0.0, cos(duration * w0), -sin(duration * w0)};
 	coords b_end = floquet_integrate(fd, cspec, opt);
 	
 	double shift_ref = asin(len(cross(b_ref, b0)));

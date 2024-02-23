@@ -102,7 +102,7 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 }
 
 __PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag) {
-	// Computes c + u v^dag
+	// Computes c + 2 u v^dag
 	imag_diag = imag_diag + 2 * (u_imag * v_real - u_real * v_imag);
 }
 
@@ -134,9 +134,9 @@ __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	for (int i=0; i < NW; i++) {
 		if (LAPLACE) {
 			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
-			spec.variance[i](0, 0) += complex<double> (0, cmat[i].imag_diag.x);
-			spec.variance[i](1, 1) += complex<double> (0, cmat[i].imag_diag.y);
-			spec.variance[i](2, 2) += complex<double> (0, cmat[i].imag_diag.z);
+			spec.variance[i](0, 0) += complex<double> (0, -cmat[i].imag_diag.x);
+			spec.variance[i](1, 1) += complex<double> (0, -cmat[i].imag_diag.y);
+			spec.variance[i](2, 2) += complex<double> (0, -cmat[i].imag_diag.z);
 		} else {
 			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
 		}
@@ -193,6 +193,9 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	// The Floquet tensors will be stored in Delta, X, Gamma, A
 	// The inital contents of Delta, X, Gamma do not matter (and will be overwritten).
 	// The newly computed A will be added to its inital contents.
+	// The spectrum is defined as 2 g^2/4 \int_0^\infty <B_i(t) B_i(t + \tau)> d\tau
+	// Note that the two-sided spectrum, g^2/4 \int_-\infty^\infty <B_i(t) B_i(t + \tau)> d\tau
+	// is just the real part of the one-sided spectrum
 	quaternion Xq[NK] = {0};
 	double Xsq[2][2][NK] = {{{0}}};
 	quaternion Xqr[NK] = {0};
@@ -244,12 +247,13 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	for (int k = 0; k <= kmax * 2; k++) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
-				Zeta[i][j] = Zeta[i][j] + Xsq[i][j][k] * spec.lookup(Delta[i][j][k]);
+				Zeta[i][j] = Zeta[i][j] + Xsq[i][j][k] * spec.lookup(Delta[i][j][k])/2.0;
 			}
 		}
 	}
 
 	// Now compute Omicron
+
 	for (int k = 0; k <= kmax * 2; k++) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
@@ -258,7 +262,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 					* X[i][i][k] * conj(X[j][j][k]);
 			}
 		}
-	}	
+	}
 	return;
 }
 

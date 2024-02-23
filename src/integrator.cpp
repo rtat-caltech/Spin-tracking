@@ -65,10 +65,20 @@ __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t
 	coords p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
 	G = grad(p, OPT);
-	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
-	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G + N;
+	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
 	return OPT.gamma * B;
 }
+
+__PREPROC__ coords findNoiseTerm(const _PREC t, const options OPT, const _PREC t0, const _PREC tf, const coords p_old,
+					 const coords p_new, const coords v_old, const coords v_new){
+	coords p, v, G, B, N;
+	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
+	G = grad(p, OPT);
+	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
+	B = 1.0/c2*cross(v, OPT.E) + G + N;
+	return OPT.gamma * B;
+}
+
 
 __PREPROC__ void Bloch(const _PREC t, const coords& y, coords& f, const options OPT, 
 			const _PREC t0, const _PREC tf , const coords& p_old,
@@ -723,8 +733,8 @@ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coo
 	_PREC next_t = first_sample_point(tf, h);
 	int n_steps = 0;
 	while (t < next_t - (h/2)) {
-		coords B = findCrossTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new) - OPT.gamma * pulse(t, OPT.a, OPT.w) - OPT.gamma * OPT.B0;
-		specagg.update(B);
+		coords B = findNoiseTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new);
+		specagg.update(B/2);
 		t += h;
 		n_steps++;
 	}
