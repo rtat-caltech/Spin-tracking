@@ -842,12 +842,25 @@ coords particle::floquetResults() {
 	return floquet_integrate(fd, cspec, opt);
 }
 
-void particle::postProcess(OutputHandler oh) {
+void particle::postProcess(Logger* log) {
 	if (opt.integratorType == 6) {
 		coords b_end = floquetResults();
-		oh.write_option<coords>("b_end", b_end);
+		log->writeSingle("b_end", b_end);
 	}
 }
+
+void particle::outputData(Logger* log){
+	// n * t * d
+#if defined(__HIPCC__)
+	hipDeviceSynchronize();
+#elif defined(__NVCOMPILER) || defined(__NVCC__)
+	cudaDeviceSynchronize();
+#else
+        
+#endif
+	log->writeSnapshot(t, pos, v, S, failureState, n_coll, n_bounce, n_steps);
+}
+
 
 void particle::runSimulation(_PREC nextTOut){
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)

@@ -11,8 +11,8 @@
 #include "../include/quaternion.h"
 #include "../include/options.h"
 #include "../include/coeff.h"
+#include "../include/logger.h"
 #include "../include/particle.h"
-#include "../include/outputHandling.h"
 #include "../include/floquet.h"
 
 #if defined(__HIPCC__)

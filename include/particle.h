@@ -47,7 +47,7 @@ inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=tr
 #include "double3.h"
 #include "quaternion.h"
 #include "floquet.h"
-#include "outputHandling.h"
+#include "logger.h"
 
 struct rngState{
     uint64_t x;
@@ -250,31 +250,14 @@ public:
 	                     state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg, fd);
         #endif
     };
-    void outputData(OutputHandler out){
-		// n * t * d
-        #if defined(__HIPCC__)
-        hipDeviceSynchronize();
-        #elif defined(__NVCOMPILER) || defined(__NVCC__)
-        cudaDeviceSynchronize();
-        #else
-        
-        #endif
-		out.write<_PREC>(t, "Time");
-		out.write<coords>(pos, "Position");
-		out.write<coords>(v, "Velocity");
-		out.write<coords>(S, "Spin");
-		out.write<int>(failureState, "Failure State");
-		out.write<size_t>(n_coll, "Num Collisions");
-		out.write<size_t>(n_bounce, "Num Bounces");
-		out.write<size_t>(n_steps, "Num Steps");
-    }
+    void outputData(Logger* log);
 	void runSimulation(_PREC nextTOut);
 	void aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles);
 	floquetDiagonalization initializeSpectra(CovarianceSpectrum& cspec, options OPT);
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
 	coords floquetResults();
-	void postProcess(OutputHandler oh);
+	void postProcess(Logger* log);
 	coords spinMean();
 private:
     options opt;

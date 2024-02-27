@@ -3,7 +3,7 @@
 #include "../include/particle.h"
 #include "../include/double3.h"
 #include "../include/integrator.h"
-#include "../include/outputHandling.h"
+#include "../include/logger.h"
 #include "../include/simulation.h"
 #include "H5Cpp.h"
 #include <iostream>

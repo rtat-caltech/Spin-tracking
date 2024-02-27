@@ -2,6 +2,7 @@
 #include <chrono>
 #include <ctime>
 #include <exception>
+#include "include/logger.h"
 #include "include/particle.h"
 #include "include/options.h"
 #include "include/double3.h"

@@ -38,8 +38,8 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
         #endif
 		//create the output file
 		//this automatically writes parameters to file
-		OutputHandler oh(opt, outputName);		
-		p.outputData(oh); //save the initial states
+		std::unique_ptr<Logger> log = createLogger(opt, outputName);
+		p.outputData(log.get()); //save the initial states
 		unsigned int numIterations = int(floor(_PREC(opt.tf - opt.t0)/opt.ioutInt));
 		
 		auto start = std::chrono::high_resolution_clock::now();
@@ -54,13 +54,12 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
             #elif defined(__HIPCC__)
             gpuErrchk(hipDeviceSynchronize());
             #endif
-			p.outputData(oh);
+			p.outputData(log.get());
 			stop = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
-		p.postProcess(oh);
-		oh.close();		
+		p.postProcess(log.get());
 	}
 	#else
 	{
@@ -72,11 +71,11 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 		unsigned int timestamp = time(NULL);
 		//outputBuffers buffers = createOutputBuffers(opt);
 		//create the output file
-		OutputHandler oh(opt, outputName);
+		std::unique_ptr<Logger> log = createLogger(opt, outputName);
 		//now initialize all of the particles in the system
         particle p(opt);
         p.initParticles();
-		p.outputData(oh); //save the initial states
+		p.outputData(log.get()); //save the initial states
 		unsigned int numIterations = int(floor(_PREC(opt.tf - opt.t0)/opt.ioutInt));
 		
 		auto start = std::chrono::high_resolution_clock::now();
@@ -86,18 +85,13 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 			_PREC nextTime = ((_PREC)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
 			start = std::chrono::high_resolution_clock::now();
 			p.runSimulation(nextTime);
-			p.outputData(oh);
+			p.outputData(log.get());
 			stop = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 			std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 		}
-		p.postProcess(oh);
-		oh.close();
+		p.postProcess(log.get());
 	}
 	#endif
 	return;
-}
-
-bool pathExists(hid_t id, const std::string& path) {
-	return H5Lexists( id, path.c_str(), H5P_DEFAULT ) > 0;
 }
