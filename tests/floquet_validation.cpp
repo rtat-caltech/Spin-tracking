@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	coords s = {0, 1, 0};
 
 	int n_prop = 100;
-	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	vector<quaternion> propagators;
 	quaternion y = {1, 0, 0, 0};
 	coords dummy = {0, 0, 0};
 	double h = 1e-6;
@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	  	BOOST_TEST(a.x == b.x);
 		BOOST_TEST(a.y == b.y);
 		BOOST_TEST(a.z == b.z);
-		propagators[i] = y;
+		propagators.push_back(y);
 	}
 	// Look in scripts/qutipFloquet.py for how these tensors are calculated
 	double Delta_ref[2][2][NK] = {{{-31415.9265359, -25132.74122872, -18849.55592154, -12566.37061436, -6283.18530718, 0., 6283.18530718, 12566.37061436, 18849.55592154, 25132.74122872, 31415.9265359}, {-30941.87521652, -24658.68990934, -18375.50460216, -12092.31929499, -5809.13398781, 474.05131937, 6757.23662655, 13040.42193373, 19323.60724091, 25606.79254809, 31889.97785527}}, {{-31889.97785527, -25606.79254809, -19323.60724091, -13040.42193373, -6757.23662655, -474.05131937, 5809.13398781, 12092.31929499, 18375.50460216, 24658.68990934, 30941.87521652}, {-31415.9265359, -25132.74122872, -18849.55592154, -12566.37061436, -6283.18530718, 0., 6283.18530718, 12566.37061436, 18849.55592154, 25132.74122872, 31415.9265359}}};
@@ -153,8 +153,6 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	BOOST_TEST(sf.x == b_ref.x);
 	BOOST_TEST(sf.y == b_ref.y);
 	BOOST_TEST(sf.z == b_ref.z);
-
-	free(propagators);
 }
 
 BOOST_AUTO_TEST_CASE(goertzel, * utf::tolerance(1e-9)) {

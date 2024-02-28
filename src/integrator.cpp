@@ -825,16 +825,16 @@ floquetDiagonalization floquet_diagonalize(options OPT) {
 	double t0 = 0.0;
 	double tf = (2*M_PI)/OPT.w; //TODO
 	int n_prop = 100;
-	quaternion* propagators = (quaternion*) malloc(sizeof(quaternion) * n_prop);
+	vector<quaternion> propagators;
 	quaternion y = {1, 0, 0, 0};
 	double h = 1e-6;
 	for (int i=0; i < n_prop; i++) {
 		double t1 = t0 + (tf - t0) * i/n_prop;
 		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
 		integrateHamiltonian(t1, t2, y, OPT, h);
-		propagators[i] = y;
+		propagators.push_back(y);
 	}
-
+	
 	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
 	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
 

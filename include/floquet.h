@@ -22,6 +22,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
+#include <vector>
+
 #define _USE_MATH_DEFINES
 
 using Eigen::Matrix3cd;
@@ -94,10 +96,10 @@ private:
 struct floquetDiagonalization {
 	quaternion f_modes_0;
 	quaternion f_energies;
-	quaternion* propagators;
 	double frequencies[NW];
 	double dt;
 	int n_prop;
+	std::vector<quaternion> propagators;
 };
 
 __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt);
@@ -105,7 +107,7 @@ __PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const
 
 void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 
-void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, quaternion* propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
+void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, vector<quaternion> propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 
 Matrix2cd bloch_to_density(coords bloch);
 Matrix2cd bloch_to_density(coords bloch, quaternion basis);
