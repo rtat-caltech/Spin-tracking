@@ -1,11 +1,14 @@
 #include <iostream>
 #include <chrono>
 #include <ctime>
+#include <exception>
+#include "include/logger.h"
 #include "include/particle.h"
 #include "include/options.h"
 #include "include/double3.h"
 #include "include/optionsParser.h"
 #include "include/simulation.h"
+#include "include/quaternion.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -14,7 +17,6 @@ using namespace std::chrono;
 options parseUserInput(int argc, char * argv[], char** outputName);
 
 int main(int argc, char* argv[]){
-	printf("%d\n", sizeof(particle));	
 	char * outputName;
 	options opt = parseUserInput(argc, argv, &outputName);
 	int totalTime = 3600; //total time allowed in seconds
@@ -24,6 +26,7 @@ int main(int argc, char* argv[]){
 	auto duration = duration_cast<milliseconds>(stop-start).count();
 	std::cout<<duration<<std::endl;
 	return 0;
+
 }
 
 options parseUserInput(int argc, char *argv[], char** outputName){

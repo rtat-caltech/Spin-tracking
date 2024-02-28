@@ -1,6 +1,7 @@
 #ifndef __DOUBLE3_H_INCLUDED__
 #define __DOUBLE3_H_INCLUDED__
 
+#include <iostream>
 #define _PREC double
 
 #if defined(__NVCOMPILER) || defined(__NVCC__)
@@ -28,6 +29,8 @@ struct outputDtype {
 	_PREC s;
 };
 
+using namespace std;
+__PREPROC__ ostream& operator<<(ostream& os, const coords& x);
 __PREPROC__ coords operator+(const coords, const coords);
 __PREPROC__ coords operator+(const coords, const _PREC);
 __PREPROC__ coords operator+(const _PREC, const coords);
@@ -46,19 +49,5 @@ __PREPROC__ coords fabs3(const coords);
 __PREPROC__ coords max_d3(const coords, const coords);
 __PREPROC__ _PREC max3(const coords);
 __PREPROC__ coords sgn(const coords);
-
-struct quaternion{
-	_PREC w = 0.0;
-	_PREC x = 0.0; 
-	_PREC y = 0.0;
-	_PREC z = 0.0;
-};
-
-__PREPROC__ quaternion operator*(const quaternion, const quaternion);
-__PREPROC__ quaternion conjugate(const quaternion);
-__PREPROC__ quaternion qMult(const quaternion, const quaternion);
-__PREPROC__ coords qv_mult(const quaternion, const coords);
-__PREPROC__ quaternion rodriguezQuat(const coords, const _PREC);
-__PREPROC__ coords rodriguez(const coords, const coords);
 
 #endif

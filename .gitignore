@@ -4,3 +4,4 @@ build/
 *.o
 .ipynb_checkpoints/
 .vscode/
+core*.gatech.edu

@@ -1,17 +1,15 @@
 // This script is responsible for parsing the various option parameters that the user can pass in
 
-
-
 #include "../include/optionsParser.h"
 #include <iostream>
-#include<fstream>
-#include<sstream>
-#include<string>
-#include<vector>
-#include<algorithm>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <algorithm>
 
 std::string removeWhitespace(std::string s){
-	s.erase(remove_if(s.begin(), s.end(), isspace), s.end());
+	s.erase(remove_if(s.begin(), s.end(), [](char c){return isspace(c);}), s.end());
 	return s;
 }
 
@@ -52,9 +50,19 @@ void parseLine(options& opt, std::string s){
 	if(elements.at(0) == "L"){
 		opt.L = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
-	else if(elements.at(0) == "L"){
+	else if(elements.at(0) == "yi"){
 		opt.yi = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
 	}
+	else if(elements.at(0) == "Gx"){
+		opt.Gx = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+	else if(elements.at(0) == "Gy"){
+		opt.Gy = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+	else if(elements.at(0) == "Gz"){
+		opt.Gz = {(_PREC)std::stod(elements.at(1)), (_PREC)std::stod(elements.at(2)), (_PREC)std::stod(elements.at(3))};
+	}
+
 	else if(elements.at(0) == "dist"){
 		opt.dist = elements.at(1)[0];
 	}
@@ -185,9 +193,5 @@ options optionParser(char * filename){
 	}
 	
 	file.close();
-    _PREC k = 1.380649e-23;
-    opts.tc = 1.6e-4*opts.m/(k*pow(opts.T, 8.0));
-    opts.sqrtKT_m = sqrt(k*opts.T/opts.m);
-    
 	return opts;
 }
