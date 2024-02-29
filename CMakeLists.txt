@@ -23,7 +23,14 @@ target_include_directories(mainlib PRIVATE ${HEADER_DIRECTORY})
 target_compile_features(mainlib PUBLIC cxx_std_17)
 target_compile_options(mainlib PRIVATE -w -lineinfo) # Suppress warnings
 
-find_package(HDF5 REQUIRED COMPONENTS CXX)
+find_package(HDF5 COMPONENTS CXX)
+if (HDF5_FOUND)
+  include_directories(${HDF5_INCLUDE_DIRS})
+  target_compile_definitions(mainlib PUBLIC USEHDF5=1)
+  target_link_libraries (mainlib ${HDF5_CXX_LIBRARIES} ${HDF5_LIBRARIES})
+else()
+  message(STATUS "Could not find HDF5 library - HDF5 saving be disabled")
+endif()
 
 IF (CMAKE_CUDA_ARCHITECTURES)
   find_package(CUDA 11.8 REQUIRED)
@@ -41,5 +48,4 @@ ENDIF ()
 
 add_executable(main main.cpp)
 target_compile_options(main PRIVATE -w) # Suppress warnings
-target_link_libraries(mainlib ${HDF5_CXX_LIBRARIES} ${HDF5_LIBRARIES})
 target_link_libraries(main mainlib)

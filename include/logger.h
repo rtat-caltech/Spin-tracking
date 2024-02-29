@@ -2,15 +2,12 @@
 #define __LOGGER_H_INCLUDED__
 
 #include <boost/algorithm/string.hpp>
-#include "H5Cpp.h"
 #include "options.h"
 #include "double3.h"
 #include <filesystem>
 #include <memory>
 
 namespace fs = std::filesystem;
-
-bool pathExists(hid_t id, const std::string& path);
 
 class Logger {
 public:
@@ -44,12 +41,17 @@ private:
 	FILE* f;
 };
 
+#if USEHDF5
+
+#include "H5Cpp.h"
 
 using namespace H5;
 
 const H5std_string MEMBER1( "x" );
 const H5std_string MEMBER2( "y" );
 const H5std_string MEMBER3( "z" );
+
+bool pathExists(hid_t id, const std::string& path);
 
 class HDF5Logger : public Logger {
 public:
@@ -75,6 +77,8 @@ private:
 	DataType getH5Type(char* data);
 	H5File* f5;
 };
+
+#endif
 
 std::unique_ptr<Logger> createLogger(options opt, const char* outputName);
 

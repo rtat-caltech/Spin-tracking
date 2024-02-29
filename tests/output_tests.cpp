@@ -5,15 +5,18 @@
 #include "../include/integrator.h"
 #include "../include/logger.h"
 #include "../include/simulation.h"
-#include "H5Cpp.h"
 #include <iostream>
 #include <stdlib.h>
+#if USEHDF5
+#include "H5Cpp.h"
+#endif
 
 namespace utf = boost::unit_test;
 using namespace std;
 
 BOOST_AUTO_TEST_SUITE(OutputTesting)
 
+#if USEHDF5
 BOOST_AUTO_TEST_CASE(hdf5_output, * utf::tolerance(1e-9)) {
 	cout << "Testing File Output" << endl;
 	double t0 = 0.0;
@@ -77,5 +80,6 @@ BOOST_AUTO_TEST_CASE(hdf5_output, * utf::tolerance(1e-9)) {
 	file.close();
 	remove(outputName);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

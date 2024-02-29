@@ -42,6 +42,8 @@ BinaryLogger::~BinaryLogger() {
 	delete f;
 }
 
+#ifdef USEHDF5
+
 using namespace H5;
 
 HDF5Logger::HDF5Logger(const options OPT, const char* outputName) : Logger(OPT, outputName) {}
@@ -185,12 +187,18 @@ bool pathExists(hid_t id, const std::string& path) {
 	return H5Lexists(id, path.c_str(), H5P_DEFAULT) > 0;
 }
 
+#endif
+
 std::unique_ptr<Logger> createLogger(options opt, const char* outputName) {
 	std::string ext = std::string(fs::path(outputName).extension());
 	bool use_hdf5 = boost::iequals(ext, ".hdf5") || boost::iequals(ext, ".h5");
 	std::unique_ptr<Logger> log;
 	if (use_hdf5) {
+#if USE_HDF5
 		log = std::unique_ptr<Logger>(new HDF5Logger(opt, outputName));
+#else
+		throw runtime_error("HDF5 saving is not enabled, but output file has hdf5 extension.");
+#endif
 	} else {
 		log = std::unique_ptr<Logger>(new BinaryLogger(opt, outputName));
 	}
