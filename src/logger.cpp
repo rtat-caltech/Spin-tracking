@@ -194,7 +194,7 @@ std::unique_ptr<Logger> createLogger(options opt, const char* outputName) {
 	bool use_hdf5 = boost::iequals(ext, ".hdf5") || boost::iequals(ext, ".h5");
 	std::unique_ptr<Logger> log;
 	if (use_hdf5) {
-#if USE_HDF5
+#if USEHDF5
 		log = std::unique_ptr<Logger>(new HDF5Logger(opt, outputName));
 #else
 		throw runtime_error("HDF5 saving is not enabled, but output file has hdf5 extension.");
