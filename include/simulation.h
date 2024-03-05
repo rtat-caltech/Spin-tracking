@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "../include/double3.h"
+#include "../include/utils.h"
 #include "../include/quaternion.h"
 #include "../include/options.h"
 #include "../include/coeff.h"

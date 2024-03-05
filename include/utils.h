@@ -1,0 +1,43 @@
+#ifndef __UTILS_H_DEFINED__
+#define __UTILS_H_DEFINED__
+
+#include <iostream>
+#include <stdint.h>
+
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+#if defined(__HIPCC__)
+#define __PREPROCD__ __device__
+#elif defined(__NVCOMPILER) || defined(__NVCC__)
+#define __PREPROCD__ __device__
+#include <cuda_runtime.h>
+#else
+#define __PREPROCD__ 
+#endif
+
+#if defined(__NVCC__) || defined(__NVCOMPILER)
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#elif defined(__HIPCC__)
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != hipSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", hipGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#endif
+
+void synchronize();
+
+#endif

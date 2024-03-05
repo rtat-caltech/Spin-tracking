@@ -25,17 +25,7 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 				
 		//now initialize all of the particles in the system
         particle p(opt);
-        #if defined(__NVCOMPILER) || defined(__NVCC__)
-        gpuErrchk(cudaDeviceSynchronize());
-        #elif defined(__HIPCC__)
-        gpuErrchk(hipDeviceSynchronize());
-        #endif
         p.initParticles();
-        #if defined(__NVCOMPILER) || defined(__NVCC__)
-        gpuErrchk(cudaDeviceSynchronize());
-        #elif defined(__HIPCC__)
-        gpuErrchk(hipDeviceSynchronize());
-        #endif
 		//create the output file
 		//this automatically writes parameters to file
 		std::unique_ptr<Logger> log = createLogger(opt, outputName);
@@ -49,11 +39,6 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 			_PREC nextTime = ((_PREC)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
 			start = std::chrono::high_resolution_clock::now();
 			p.runSimulation(nextTime);
-            #if defined(__NVCOMPILER) || defined(__NVCC__)
-            gpuErrchk(cudaDeviceSynchronize());
-            #elif defined(__HIPCC__)
-            gpuErrchk(hipDeviceSynchronize());
-            #endif
 			p.outputData(log.get());
 			stop = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();

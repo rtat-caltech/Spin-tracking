@@ -20,28 +20,7 @@
 #define __PREPROCD__ 
 #endif
 
-#if defined(__NVCC__) || defined(__NVCOMPILER)
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-#elif defined(__HIPCC__)
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != hipSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", hipGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-#endif
-
+#include "utils.h"
 #include "integrator.h"
 #include "options.h"
 #include "double3.h"
@@ -241,9 +220,11 @@ public:
     void initParticles(){
 		fd = initializeSpectra(cspec, opt);
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+		synchronize();
 	    initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, 
 	                                                      pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
 	                                                      state, n_bounce, n_coll, n_steps, partID, failureState, stopParticle, coll_type, wall_hit, specagg, fd);
+	    synchronize();
         #else
 	    initParticlesCPU(opt, S, v, v_old,
 	                     pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,

@@ -36,7 +36,7 @@ struct options{
 	_PREC V = 5.0;
 	_PREC a = 0.0; //amplitude of the spin precession pulse
 	_PREC w = 0.0; //frequency of the spin precession pulse
-	_PREC swapStepSize = 1.0-4; //above this use rotations, below this use standard RK techniques
+	_PREC swapStepSize = 1.0e-4; //above this use rotations, below this use standard RK techniques
     _PREC maxPosStep = 0.1; //largest step size for position/velocity integration
 	_PREC ioutInt = 0.05; // how frequently to output the state data
     _PREC diffuse = 1.0; //the probability of diffuse collisions (1 meaning 100%, 0 meaning 0%)

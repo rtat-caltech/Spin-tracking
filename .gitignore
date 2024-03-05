@@ -5,3 +5,5 @@ build/
 .ipynb_checkpoints/
 .vscode/
 core*.gatech.edu
+CMakeCache.txt
+CMakeFiles/

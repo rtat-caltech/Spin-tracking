@@ -585,7 +585,7 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 					//same as option 3 but for option 4's coefficients
 					spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 				} else if(opt.integratorType == 6) {
-					spinResult = integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+					integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
 				} else {
 					//do nothing
 					spinResult = 0;
@@ -631,6 +631,15 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 		pcoll_type[ipart] = coll_type;
 		pwall_hit[ipart] = wall_hit;
 		ptf[ipart] = tf;
+		if (opt.integratorType == 6) {
+			for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
+				if (ipart % (2 * s) == 0) {
+					cspec_array[ipart].add(cspec_array[ipart + s]);
+				}
+
+			}
+			cspec.add(cspec_array[0]);
+		}
 	}
 }
 
@@ -780,8 +789,9 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 					//do nothing
 					spinResult = 0;
 				}
-				if(opt.keepStepSize)
+				if(opt.keepStepSize) {
 					h = tempH;
+				}
 				if (spinResult < 0) {
 					stopParticle = true;
 					failureState = spinResult;
@@ -867,6 +877,7 @@ void particle::runSimulation(_PREC nextTOut){
 	runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
 		t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
 		partID, failureState, stopParticle, coll_type, wall_hit, specagg, nextTOut);
+	synchronize();
 #else
 	runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
 	                 t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
