@@ -585,7 +585,7 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 					//same as option 3 but for option 4's coefficients
 					spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 				} else if(opt.integratorType == 6) {
-					integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+					spinResult = integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
 				} else {
 					//do nothing
 					spinResult = 0;
@@ -631,15 +631,22 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 		pcoll_type[ipart] = coll_type;
 		pwall_hit[ipart] = wall_hit;
 		ptf[ipart] = tf;
-		if (opt.integratorType == 6) {
-			for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
-				if (ipart % (2 * s) == 0) {
-					cspec_array[ipart].add(cspec_array[ipart + s]);
-				}
+		pspecagg[ipart] = specagg;
+	}
+}
 
-			}
-			cspec.add(cspec_array[0]);
+__global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* output, options opt) {
+	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
+
+	for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
+		if (ipart % (2 * s) == 0) {
+			specagg[ipart].add(specagg[ipart + s]);
 		}
+		__syncthreads();
+	}
+	
+	if (ipart == 0) {
+		*output = specagg[0];
 	}
 }
 
@@ -784,7 +791,7 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 					//same as option 3 but for option 4's coefficients
 					spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 				} else if(opt.integratorType == 6) {
-					integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+					spinResult = integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
 				} else {
 					//do nothing
 					spinResult = 0;
@@ -861,13 +868,7 @@ void particle::postProcess(Logger* log) {
 
 void particle::outputData(Logger* log){
 	// n * t * d
-#if defined(__HIPCC__)
-	hipDeviceSynchronize();
-#elif defined(__NVCOMPILER) || defined(__NVCC__)
-	cudaDeviceSynchronize();
-#else
-        
-#endif
+	synchronize();
 	log->writeSnapshot(t, pos, v, S, failureState, n_coll, n_bounce, n_steps);
 }
 
@@ -875,8 +876,20 @@ void particle::outputData(Logger* log){
 void particle::runSimulation(_PREC nextTOut){
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 	runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
-		t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-		partID, failureState, stopParticle, coll_type, wall_hit, specagg, nextTOut);
+													  t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
+													  partID, failureState, stopParticle, coll_type, wall_hit, specagg, nextTOut);
+	if (opt.integratorType == 6) {
+		synchronize();
+		SpectrumAggregator hsum;
+		SpectrumAggregator* ssum;
+		cudaMallocManaged(&ssum, sizeof(SpectrumAggregator));
+		spectrumSum<<<numBlocks, numPartsPerBlock>>>(specagg, ssum, opt);
+		synchronize();
+		cudaMemcpy(&hsum, ssum, sizeof(SpectrumAggregator), cudaMemcpyDeviceToHost);
+		cudaFree(ssum);
+		cspec.add(hsum.get_covariance_spectrum());
+
+	}
 	synchronize();
 #else
 	runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
@@ -886,6 +899,11 @@ void particle::runSimulation(_PREC nextTOut){
         
 };
 
+void particle::aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles) {
+	for(unsigned int tid = 0; tid < numParticles; tid++) {
+		cspec.add(specagg[tid].get_covariance_spectrum());
+	}
+}
 
 coords particle::spinMean() {
 	coords S_sum = {0, 0, 0};
@@ -899,12 +917,6 @@ floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, op
 	floquetDiagonalization fd = floquet_diagonalize(OPT);
 	cspec.initialize(fd.frequencies, fd.dt);
 	return fd;
-}
-
-void particle::aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles) {
-	for(unsigned int tid = 0; tid < numParticles; tid++) {
-		cspec.add(specagg[tid].get_covariance_spectrum());
-	}
 }
 
 SpectrumAggregator* particle::getSpectrumAggregators() {

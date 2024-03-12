@@ -45,7 +45,7 @@ public:
 
 class CovarianceSpectrum {
 public:
-	CovarianceSpectrum()
+	__PREPROC__ CovarianceSpectrum()
 	{
 		for (int i = 0; i < NW; i++) {
 			variance[i] = Matrix3cd::Constant(0.0);
@@ -71,6 +71,7 @@ struct covMat {
 	coords real_off_diag;
 	coords imag_off_diag;
 	__PREPROC__ void add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag);
+	__PREPROC__ void add(covMat other);
 };	
 
 class SpectrumAggregator {
@@ -79,11 +80,11 @@ public:
 		reset();
 	}
 	__PREPROC__ void initialize(double (&freq)[NW], double dt);
-	__PREPROC__ CovarianceSpectrum get_covariance_spectrum();
+	CovarianceSpectrum get_covariance_spectrum();
 	__PREPROC__ void update(const coords& x);
 	__PREPROC__ void reset();
+	__PREPROC__ void add(SpectrumAggregator other);
 	int n_samples;
-	
 private:
 	coords s1[NW];
 	coords s2[NW];

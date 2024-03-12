@@ -37,10 +37,17 @@ __PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const
 	return pair<coords, coords>(a, b);
 }
 
+__PREPROC__ void goertzel_stage_2_vector(coords& a, coords& b, const coords& s1, const coords& s2, double w, double dt) {
+	//In-place version
+	double angle = w * dt;
+	a = s1 - cos(angle) * s2;
+	b = sin(angle) * s2;
+	return;
+}
+
 __PREPROC__ Matrix3cd goertzel_stage_2(const coords& s1, const coords& s2, double w, double dt) {
-	pair<coords, coords> p = goertzel_stage_2_vector(s1, s2, w, dt);
-	coords a = p.first;
-	coords b = p.second;
+	coords a, b;
+	goertzel_stage_2_vector(a, b, s1, s2, w, dt);
 	Vector3cd c = {complex<double> (a.x, b.x), complex<double> (a.y, b.y), complex<double> (a.z, b.z)};
 	Matrix3cd m = c * c.adjoint();
 	return m;
@@ -78,6 +85,9 @@ void CovarianceSpectrum::add(CovarianceSpectrum other) {
 }
 
 void CovarianceSpectrum::normalize() {
+	if (n_samples == 0) {
+		throw domain_error("No samples were collected. Covariance spectrum cannot be normalized");
+	}
 	for (int k = 0; k < NW; k++) {
 		variance[k] *= (dt/n_samples);
 	}
@@ -106,12 +116,19 @@ __PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, 
 	imag_diag = imag_diag + 2 * (u_imag * v_real - u_real * v_imag);
 }
 
+__PREPROC__ void covMat::add(covMat other) {
+	real_diag = other.real_diag + real_diag;
+	imag_diag = other.imag_diag + imag_diag;
+	real_off_diag = other.real_off_diag + real_off_diag;
+	imag_off_diag = other.imag_off_diag + imag_off_diag;
+}
 
 __PREPROC__ void SpectrumAggregator::update(const coords& x) {
 	for (int i=0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
-		pair<coords, coords> p = goertzel_stage_2_vector(s1[i], s2[i], w[i], dt);
-		cmat[i].add_outer(p.first, p.second, x, (coords) {0, 0, 0});
+		coords a, b;
+	    goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
+		cmat[i].add_outer(a, b, x, (coords) {0, 0, 0});
 	}
 	n_samples += 1;
 }
@@ -128,8 +145,15 @@ __PREPROC__ void SpectrumAggregator::reset() {
 	n_samples = 0;
 }
 
+__PREPROC__ void SpectrumAggregator::add(SpectrumAggregator other) {
+	for (int i = 0; i < NW; i++) {
+		cmat[i].add(other.cmat[i]);
+	}
+	n_samples += other.n_samples;
+}
+
 __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
-	CovarianceSpectrum spec;
+	CovarianceSpectrum spec = CovarianceSpectrum();
 	spec.initialize(w, dt, n_samples);
 	for (int i=0; i < NW; i++) {
 		if (LAPLACE) {
@@ -155,19 +179,13 @@ __PREPROC__ void SpectrumAggregator::set_frequencies(double (&freq)[NW]) {
 	}
 }
 
-Spectrum diagonalizeSpectrum(CovarianceSpectrum& spec) {
-	Spectrum s;
-	return s;
-}
-
-
 /* Floquet stuff */
 
-double sign(double x) {
+__PREPROC__ double sign(double x) {
 	return (x < 0.0)? -1.0 : 1.0;
 }
 
-double heaviside(double x) {
+__PREPROC__ double heaviside(double x) {
 	if (x == 0.0) {
 		return 0.5;
 	} else {

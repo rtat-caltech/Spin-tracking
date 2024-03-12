@@ -721,13 +721,13 @@ __PREPROC__ int integrateMagnusCFET(const _PREC t0, const _PREC tf, coords& y, c
 	return 0;
 }
 
-_PREC first_sample_point(_PREC t0, _PREC h) {
+__PREPROC__ _PREC first_sample_point(_PREC t0, _PREC h) {
 	// Returns the first Spectrum sample point for a time interval starting at t0.
 	// With sampling interval h
 	return (floor(t0/h)+1)*h; // The smallest multiple of h greater than t0
 }
 
-int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, options OPT, const _PREC h) {
+__PREPROC__ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specagg, const coords& p_old, const coords& p_new, const coords& v_old, const coords& v_new, options OPT, const _PREC h) {
 	// I'm doing it this way because I'm worried about floating point error
 	_PREC t = first_sample_point(t0, h);
 	_PREC next_t = first_sample_point(tf, h);
@@ -824,10 +824,10 @@ Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const compl
 floquetDiagonalization floquet_diagonalize(options OPT) {
 	double t0 = 0.0;
 	double tf = (2*M_PI)/OPT.w; //TODO
-	int n_prop = 100;
+	int n_prop = 100; // TODO
 	vector<quaternion> propagators;
 	quaternion y = {1, 0, 0, 0};
-	double h = 1e-6;
+	double h = 1.0e-6; // Integration stepsize
 	for (int i=0; i < n_prop; i++) {
 		double t1 = t0 + (tf - t0) * i/n_prop;
 		double t2 = t0 + (tf - t0) * (i+1)/n_prop;

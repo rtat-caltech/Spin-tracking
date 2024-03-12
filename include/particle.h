@@ -40,27 +40,33 @@ struct rngState{
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 //these are the larger kernel calls
 __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_old,
-                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
-                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator* specagg, floquetDiagonalization fd);
+								 coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+								 _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+								 rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
+								 char *wall_hit, SpectrumAggregator* specagg, floquetDiagonalization fd);
 __global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_old,
-                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
-                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg, _PREC nextTOut);
+								 coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+								 _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+								 rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
+								 char *wall_hit, SpectrumAggregator *specagg,  _PREC nextTOut);
+
+__global__ void spectrumSum(SpectrumAggregator *specagg, CovarianceSpectrum& cspec, options opt);
 #else
 
 void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,
-                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
-                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *specagg, floquetDiagonalization fd);
+					  coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+					  _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+					  rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
+					  char *wall_hit, SpectrumAggregator *specagg, floquetDiagonalization fd);
 void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
-                              coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
-                              _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
-                              rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
-		      unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type, char *wall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, _PREC nextTOut);
+					  coords *pos, coords *pos_old, _PREC *t, _PREC *t_old,
+					  _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
+					  rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
+					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
+					  char *wall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, _PREC nextTOut);
 #endif
 
 class particle
@@ -94,7 +100,6 @@ public:
         hipMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
         hipMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
 		hipMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles);
-        
         #elif defined(__NVCOMPILER) || defined(__NVCC__)
         //nvidia gpu allocation
         cudaMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
@@ -117,7 +122,7 @@ public:
         cudaMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
         cudaMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
         cudaMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
-		cudaMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles); 
+		cudaMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles);
         #else
         //cpu allocation
         S = (coords*)malloc(sizeof(coords)*OPT.numParticles); //spin state
@@ -233,8 +238,8 @@ public:
     };
     void outputData(Logger* log);
 	void runSimulation(_PREC nextTOut);
-	void aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles);
 	floquetDiagonalization initializeSpectra(CovarianceSpectrum& cspec, options OPT);
+	void aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles);
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
 	coords floquetResults();

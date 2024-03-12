@@ -72,8 +72,6 @@ __global__ void initializeParticles(particle * particles, int numParticles, opti
 void runSimulation(particle * particles, outputBuffers* buffers, options OPT);
 void initializeParticles(particle * particles, int numParticles, options OPT, unsigned long seed, coords yi);
 
-void aggregateSpectrum(particle*, CovarianceSpectrum&, int);
-
 #endif
 
 #endif
