@@ -213,7 +213,6 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-4)) {
 	opt.numParticles = 1;
 	double dt = 1e-5;
 
-	SpectrumAggregator specagg;
 	double w[NW] = {0};
 	w[0] = opt.noiseFrequencies.x;
 	w[1] = opt.noiseFrequencies.y;

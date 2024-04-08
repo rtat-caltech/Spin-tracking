@@ -9,11 +9,14 @@
 #endif
 #if defined(__HIPCC__)
 #define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #elif defined(__NVCOMPILER) || defined(__NVCC__)
 #define __PREPROCD__ __device__
+#define __PREPROC__ __host__ __device__
 #include <cuda_runtime.h>
 #else
-#define __PREPROCD__ 
+#define __PREPROCD__
+#define __PREPROC__
 #endif
 
 #if defined(__NVCC__) || defined(__NVCOMPILER)
@@ -39,5 +42,16 @@ inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=tr
 #endif
 
 void synchronize();
+void genericFree(void* ptr);
 
+template <typename T>
+void genericMalloc(T** ptr, int n) {
+#if defined(__NVCOMPILER) || defined(__NVCC__)
+	gpuErrchk(cudaMallocManaged(ptr, sizeof(T) * n));
+#elif defined(__HIPCC__)
+	hipMallocManaged(ptr, sizeof(T) * n);
+#else
+	*ptr = (T*) malloc(sizeof(T) * n);
+#endif	
+}
 #endif

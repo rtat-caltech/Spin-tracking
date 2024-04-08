@@ -145,6 +145,14 @@ __PREPROC__ void SpectrumAggregator::reset() {
 	n_samples = 0;
 }
 
+__PREPROC__ void SpectrumAggregator::compile_results() {
+	coords a, b;
+	for (int i = 0; i < NW; i++) {
+		goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
+		cmat[i].real_diag = a * a + b * b;
+	}
+}
+
 __PREPROC__ void SpectrumAggregator::add(SpectrumAggregator other) {
 	for (int i = 0; i < NW; i++) {
 		cmat[i].add(other.cmat[i]);
@@ -156,14 +164,9 @@ __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	CovarianceSpectrum spec = CovarianceSpectrum();
 	spec.initialize(w, dt, n_samples);
 	for (int i=0; i < NW; i++) {
-		if (LAPLACE) {
-			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
-			spec.variance[i](0, 0) += complex<double> (0, -cmat[i].imag_diag.x);
-			spec.variance[i](1, 1) += complex<double> (0, -cmat[i].imag_diag.y);
-			spec.variance[i](2, 2) += complex<double> (0, -cmat[i].imag_diag.z);
-		} else {
-			spec.variance[i] = goertzel_stage_2(s1[i], s2[i], w[i], dt);
-		}
+		spec.variance[i](0, 0) += complex<double> (cmat[i].real_diag.x, -cmat[i].imag_diag.x);
+		spec.variance[i](1, 1) += complex<double> (cmat[i].real_diag.y, -cmat[i].imag_diag.y);
+		spec.variance[i](2, 2) += complex<double> (cmat[i].real_diag.z, -cmat[i].imag_diag.z);
 	}
 	return spec;
 }
@@ -316,4 +319,294 @@ coords density_to_bloch(Matrix2cd rho, quaternion basis) {
 		0, -1;
 	Matrix2cd rho_lab = basis_matrix.adjoint() * rho * basis_matrix;
 	return coords {(rho_lab * sx).trace().real(), (rho_lab * sy).trace().real(), (rho_lab * sz).trace().real()};
+}
+
+void FFTHandler::plan(int npts, int ntransforms, cufftType type) {
+	// Plan for a batch of 1D Fourier transforms
+	// npts: Number of points in the fourier transform
+	// ntransforms: Number of fourier transforms
+	// transform_type: e.g. CUFFT_R2C
+	transform_type = type;
+	cufftSafeCall(cufftPlan1d(&my_plan, npts, type, ntransforms));
+	planned = true;
+}
+
+void FFTHandler::plan(options opt) {
+	plan(timeSeriesLength(opt.ioutInt, opt.h, false), 3 * opt.numParticles, CUFFT_R2C);
+}
+
+void FFTHandler::transform(void* input, void* output) {
+	if (!planned) {
+		cout << "Plan was not called before transform for FFTHandler" << endl;
+	}
+	switch(transform_type) {
+	case CUFFT_R2C:
+		cufftSafeCall(cufftExecR2C(my_plan, (cufftReal*) input, (cufftComplex*) output));
+		break;
+	case CUFFT_C2R:
+		cufftSafeCall(cufftExecC2R(my_plan, (cufftComplex*) input, (cufftReal*) output));
+		break;
+	case CUFFT_C2C:
+		cufftSafeCall(cufftExecC2C(my_plan, (cufftComplex*) input, (cufftComplex*) output, CUFFT_FORWARD));
+		break;
+	default:
+		cout << "Invalid transform type (was FFTHandler::plan called?)" << endl;
+	}
+	synchronize();
+}
+
+void TensorHandler::plan(options opt) {
+	// CUDA types
+	cutensorDataType_t typeA = CUTENSOR_C_32F;
+	cutensorDataType_t typeB = CUTENSOR_C_32F;
+	cutensorDataType_t typeC = CUTENSOR_C_32F;
+	cutensorComputeDescriptor_t descCompute = CUTENSOR_COMPUTE_DESC_32F;
+	// Create vector of modes
+	std::vector<int> modeA{'f','a','n'};
+	std::vector<int> modeB{'f','b','n'};
+	std::vector<int> modeC{'f','a','b'};
+	int nmodeA = modeA.size();
+	int nmodeB = modeB.size();
+	int nmodeC = modeC.size();
+	// Extents
+	std::unordered_map<int, int64_t> extent;
+	extent['f'] = FFTLength(opt.ioutInt, opt.h);
+	extent['a'] = 3;
+	extent['b'] = 3;
+	extent['n'] = opt.numParticles;
+
+	alpha = make_cuComplex(1.0f/extent['n'], 0.0f); //Normalization factor
+	beta = make_cuComplex(1.0f, 0.0f);
+
+	// Create a vector of extents for each tensor
+	std::vector<int64_t> extentC;
+	for(auto mode : modeC)
+		extentC.push_back(extent[mode]);
+	std::vector<int64_t> extentA;
+	for(auto mode : modeA)
+		extentA.push_back(extent[mode]);
+	std::vector<int64_t> extentB;
+	for(auto mode : modeB)
+		extentB.push_back(extent[mode]);
+	
+	const uint32_t kAlignment = 128; // Alignment of the global-memory device pointers (bytes)
+	gpuErrchk(cudaMallocManaged(&Stensor, sizeof(cufftComplex) * extent['f'] * extent['a'] * extent['b']));
+	
+	HANDLE_ERROR(cutensorCreate(&handle));
+	HANDLE_ERROR(cutensorCreateTensorDescriptor(handle,
+												&descA,
+												nmodeA,
+												extentA.data(),
+												NULL,/*stride*/
+												typeA, kAlignment));
+
+	HANDLE_ERROR(cutensorCreateTensorDescriptor(handle,
+												&descB,
+												nmodeB,
+												extentB.data(),
+												NULL,/*stride*/
+												typeB, kAlignment));
+
+	HANDLE_ERROR(cutensorCreateTensorDescriptor(handle,
+												&descC,
+												nmodeC,
+												extentC.data(),
+												NULL,/*stride*/
+												typeC, kAlignment));
+	
+	HANDLE_ERROR(cutensorCreateContraction(handle,
+										   &desc,
+										   descA, modeA.data(), CUTENSOR_OP_IDENTITY,
+										   descB, modeB.data(), CUTENSOR_OP_CONJ,
+										   descC, modeC.data(), CUTENSOR_OP_IDENTITY,
+										   descC, modeC.data(),
+										   descCompute));
+
+
+	// Check scalar type
+	cutensorDataType_t scalarType;
+	HANDLE_ERROR(cutensorOperationDescriptorGetAttribute(handle,
+														 desc,
+														 CUTENSOR_OPERATION_DESCRIPTOR_SCALAR_TYPE,
+														 (void*)&scalarType,
+														 sizeof(scalarType)));
+	
+	assert(scalarType == CUTENSOR_C_32F);
+	
+	// Set algorithm
+	const cutensorAlgo_t algo = CUTENSOR_ALGO_DEFAULT;
+	
+	cutensorPlanPreference_t planPref;
+	HANDLE_ERROR(cutensorCreatePlanPreference(
+					 handle,
+					 &planPref,
+					 algo,
+					 CUTENSOR_JIT_MODE_NONE));
+
+	// Estimate workspace size
+	uint64_t workspaceSizeEstimate = 0;
+	const cutensorWorksizePreference_t workspacePref = CUTENSOR_WORKSPACE_DEFAULT;
+	HANDLE_ERROR(cutensorEstimateWorkspaceSize(handle,
+											   desc,
+											   planPref,
+											   workspacePref,
+											   &workspaceSizeEstimate));
+
+	// Create contraction plan
+	HANDLE_ERROR(cutensorCreatePlan(handle,
+									&my_plan,
+									desc,
+									planPref,
+									workspaceSizeEstimate));
+
+	// query actually used workspace
+	HANDLE_ERROR(cutensorPlanGetAttribute(handle,
+										  my_plan,
+										  CUTENSOR_PLAN_REQUIRED_WORKSPACE,
+										  &actualWorkspaceSize,
+										  sizeof(actualWorkspaceSize)));
+
+	// At this point the user knows exactly how much memory is need by the operation and
+	// only the smaller actual workspace needs to be allocated
+	assert(actualWorkspaceSize <= workspaceSizeEstimate);
+
+	if (actualWorkspaceSize > 0) {
+		gpuErrchk(cudaMalloc(&work, actualWorkspaceSize));
+		assert(uintptr_t(work) % 128 == 0); // workspace must be aligned to 128 byte-boundary
+	}
+	
+	planned = true;
+}
+
+void TensorHandler::execute(cufftComplex *B) {
+	if (!planned) {
+		cout << "Plan was not called before execute for TensorHandler" << endl;
+	}
+	gpuErrchk(cudaStreamCreate(&stream));
+	HANDLE_ERROR(cutensorContract(handle,
+								  my_plan,
+								  (void*) &alpha, B, B,
+								  (void*) &beta, Stensor, Stensor,
+								  work, actualWorkspaceSize, stream));
+	gpuErrchk(cudaStreamDestroy(stream));
+}
+
+void TensorHandler::getSpectrum(CovarianceSpectrum* cspec, options opt) {
+	int nf = FFTLength(opt.ioutInt, opt.h);
+	int nt = timeSeriesLength(opt.ioutInt, opt.h, false);
+	int nbatch = 9;
+
+	FFTHandler* inverseHandler = new FFTHandler();
+	inverseHandler->plan(nt, nbatch, CUFFT_C2R);
+	float* correlation;
+	genericMalloc<float>(&correlation, nt * nbatch);
+	
+	inverseHandler->transform((cufftComplex*) Stensor, (cufftReal*) correlation);
+
+	heavisideScale<<<64, 256>>>(correlation, nt, nbatch);	
+	gpuErrchk( cudaPeekAtLastError() );
+	gpuErrchk( cudaDeviceSynchronize() );
+	
+	float* host_correlation = (float*) malloc(sizeof(float) * nt * nbatch);
+	gpuErrchk(cudaMemcpy(host_correlation, correlation, sizeof(float) * nt * nbatch, cudaMemcpyDeviceToHost));
+	synchronize();
+	free(host_correlation);
+
+	
+	FFTHandler* forwardHandler = new FFTHandler();
+	forwardHandler->plan(nt, nbatch, CUFFT_R2C);
+	cufftComplex* imaginarySpectrum;
+	genericMalloc<cufftComplex>(&imaginarySpectrum, nf * nbatch);
+	forwardHandler->transform(correlation, imaginarySpectrum);
+
+	addComplex<<<32, 256>>>(Stensor, imaginarySpectrum, nf, 9);
+	gpuErrchk( cudaPeekAtLastError() );
+	gpuErrchk( cudaDeviceSynchronize() );
+
+	unsigned int nbytes = sizeof(complex<float>) * nf * 9;
+	complex<float>* S = (complex<float>*) malloc(nbytes);
+	gpuErrchk( cudaMemcpy(S, Stensor, nbytes, cudaMemcpyDeviceToHost) );
+
+	StoCspec(S, cspec, nf, nt, (int) round((opt.tf - opt.t0)/opt.ioutInt));
+
+	genericFree(Stensor);
+	genericFree(correlation);
+	genericFree(imaginarySpectrum);
+	free(S);
+	delete forwardHandler;
+	delete inverseHandler;
+}
+
+void StoCspec(complex<float>* S, CovarianceSpectrum* cspec, int nf, int nt, int nsegment) {
+	// nf = # of frequencies in FFT
+	// nt = # of time samples per segment
+	// nsegment = # of segments
+	float df = 1.0f/(nt * cspec->dt);
+	for (int i = 0; i < NW; i++) {
+		int S_idx = min(round((cspec->frequencies[i])/(2*M_PI*df)), nf-1.0f);
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 3; k++) {
+				cspec->variance[i](j, k) = S[3 * nf * j + nf * k + S_idx];
+			}
+		}
+	}
+	cspec->n_samples = nt * nsegment;
+}
+
+__global__ void heavisideScale(float* correlation, int nx, int ny) {
+	// Multiplies the input by a heaviside step function \Theta(ix - nx/2) * correlation[ix, iy]
+	// Also applies a scaling factor 1/nt to account for FFT normalization
+	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+	if (i < nx * ny) {
+		unsigned int ix = i % nx;
+		if (2 * ix + 1 == nx) {
+			// The middle element. Only if nx is odd.
+			correlation[i] *= 0.5f/nx;
+		} else if (2 * ix + 1 < nx) {
+			correlation[i] = 0;
+		} else {
+			correlation[i] *= 1.0f/nx;
+		}
+	}
+}
+
+__global__ void addComplex(cufftComplex* real_part, cufftComplex* imaginary_part, int nx, int ny) {
+	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+	cuFloatComplex im_cu = make_cuComplex(0.0f, 1.0f);
+	if (i < nx * ny) {
+		//real_part[i] = cuCaddf(cuCmulf(imaginary_part[i], im_cu), real_part[i]);
+		real_part[i] = imaginary_part[i];
+	}
+}
+
+TensorHandler::~TensorHandler() {
+	if (planned) {
+		HANDLE_ERROR(cutensorDestroy(handle));
+		HANDLE_ERROR(cutensorDestroyPlan(my_plan));
+		HANDLE_ERROR(cutensorDestroyOperationDescriptor(desc));
+		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descA));
+		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descB));
+		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descC));
+		cudaFree(Stensor);
+	}
+}
+
+__PREPROC__ int timeSeriesLength(_PREC ioutInt, _PREC h, bool padded) {
+	// Returns length of time series, padded so that we can do in-place transform
+	if (padded) {
+		return (ioutInt/h/2 + 1) * 2;
+	} else {
+		return ioutInt/h;
+	}
+}
+
+__PREPROC__ int FFTLength(_PREC ioutInt, _PREC h) {
+	// Returns length of FFT (# of complex elements)
+	return timeSeriesLength(ioutInt, h, true)/2;
+}
+
+FFTHandler::~FFTHandler() {
+	if (planned) {
+		cufftSafeCall( cufftDestroy(my_plan) );
+	}
 }

@@ -50,7 +50,7 @@ __global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_ol
 								 _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
 								 rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
 								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
-								 char *wall_hit, SpectrumAggregator *specagg,  _PREC nextTOut);
+								 char *wall_hit, SpectrumAggregator *specagg, float *Bnoise,  _PREC nextTOut);
 
 __global__ void spectrumSum(SpectrumAggregator *specagg, CovarianceSpectrum& cspec, options opt);
 #else
@@ -66,164 +66,48 @@ void runSimulationCPU(options opt, coords *S, coords *v, coords *v_old,
 					  _PREC *tf, _PREC *dt, _PREC *next_gas_coll_time, _PREC *h,
 					  rngState *state, size_t *n_bounce, size_t *n_coll, size_t *n_steps,
 					  unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
-					  char *wall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, _PREC nextTOut);
+					  char *wall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, float *Bnoise, _PREC nextTOut);
 #endif
 
-class particle
-{
+class particle {
 public:
-	particle(const options OPT){
-        opt = OPT; //set the options
-        //allocate the various storage spaces
-        numBlocks = std::ceil((_PREC)opt.numParticles/(_PREC)opt.numPerGPUBlock);
-        numPartsPerBlock = opt.numPerGPUBlock;
-        #if defined(__HIPCC__)
-        //amd gpu allocation
-        hipMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
-        hipMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
-        hipMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
-        hipMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
-        hipMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
-        hipMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
-        hipMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
-        hipMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
-        hipMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
-        hipMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
-        hipMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
-        hipMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
-        hipMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
-        hipMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
-        hipMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
-        hipMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
-        hipMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
-        hipMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
-        hipMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
-        hipMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
-		hipMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles);
-        #elif defined(__NVCOMPILER) || defined(__NVCC__)
-        //nvidia gpu allocation
-        cudaMallocManaged(&S, sizeof(coords)*OPT.numParticles); //spin state
-        cudaMallocManaged(&v, sizeof(coords)*OPT.numParticles); //velocity
-        cudaMallocManaged(&v_old, sizeof(coords)*OPT.numParticles); //velocity
-        cudaMallocManaged(&pos, sizeof(coords)*OPT.numParticles); //position
-        cudaMallocManaged(&pos_old, sizeof(coords)*OPT.numParticles); //position
-        cudaMallocManaged(&t, sizeof(_PREC)*OPT.numParticles); //time
-        cudaMallocManaged(&t_old, sizeof(_PREC)*OPT.numParticles); //time old
-        cudaMallocManaged(&tf, sizeof(_PREC)*OPT.numParticles); //time final
-        cudaMallocManaged(&dt, sizeof(_PREC)*OPT.numParticles); //dt
-        cudaMallocManaged(&next_gas_coll_time, sizeof(_PREC)*OPT.numParticles); //gas collision time
-        cudaMallocManaged(&h, sizeof(_PREC)*OPT.numParticles); //step size
-        cudaMallocManaged(&state, sizeof(rngState)*OPT.numParticles); //rng state
-        cudaMallocManaged(&n_bounce, sizeof(size_t)*OPT.numParticles);
-        cudaMallocManaged(&n_coll, sizeof(size_t)*OPT.numParticles);
-        cudaMallocManaged(&n_steps, sizeof(size_t)*OPT.numParticles);
-        cudaMallocManaged(&partID, sizeof(unsigned int)*OPT.numParticles);
-        cudaMallocManaged(&failureState, sizeof(int)*OPT.numParticles);
-        cudaMallocManaged(&stopParticle, sizeof(bool)*OPT.numParticles);
-        cudaMallocManaged(&coll_type, sizeof(char)*OPT.numParticles);
-        cudaMallocManaged(&wall_hit, sizeof(char)*OPT.numParticles);
-		cudaMallocManaged(&specagg, sizeof(SpectrumAggregator)*OPT.numParticles);
-        #else
-        //cpu allocation
-        S = (coords*)malloc(sizeof(coords)*OPT.numParticles); //spin state
-        v = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
-        v_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //velocity
-        pos = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
-        pos_old = (coords*)malloc(sizeof(coords)*OPT.numParticles); //position
-        t = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time
-        t_old = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time old
-        tf = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //time final
-        dt = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //dt
-        next_gas_coll_time = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //gas collision time
-        h = (_PREC*)malloc(sizeof(_PREC)*OPT.numParticles); //step size
-        state = (rngState*)malloc(sizeof(rngState)*OPT.numParticles); //rng state
-        n_bounce = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_coll = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        n_steps = (size_t*)malloc(sizeof(size_t)*OPT.numParticles);
-        partID = (unsigned int*)malloc(sizeof(unsigned int)*OPT.numParticles);
-        failureState = (int*)malloc(sizeof(int)*OPT.numParticles);
-        stopParticle = (bool*)malloc(sizeof(bool)*OPT.numParticles);
-        coll_type = (char*)malloc(sizeof(char)*OPT.numParticles);
-        wall_hit = (char*)malloc(sizeof(char)*OPT.numParticles);
-        specagg = (SpectrumAggregator*)malloc(sizeof(SpectrumAggregator)*OPT.numParticles);
-        #endif
-    }
+	particle(const options OPT);
     ~particle(){
-        #if defined(__HIPCC__)
-        //amd gpu de-allocation
-        hipFree(S); //spin state
-        hipFree(v); //velocity
-        hipFree(v_old);
-        hipFree(pos); //position
-        hipFree(pos_old); //position
-        hipFree(t); //time
-        hipFree(t_old); //time old
-        hipFree(tf); //time final
-        hipFree(dt); //dt
-        hipFree(next_gas_coll_time); //gas collision time
-        hipFree(h); //step size
-        hipFree(state); //rng state
-        hipFree(n_bounce);
-        hipFree(n_coll);
-        hipFree(n_steps);
-        hipFree(partID);
-        hipFree(failureState);
-        hipFree(stopParticle);
-        hipFree(coll_type);
-        hipFree(wall_hit);
-		hipFree(specagg);
-        
-        #elif defined(__NVCOMPILER) || defined(__NVCC__)
-        //nvidia gpu allocation
-        cudaFree(S); //spin state
-        cudaFree(v); //velocity
-        cudaFree(v_old);
-        cudaFree(pos); //position
-        cudaFree(pos_old); //position
-        cudaFree(t); //time
-        cudaFree(t_old); //time old
-        cudaFree(tf); //time final
-        cudaFree(dt); //dt
-        cudaFree(next_gas_coll_time); //gas collision time
-        cudaFree(h); //step size
-        cudaFree(state); //rng state
-        cudaFree(n_bounce);
-        cudaFree(n_coll);
-        cudaFree(n_steps);
-        cudaFree(partID);
-        cudaFree(failureState);
-        cudaFree(stopParticle);
-        cudaFree(coll_type);
-        cudaFree(wall_hit);
-		cudaFree(specagg);
-        
-        #else
-        //cpu allocation
-        free(S); //spin state
-        free(v); //velocity
-        free(v_old);
-        free(pos); //position
-        free(pos_old); //position
-        free(t); //time
-        free(t_old); //time old
-        free(tf); //time final
-        free(dt); //dt
-        free(next_gas_coll_time); //gas collision time
-        free(h); //step size
-        free(state); //rng state
-        free(n_bounce);
-        free(n_coll);
-        free(n_steps);
-        free(partID);
-        free(failureState);
-        free(stopParticle);
-        free(coll_type);
-        free(wall_hit);
-		free(specagg);
-        #endif
+        genericFree(S); //spin state
+        genericFree(v); //velocity
+        genericFree(v_old);
+        genericFree(pos); //position
+        genericFree(pos_old); //position
+        genericFree(t); //time
+        genericFree(t_old); //time old
+        genericFree(tf); //time final
+        genericFree(dt); //dt
+        genericFree(next_gas_coll_time); //gas collision time
+        genericFree(h); //step size
+        genericFree(state); //rng state
+        genericFree(n_bounce);
+        genericFree(n_coll);
+        genericFree(n_steps);
+        genericFree(partID);
+        genericFree(failureState);
+        genericFree(stopParticle);
+        genericFree(coll_type);
+        genericFree(wall_hit);
+		if (opt.integratorType == 6) {
+			genericFree(specagg);
+		}
+		if (opt.integratorType == 7) {
+			genericFree(Bnoise);
+		}
     };
-    void initParticles(){
-		fd = initializeSpectra(cspec, opt);
+    void initParticles() {
+		if (opt.integratorType == 6 || opt.integratorType == 7) {
+			fd = initializeSpectra(cspec, opt);
+		}
+		if (opt.integratorType == 7) {
+			fftHandler.plan(opt);
+			tensorHandler.plan(opt);
+		}
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 		synchronize();
 	    initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, 
@@ -289,7 +173,7 @@ private:
     size_t *n_coll_out;
     size_t *n_steps_out;
     unsigned int *partID_out;
-    int* failureState_out;
+    int *failureState_out;
     bool *stopParticle_out;
     char *coll_type_out;
     char *wall_hit_out;
@@ -297,6 +181,9 @@ private:
     SpectrumAggregator *specagg;
     CovarianceSpectrum cspec;
     floquetDiagonalization fd;
+	FFTHandler fftHandler;
+	TensorHandler tensorHandler;
+	float *Bnoise;
 };
 
 __PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, 

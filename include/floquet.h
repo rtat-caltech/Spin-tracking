@@ -17,12 +17,18 @@
 #include "double3.h"
 #include "quaternion.h"
 #include "options.h"
+#include "utils.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
 #include <vector>
+#include <complex>
+#include <iostream>
+#include <cufft.h>
+#include <cutensor.h>
+#include <unordered_map>
 
 #define _USE_MATH_DEFINES
 
@@ -33,6 +39,56 @@ using Eigen::Vector2d;
 
 #define NK 11
 #define NW 17
+
+#ifdef _CUFFT_H_
+// cuFFT API errors
+static const char* _cudaGetErrorEnum(cufftResult error)
+{
+	switch (error)
+	{
+	case CUFFT_SUCCESS:
+		return "CUFFT_SUCCESS";
+
+	case CUFFT_INVALID_PLAN:
+		return "CUFFT_INVALID_PLAN";
+
+	case CUFFT_ALLOC_FAILED:
+		return "CUFFT_ALLOC_FAILED";
+
+	case CUFFT_INVALID_TYPE:
+		return "CUFFT_INVALID_TYPE";
+
+	case CUFFT_INVALID_VALUE:
+		return "CUFFT_INVALID_VALUE";
+
+	case CUFFT_INTERNAL_ERROR:
+		return "CUFFT_INTERNAL_ERROR";
+
+	case CUFFT_EXEC_FAILED:
+		return "CUFFT_EXEC_FAILED";
+
+	case CUFFT_SETUP_FAILED:
+		return "CUFFT_SETUP_FAILED";
+
+	case CUFFT_INVALID_SIZE:
+		return "CUFFT_INVALID_SIZE";
+
+	case CUFFT_UNALIGNED_DATA:
+		return "CUFFT_UNALIGNED_DATA";
+	}
+
+	return "<unknown>";
+}
+
+#define cufftSafeCall(err)  __cufftSafeCall(err, __FILE__, __LINE__)
+inline void __cufftSafeCall(cufftResult err, const char *file, const int line) {
+	if( CUFFT_SUCCESS != err) {
+		fprintf(stderr, "CUFFT error in file '%s', line %d\n error %d: %s\nterminating!\n", file, line, err, _cudaGetErrorEnum(err));
+		cudaDeviceReset();
+		assert(0);
+	}
+}
+#endif
 
 class Spectrum {
 public:
@@ -59,8 +115,8 @@ public:
 	void add(CovarianceSpectrum other);
 	void normalize();
 	vector<pair<quaternion, Spectrum>> extract();
-private:
 	double dt;
+private:
 	int size = NW;
 };
 
@@ -83,6 +139,7 @@ public:
 	CovarianceSpectrum get_covariance_spectrum();
 	__PREPROC__ void update(const coords& x);
 	__PREPROC__ void reset();
+	__PREPROC__ void compile_results();
 	__PREPROC__ void add(SpectrumAggregator other);
 	int n_samples;
 private:
@@ -93,6 +150,57 @@ private:
 	double dt;
 	__PREPROC__ void set_frequencies(double (&freq)[NW]);
 };
+
+class FFTHandler {
+// Class for handling the calls to the FFT library
+// Note to self: if the input and output pointers are the same, cuFFT will automatically
+// use in-place transform (and knows that the data is padded)
+public:
+	void plan(int npts, int ntransforms, cufftType type);
+	void plan(options opt);
+	void transform(void* input, void* output);
+	~FFTHandler();
+private:
+	cufftHandle my_plan;
+	cufftType transform_type;
+	bool planned = false;
+};
+
+__PREPROC__ int timeSeriesLength(_PREC ioutInt, _PREC h, bool padded);
+__PREPROC__ int FFTLength(_PREC ioutInt, _PREC h);
+__global__ void heavisideScale(float* correlation, int nx, int ny);
+void StoCspec(complex<float>* S, CovarianceSpectrum* cspec, int nf, int nt, int nsegment);
+__global__ void addComplex(cufftComplex* real_part, cufftComplex* imaginary_part, int nx, int ny);
+
+class TensorHandler {
+// Class for handling the calls to cuTensor
+public:
+	void plan(options opt);
+	void execute(cufftComplex *B);
+	void getSpectrum(CovarianceSpectrum* cspec, options opt);
+	~TensorHandler();
+private:
+	cufftComplex* Stensor;
+	void* work = nullptr;
+	cutensorHandle_t handle;
+	cutensorPlan_t my_plan;
+	cutensorOperationDescriptor_t desc;
+	cutensorTensorDescriptor_t descA;
+	cutensorTensorDescriptor_t descB;
+	cutensorTensorDescriptor_t descC;
+	cudaStream_t stream;
+	uint64_t actualWorkspaceSize = 0;
+	cuFloatComplex alpha;
+	cuFloatComplex beta;
+	bool planned = false;
+};
+
+// Handle cuTENSOR errors
+#define HANDLE_ERROR(x) { const auto err = x; \
+if ( err != CUTENSOR_STATUS_SUCCESS ) { \
+	printf("Error: %s\n", cutensorGetErrorString(err)); exit(-1); \
+} \
+}
 
 struct floquetDiagonalization {
 	quaternion f_modes_0;
@@ -116,5 +224,7 @@ coords density_to_bloch(Matrix2cd rho);
 coords density_to_bloch(Matrix2cd rho, quaternion basis);
 
 double heaviside(double x);
+
+void noise_transform();
 
 #endif

@@ -517,8 +517,10 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
 		h[ipart] = opt.h;
 		stopParticle[ipart] = false;
 		coll_type[ipart] = 'W';
-		specagg[ipart] = SpectrumAggregator();
-		specagg[ipart].initialize(fd.frequencies, fd.dt);
+		if (opt.integratorType == 6) {
+			specagg[ipart] = SpectrumAggregator();
+			specagg[ipart].initialize(fd.frequencies, fd.dt);
+		}
 	}
 }
 
@@ -526,7 +528,7 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
                                  coords *ppos, coords *ppos_old, _PREC *pt, _PREC *pt_old,
                                  _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
                                  rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
-                                 unsigned int *ppartID, int* pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit, SpectrumAggregator *pspecagg,
+                                 unsigned int *ppartID, int* pfailureState, bool *pstopParticle, char *pcoll_type, char *pwall_hit, SpectrumAggregator *pspecagg, float *Bnoise,
                                  _PREC nextTOut) {
 	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
 	if(ipart < opt.numParticles) {
@@ -553,8 +555,12 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 		bool stopParticle = pstopParticle[ipart];
 		char coll_type = pcoll_type[ipart];
 		char wall_hit = pwall_hit[ipart];
-		SpectrumAggregator specagg = pspecagg[ipart];
-		specagg.reset();
+		SpectrumAggregator specagg;
+		if (opt.integratorType == 6) {
+			specagg = pspecagg[ipart];
+			specagg.reset();			
+		}
+		int integrator_steps = 0;
 		dt = nextTOut - t;
 		tf = nextTOut;
 		bool finished = false;
@@ -586,6 +592,10 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 					spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 				} else if(opt.integratorType == 6) {
 					spinResult = integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+				} else if(opt.integratorType == 7) {
+					cufftReal* Bnoise_slice = Bnoise + ipart * timeSeriesLength(opt.ioutInt, tempH, true) * 3;
+					spinResult = collectNoiseSamples(t_old, t, Bnoise_slice, pos_old, pos, v_old, v, opt, tempH, integrator_steps);
+					integrator_steps += spinResult;
 				} else {
 					//do nothing
 					spinResult = 0;
@@ -631,24 +641,30 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 		pcoll_type[ipart] = coll_type;
 		pwall_hit[ipart] = wall_hit;
 		ptf[ipart] = tf;
-		pspecagg[ipart] = specagg;
+		if (opt.integratorType == 6) {
+			pspecagg[ipart] = specagg;
+		}
 	}
 }
 
 __global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* output, options opt) {
 	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
-
-	for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
-		if (ipart % (2 * s) == 0) {
-			specagg[ipart].add(specagg[ipart + s]);
-		}
+	if (ipart < opt.numParticles) {
+		specagg[ipart].compile_results();
 		__syncthreads();
-	}
+		for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
+			if (ipart % (2 * s) == 0) {
+				specagg[ipart].add(specagg[ipart + s]);
+			}
+			__syncthreads();
+		}
 	
-	if (ipart == 0) {
-		*output = specagg[0];
+		if (ipart == 0) {
+			*output = specagg[0];
+		}
 	}
 }
+
 
 #else
 void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
@@ -720,8 +736,10 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pn_bounce[ipart]  = 0;
 		pn_coll[ipart] = 0;
 		pn_steps[ipart] = 0;
-		specagg[ipart] = SpectrumAggregator();
-		specagg[ipart].initialize(fd.frequencies, fd.dt);
+		if (opt.integratorType == 6) {
+			specagg[ipart] = SpectrumAggregator();
+			specagg[ipart].initialize(fd.frequencies, fd.dt);
+		}
 	}
 }
 
@@ -730,7 +748,7 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
                       _PREC *ptf, _PREC *pdt, _PREC *pnext_gas_coll_time, _PREC *ph,
                       rngState *pstate, size_t *pn_bounce, size_t *pn_coll, size_t *pn_steps,
                       unsigned int *ppartID, int *pfailureState, bool *pstopParticle, char *pcoll_type, 
-                      char *pwall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, _PREC nextTOut) {
+                      char *pwall_hit, SpectrumAggregator *pspecagg, CovarianceSpectrum& cspec, float *Bnoise, _PREC nextTOut) {
 	CovarianceSpectrum* cspec_array = (CovarianceSpectrum*) malloc(sizeof(CovarianceSpectrum) * opt.numParticles);	  
 #if defined(_OPENMP)
 #pragma omp parallel for
@@ -759,8 +777,11 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		bool stopParticle = pstopParticle[ipart];
 		char coll_type = pcoll_type[ipart];
 		char wall_hit = pwall_hit[ipart];
-		SpectrumAggregator specagg = pspecagg[ipart];
-		specagg.reset();
+		SpectrumAggregator specagg;
+		if (opt.integratorType == 6) {
+			specagg = pspecagg[ipart];
+			specagg.reset();
+		}
 		dt = nextTOut - t;
 		tf = nextTOut;
 		bool finished = false;
@@ -791,7 +812,7 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 					//same as option 3 but for option 4's coefficients
 					spinResult = integrateRKF45Quaternion(t_old, t, S, pos_old, pos, v_old, v, opt, tempH);
 				} else if(opt.integratorType == 6) {
-					spinResult = integrateSpectrum(t_old, t, specagg, pos_old, pos, v_old, v, opt, tempH);
+					spinResult = integrateSpectrum(t_old, t, pspecagg[ipart], pos_old, pos, v_old, v, opt, tempH);
 				} else {
 					//do nothing
 					spinResult = 0;
@@ -837,8 +858,10 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pcoll_type[ipart] = coll_type;
 		pwall_hit[ipart] = wall_hit;
 		ptf[ipart] = tf;
-		pspecagg[ipart] = specagg;
-		cspec_array[ipart] = specagg.get_covariance_spectrum();
+		if (opt.integratorType == 6) {
+			pspecagg[ipart] = specagg;
+			cspec_array[ipart] = specagg.get_covariance_spectrum();
+		}
 	}
 	if (opt.integratorType == 6) {
 		for(unsigned int ipart = 0; ipart < opt.numParticles; ipart++) {
@@ -855,14 +878,55 @@ void runSimulationCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 
 #endif
 
+particle::particle(const options OPT){
+	opt = OPT; //set the options
+	//allocate the various storage spaces
+	numBlocks = std::ceil((_PREC)opt.numParticles/(_PREC)opt.numPerGPUBlock);
+	numPartsPerBlock = opt.numPerGPUBlock;
+	int n = OPT.numParticles;
+	genericMalloc<coords>(&S, n); //spin state
+	genericMalloc<coords>(&v, n); //velocity
+	genericMalloc<coords>(&v_old, n); //velocity
+	genericMalloc<coords>(&pos, n); //position
+	genericMalloc<coords>(&pos_old, n); //position
+	genericMalloc<_PREC>(&t, n); //time
+	genericMalloc<_PREC>(&t_old, n); //time old
+	genericMalloc<_PREC>(&tf, n); //time final
+	genericMalloc<_PREC>(&dt, n); //dt
+	genericMalloc<_PREC>(&next_gas_coll_time, n); //gas collision time
+	genericMalloc<_PREC>(&h, n); //step size
+	genericMalloc<rngState>(&state, n); //rng state
+	genericMalloc<size_t>(&n_bounce, n);
+	genericMalloc<size_t>(&n_coll, n);
+	genericMalloc<size_t>(&n_steps, n);
+	genericMalloc<unsigned int>(&partID, n);
+	genericMalloc<int>(&failureState, n);
+	genericMalloc<bool>(&stopParticle, n);
+	genericMalloc<char>(&coll_type, n);
+	genericMalloc<char>(&wall_hit, n);
+	if (opt.integratorType == 6) {
+		genericMalloc<SpectrumAggregator>(&specagg, n);
+	}
+	if (opt.integratorType == 7) {
+		genericMalloc<float>(&Bnoise, n * 3 * timeSeriesLength(opt.ioutInt, opt.h, true));
+	}
+}
+
 coords particle::floquetResults() {
+	if (opt.integratorType == 7) {
+		tensorHandler.getSpectrum(&cspec, opt);
+	}
 	return floquet_integrate(fd, cspec, opt);
 }
 
 void particle::postProcess(Logger* log) {
-	if (opt.integratorType == 6) {
+	if (opt.integratorType == 6 || opt.integratorType == 7) {
 		coords b_end = floquetResults();
+		cout << b_end << endl;
 		log->writeSingle("b_end", b_end);
+	} else {
+		coords b_end = spinMean();
+		cout << b_end << endl;
 	}
 }
 
@@ -877,24 +941,34 @@ void particle::runSimulation(_PREC nextTOut){
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 	runSimulationGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, pos, pos_old, t, 
 													  t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-													  partID, failureState, stopParticle, coll_type, wall_hit, specagg, nextTOut);
+													  partID, failureState, stopParticle, coll_type, wall_hit, specagg, Bnoise, nextTOut);
+	gpuErrchk( cudaPeekAtLastError() );
+	gpuErrchk( cudaDeviceSynchronize() );
 	if (opt.integratorType == 6) {
 		synchronize();
-		SpectrumAggregator hsum;
+		// Sum over each block
 		SpectrumAggregator* ssum;
-		cudaMallocManaged(&ssum, sizeof(SpectrumAggregator));
+		cudaMallocManaged(&ssum, sizeof(SpectrumAggregator) * numBlocks);
 		spectrumSum<<<numBlocks, numPartsPerBlock>>>(specagg, ssum, opt);
 		synchronize();
-		cudaMemcpy(&hsum, ssum, sizeof(SpectrumAggregator), cudaMemcpyDeviceToHost);
-		cudaFree(ssum);
-		cspec.add(hsum.get_covariance_spectrum());
-
+		// Transfer to host
+		SpectrumAggregator* hsum = (SpectrumAggregator*) malloc(sizeof(SpectrumAggregator) * numBlocks);
+		cudaMemcpy(hsum, ssum, sizeof(SpectrumAggregator) * numBlocks, cudaMemcpyDeviceToHost);
+		for (int i = 0; i < numBlocks; i++) {
+			cspec.add(hsum[i].get_covariance_spectrum());
+		}
+		genericFree(ssum);
+		free(hsum);
+	}
+	if (opt.integratorType == 7) {
+		fftHandler.transform((cufftReal*) Bnoise, (cufftComplex*) Bnoise);
+		tensorHandler.execute((cufftComplex*) Bnoise);
 	}
 	synchronize();
 #else
 	runSimulationCPU(opt, S, v, v_old, pos, pos_old, t, 
 	                 t_old, tf, dt, next_gas_coll_time, h, state, n_bounce, n_coll, n_steps,
-	                 partID, failureState, stopParticle, coll_type, wall_hit, specagg, cspec, nextTOut);
+	                 partID, failureState, stopParticle, coll_type, wall_hit, specagg, cspec, Bnoise, nextTOut);
 #endif
         
 };
@@ -915,7 +989,7 @@ coords particle::spinMean() {
 
 floquetDiagonalization particle::initializeSpectra(CovarianceSpectrum& cspec, options OPT) {
 	floquetDiagonalization fd = floquet_diagonalize(OPT);
-	cspec.initialize(fd.frequencies, fd.dt);
+	cspec.initialize(fd.frequencies, OPT.h);
 	return fd;
 }
 

@@ -78,7 +78,10 @@ __PREPROC__ int integrateRKF45Quaternion(_PREC t0, _PREC tf, coords& y, const co
                                         const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
 
 __PREPROC__ int integrateMagnusCFET(_PREC t0, _PREC tf, coords& y, const coords& p_old,
-						const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
+									const coords& p_new, const coords& v_old, const coords& v_new, const options OPT, _PREC& h);
+
+__PREPROC__ int collectNoiseSamples(_PREC t0, _PREC tf, cufftReal* Bnoise, const coords& p_old,
+									const coords& p_new, const coords& v_old, const coords& v_new, options OPT, _PREC h, int integrator_steps);
 
 __PREPROC__ _PREC sign(_PREC, _PREC);
 

@@ -742,6 +742,25 @@ __PREPROC__ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specag
 	return n_steps;
 }
 
+
+__PREPROC__ int collectNoiseSamples(_PREC t0, _PREC tf, cufftReal* Bnoise, const coords& p_old,
+									const coords& p_new, const coords& v_old, const coords& v_new, options OPT, _PREC h, int integrator_steps) {
+	_PREC t = first_sample_point(t0, h);
+	_PREC next_t = first_sample_point(tf, h);
+	int tlen = timeSeriesLength(OPT.ioutInt, h, true);
+	int n_steps = 0;
+	while (t < next_t - (h/2)) {
+		coords B = findNoiseTerm(t, OPT, t0, tf, p_old, p_new, v_old, v_new)/2;
+		int time_index = integrator_steps + n_steps;
+		Bnoise[tlen * 0 + time_index] = B.x;
+		Bnoise[tlen * 1 + time_index] = B.y;
+		Bnoise[tlen * 2 + time_index] = B.z;
+		t += h;
+		n_steps++;
+	}	
+	return n_steps;
+}
+
 __PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h) {
 	_PREC t = t0;
 	quaternion q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11;
@@ -868,6 +887,9 @@ floquetDiagonalization floquet_diagonalize(options OPT) {
 
 coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
 	cspec.normalize();
+	for (int i = 0; i < NW; i++) {
+		cout << cspec.variance[i](2, 2) << endl;
+	}
 	double Delta[2][2][NK] = {{{0}}};
 	complex<double> X[2][2][NK] = {{{0}}};
 	complex<double> Gamma[2][2][NK] = {{{0}}};

@@ -7,3 +7,13 @@ void synchronize() {
 	gpuErrchk(hipDeviceSynchronize());
 #endif
 }
+
+void genericFree(void* ptr) {
+#if defined(__NVCOMPILER) || defined(__NVCC__)
+	cudaFree(ptr);
+#elif defined(__HIPCC__)
+	hipFree(ptr);
+#else
+	free(ptr);
+#endif	
+}
