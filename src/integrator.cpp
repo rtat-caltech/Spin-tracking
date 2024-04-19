@@ -879,7 +879,7 @@ floquetDiagonalization floquet_diagonalize(options OPT) {
 	for(int i = 0; i < NW; i++) {
 		fd.frequencies[i] = frequencies[i];
 	}
-	fd.dt = (tf - t0)/n_prop;
+	fd.period = tf - t0;
 	fd.n_prop = n_prop;
 	return fd;
 
@@ -898,14 +898,13 @@ coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, op
   
 	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
 	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
-	double period = fd.dt * fd.n_prop;
 	for (int i = 0; i < specs.size(); i++) {
 		quaternion c_op = specs.at(i).first;
 		Spectrum spec = specs.at(i).second;
-		floquet_master_equation_rates(fd, c_op, period, spec, 
+		floquet_master_equation_rates(fd, c_op, spec, 
 		                              Delta, X, Gamma, Zeta, Omicron);
 	}
 	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
-	int n_period = round((opt.tf - opt.t0) * opt.w/(2 * M_PI));
+	int n_period = round((opt.tf - opt.t0)/fd.period);
 	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
 }

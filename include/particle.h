@@ -52,7 +52,7 @@ __global__ void runSimulationGPU(options opt, coords *S, coords *v, coords *v_ol
 								 unsigned int *partID, int* failureState, bool *stopParticle, char *coll_type,
 								 char *wall_hit, SpectrumAggregator *specagg, float *Bnoise,  _PREC nextTOut);
 
-__global__ void spectrumSum(SpectrumAggregator *specagg, CovarianceSpectrum& cspec, options opt);
+__global__ void spectrumSum(SpectrumAggregator *specagg, CovarianceSpectrum& cspec, options opt, bool islast);
 #else
 
 void initParticlesCPU(options opt, coords *S, coords *v, coords *v_old,

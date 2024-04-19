@@ -134,19 +134,22 @@ class SpectrumAggregator {
 public:
 	__PREPROC__ SpectrumAggregator() {
 		reset();
+		dc_term = {0, 0, 0};
 	}
 	__PREPROC__ void initialize(double (&freq)[NW], double dt);
 	CovarianceSpectrum get_covariance_spectrum();
 	__PREPROC__ void update(const coords& x);
 	__PREPROC__ void reset();
-	__PREPROC__ void compile_results();
+	__PREPROC__ void compile_results(bool islast);
 	__PREPROC__ void add(SpectrumAggregator other);
 	int n_samples;
+	int dc_samples = 0;
 private:
 	coords s1[NW];
 	coords s2[NW];
 	covMat cmat[NW];
 	double w[NW];
+	coords dc_term;
 	double dt;
 	__PREPROC__ void set_frequencies(double (&freq)[NW]);
 };
@@ -206,15 +209,15 @@ struct floquetDiagonalization {
 	quaternion f_modes_0;
 	quaternion f_energies;
 	double frequencies[NW];
-	double dt;
 	int n_prop;
+	double period;
 	std::vector<quaternion> propagators;
 };
 
 __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt);
 __PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const coords& s2, double w, double dt);
 
-void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
+void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 
 void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, vector<quaternion> propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 

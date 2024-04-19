@@ -519,7 +519,7 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
 		coll_type[ipart] = 'W';
 		if (opt.integratorType == 6) {
 			specagg[ipart] = SpectrumAggregator();
-			specagg[ipart].initialize(fd.frequencies, fd.dt);
+			specagg[ipart].initialize(fd.frequencies, opt.h);
 		}
 	}
 }
@@ -647,10 +647,10 @@ __global__ void runSimulationGPU(options opt, coords *pS, coords *pv, coords *pv
 	}
 }
 
-__global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* output, options opt) {
+__global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* output, options opt, bool islast) {
 	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
 	if (ipart < opt.numParticles) {
-		specagg[ipart].compile_results();
+		specagg[ipart].compile_results(islast);
 		__syncthreads();
 		for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
 			if (ipart % (2 * s) == 0) {
@@ -658,7 +658,7 @@ __global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* out
 			}
 			__syncthreads();
 		}
-	
+		
 		if (ipart == 0) {
 			*output = specagg[0];
 		}
@@ -738,7 +738,7 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 		pn_steps[ipart] = 0;
 		if (opt.integratorType == 6) {
 			specagg[ipart] = SpectrumAggregator();
-			specagg[ipart].initialize(fd.frequencies, fd.dt);
+			specagg[ipart].initialize(fd.frequencies, opt.h);
 		}
 	}
 }
@@ -949,7 +949,7 @@ void particle::runSimulation(_PREC nextTOut){
 		// Sum over each block
 		SpectrumAggregator* ssum;
 		cudaMallocManaged(&ssum, sizeof(SpectrumAggregator) * numBlocks);
-		spectrumSum<<<numBlocks, numPartsPerBlock>>>(specagg, ssum, opt);
+		spectrumSum<<<numBlocks, numPartsPerBlock>>>(specagg, ssum, opt, opt.tf == nextTOut);
 		synchronize();
 		// Transfer to host
 		SpectrumAggregator* hsum = (SpectrumAggregator*) malloc(sizeof(SpectrumAggregator) * numBlocks);

@@ -130,6 +130,8 @@ __PREPROC__ void SpectrumAggregator::update(const coords& x) {
 	    goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
 		cmat[i].add_outer(a, b, x, (coords) {0, 0, 0});
 	}
+	dc_term = dc_term + x;
+	dc_samples += 1;
 	n_samples += 1;
 }
 
@@ -145,11 +147,14 @@ __PREPROC__ void SpectrumAggregator::reset() {
 	n_samples = 0;
 }
 
-__PREPROC__ void SpectrumAggregator::compile_results() {
+__PREPROC__ void SpectrumAggregator::compile_results(bool islast) {
 	coords a, b;
-	for (int i = 0; i < NW; i++) {
+	for (int i = 1; i < NW; i++) {
 		goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
 		cmat[i].real_diag = a * a + b * b;
+	}
+	if (islast) {
+		cmat[0].real_diag = (dc_term * dc_term);
 	}
 }
 
@@ -163,7 +168,7 @@ __PREPROC__ void SpectrumAggregator::add(SpectrumAggregator other) {
 __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	CovarianceSpectrum spec = CovarianceSpectrum();
 	spec.initialize(w, dt, n_samples);
-	for (int i=0; i < NW; i++) {
+	for (int i = 0; i < NW; i++) {
 		spec.variance[i](0, 0) += complex<double> (cmat[i].real_diag.x, -cmat[i].imag_diag.x);
 		spec.variance[i](1, 1) += complex<double> (cmat[i].real_diag.y, -cmat[i].imag_diag.y);
 		spec.variance[i](2, 2) += complex<double> (cmat[i].real_diag.z, -cmat[i].imag_diag.z);
@@ -206,8 +211,8 @@ double sq(double x) {
 	return x * x;
 }
 
-void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
-	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, period, spec, Delta, X, Gamma, Zeta, Omicron);
+void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
+	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, fd.period, spec, Delta, X, Gamma, Zeta, Omicron);
 }
 
 void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, quaternion c_op, vector<quaternion> propagators, int n_prop, double period, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
@@ -502,16 +507,11 @@ void TensorHandler::getSpectrum(CovarianceSpectrum* cspec, options opt) {
 	genericMalloc<float>(&correlation, nt * nbatch);
 	
 	inverseHandler->transform((cufftComplex*) Stensor, (cufftReal*) correlation);
-
-	heavisideScale<<<64, 256>>>(correlation, nt, nbatch);	
+	
+	int nblock = (int) (nt * nbatch/opt.numPerGPUBlock) + 1;
+	heavisideScale<<<nblock, opt.numPerGPUBlock>>>(correlation, nt, nbatch);	
 	gpuErrchk( cudaPeekAtLastError() );
 	gpuErrchk( cudaDeviceSynchronize() );
-	
-	float* host_correlation = (float*) malloc(sizeof(float) * nt * nbatch);
-	gpuErrchk(cudaMemcpy(host_correlation, correlation, sizeof(float) * nt * nbatch, cudaMemcpyDeviceToHost));
-	synchronize();
-	free(host_correlation);
-
 	
 	FFTHandler* forwardHandler = new FFTHandler();
 	forwardHandler->plan(nt, nbatch, CUFFT_R2C);
@@ -519,7 +519,7 @@ void TensorHandler::getSpectrum(CovarianceSpectrum* cspec, options opt) {
 	genericMalloc<cufftComplex>(&imaginarySpectrum, nf * nbatch);
 	forwardHandler->transform(correlation, imaginarySpectrum);
 
-	addComplex<<<32, 256>>>(Stensor, imaginarySpectrum, nf, 9);
+	addComplex<<<nblock, opt.numPerGPUBlock>>>(Stensor, imaginarySpectrum, nf, 9);
 	gpuErrchk( cudaPeekAtLastError() );
 	gpuErrchk( cudaDeviceSynchronize() );
 
@@ -555,17 +555,16 @@ void StoCspec(complex<float>* S, CovarianceSpectrum* cspec, int nf, int nt, int 
 
 __global__ void heavisideScale(float* correlation, int nx, int ny) {
 	// Multiplies the input by a heaviside step function \Theta(ix - nx/2) * correlation[ix, iy]
-	// Also applies a scaling factor 1/nt to account for FFT normalization
+	// Also applies a scaling factor 2/nt to account for FFT normalization
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
 	if (i < nx * ny) {
 		unsigned int ix = i % nx;
-		if (2 * ix + 1 == nx) {
-			// The middle element. Only if nx is odd.
-			correlation[i] *= 0.5f/nx;
-		} else if (2 * ix + 1 < nx) {
+		if (2 * ix == nx || ix == 0) {
+			correlation[i] *= 1.0f/nx;
+		} else if (2 * ix + 1 > nx) {
 			correlation[i] = 0;
 		} else {
-			correlation[i] *= 1.0f/nx;
+			correlation[i] *= 2.0f/nx;
 		}
 	}
 }
