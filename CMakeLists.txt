@@ -37,7 +37,7 @@ else()
 endif()
 
 IF (CMAKE_CUDA_ARCHITECTURES)
-  find_package(CUDA 11.8 REQUIRED)
+  find_package(CUDA 11.7 REQUIRED)
   # If Cuda Architecture is set (via commandline option -DCMAKE_CUDA_ARCHITECTURES=XX)
   message("  CUDA Arch: '${CMAKE_CUDA_ARCHITECTURES}'")
   message("  CUDA Flags: '${CMAKE_CUDA_FLAGS}'")
