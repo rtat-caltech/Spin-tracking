@@ -4,6 +4,7 @@ import re
 import os
 import itertools
 import h5py
+import pandas as pd
 from argparse import ArgumentParser
 
 kB = 1.3806e-23 # J/K
@@ -28,6 +29,15 @@ Gz, 0, 0, 3e-9
 ioutInt, 1.0
 integratorType, 0
 """
+class Collector:
+    def __init__(self):
+        self.rows = []
+    def new_record(self):
+        self.rows.append(dict())
+    def add(self, field_name, data):
+        self.rows[-1][field_name] = data
+    def to_pandas(self):
+        return pd.DataFrame(self.rows)
 
 def modify_parameter(configuration, param, value):
     if not isinstance(value, str):
@@ -59,14 +69,11 @@ def string_to_integrator(s):
 
     raise ValueError('Unrecognized integrator type {:s}'.format(s))
 
-def run(executable, config_file, out_file):
-    subprocess.call([executable, config_file, out_file])
-
 def run(executable, scratch_dir, config_string, out_file_name):
     config_file = os.path.join(scratch_dir, '_config_tmp.txt')
     with open(config_file, 'w') as f:
         f.write(config_string)
-    run(executable, config_file, os.path.join(scratch_dir, out_file_name))
+    subprocess.call([executable, config_file, os.path.join(scratch_dir, out_file_name)])
 
 def delete_file(file_to_delete):
     if os.path.isfile(file_to_delete):
@@ -114,24 +121,24 @@ def main():
         delete_file(output_file)
 
 def get_config_string(param_dict):
-    return '\n'.join(["{:s}, {:s}".format(k, v) for (k, v) in items])
+    return '\n'.join(["{:s}, {:s}".format(k, v) for (k, v) in param_dict.items()])
 
 class Benchmark:    
-    def __init__(self, physics, integration, executable, scratch_dir='.'):
+    def __init__(self, physics=dict(), integration=dict(), executable=None, scratch_dir='.'):
         self.config = dict()
         self.config.update(physics)
         self.config.update(integration)
         self.executable = executable
-        self.scratch_dir = scratch_dir
-
-    def __init__(self, scratch_dir='.'):
-        #If you only want to analyze pre-existing data 
+        if not os.path.isdir(scratch_dir):
+            raise ValueError('Scratch directory {:s} does not exist'.format(scratch_dir))
         self.scratch_dir = scratch_dir
 
     def run(self):
         pass
 
     def run(self, out_file_name):
+        if not os.path.isfile(self.executable):
+            raise ValueError('Executable {:s} does not exist'.format(self.executable))
         run(self.executable, self.scratch_dir, get_config_string(self.config), out_file_name)
 
     def analyze(self):
@@ -141,13 +148,13 @@ class Benchmark:
         pass
 
 class PerformanceBenchmark(Benchmark):
-    def __init__(self, physics, integration, executable, scratch_dir):
-        super().__init__(self, physics, integration, executable, scratch_dir)
+    def __init__(self, physics=dict(), integration=dict(), executable=None, scratch_dir='.'):
+        super().__init__(physics=physics, integration=integration, executable=executable, scratch_dir=scratch_dir)
 
     def run(self):
         out_file_name = 'perf_out.hdf5'
         t1 = time.time()
-        super().run(self, out_file_name)
+        super().run(out_file_name)
         t2 = time.time()
         self.elapsed_time = t2 - t1
 
@@ -159,29 +166,36 @@ def knudsen_and_adiabaticity(cell_dims, temperature, mass, w0):
     vT = np.sqrt(kB * temperature/mass)
     tc = 1.6e-4 * mass/(kB * temperature**8.0)
     mean_free_path = vT * tc
-    knudsen_number = mean_free_path/min(cell_dims) # <<1 : diffusive
-    D = vT * vT/tc
+    characteristic_length = min(cell_dims)
+    knudsen_number = mean_free_path/characteristic_length # <<1 : diffusive
+    D = vT * vT * tc
     if knudsen_number < 1:
         # Diffusive regime
-        adiabaticity = w0 * R * R/D
+        adiabaticity = abs(w0) * characteristic_length**2 / D
     else:
-        adiabaticity = w0 * mean_free_path**2 / vT
+        adiabaticity = abs(w0) * mean_free_path**2 / vT
 
     if abs(knudsen_number - 1) < 0.5:
         print('Warning: you might be in the transition regime (Knusden number close to 1)')
 
+    print('Knudsen Number: {:.2e}'.format(knudsen_number))
+    print('Adiabaticity: {:.2e}'.format(adiabaticity))
     print('Regime: ' + ('diffusive ' if knudsen_number < 1 else 'ballistic ')
           + ('adiabatic' if adiabaticity > 1 else 'non-adiabatic'))
     
     return knudsen_number, adiabaticity
 
+def phase_std(y, x):
+    ph = np.arctan2(y, x)
+    return np.std(np.mod(ph - ph[0] + np.pi, 2 * np.pi))
+
 class PignolBenchmark(Benchmark):
     # Allows you to compare to the Pignol result
-    def __init__(self, physics, integration, executable, scratch_dir,
-                 Gxx_range=[0], Gyy_range=[0], Gzz_range=[0]
-                 Gxy_range=[0], Gyz_range=[0], Gzy_range=[0],
+    def __init__(self, physics=dict(), integration=dict(), executable=None, scratch_dir='.',
+                 Gxx_range=[0], Gyy_range=[0], Gzz_range=[0],
+                 Gxy_range=[0], Gyz_range=[0], Gzx_range=[0],
                  E_range=[0]):
-        super().__init__(self, physics, integration, executable, scratch_dir)
+        super().__init__(physics=physics, integration=integration, executable=executable, scratch_dir=scratch_dir)
         self.Gxx_range = Gxx_range # Array of dBx/dx values
         self.Gyy_range = Gyy_range # Array of dBy/dy values
         self.Gzz_range = Gzz_range # Array of dBz/dz values
@@ -200,38 +214,43 @@ class PignolBenchmark(Benchmark):
             cell_dims, temperature, mass, w0
         )
 
-    def __init__(self):
-        pass
-
     def run(self):
-        field_iterator = itertools.product(self.Gx_range, self.Gy_range, self.Gz_range)
+        field_iterator = itertools.product(self.Gxx_range, self.Gyy_range, self.Gzz_range,
+                                          self.Gxy_range, self.Gyz_range, self.Gzx_range,
+                                          self.E_range)
         counter = 0
         for params in field_iterator:
             Gxx, Gyy, Gzz, Gxy, Gyz, Gzx, E  = params
-            self.config['Gx'] =  '{:.2e}, {:.2e}, {:.2e}'.format(Gxx, Gxy, Gxz)
+            self.config['Gx'] =  '{:.2e}, {:.2e}, {:.2e}'.format(Gxx, Gxy, -Gzx)
             self.config['Gy'] = '{:.2e}, {:.2e}, {:.2e}'.format(-Gxy, Gyy, Gyz)
             self.config['Gz'] = '{:.2e}, {:.2e}, {:.2e}'.format(Gzx, -Gyz, Gzz)
+            self.config['E'] = '{:.2e}, 0.0, 0.0'.format(E)
             out_file_name = 'out_{:d}.hdf5'.format(counter)
             self.output_files.append(os.path.join(self.scratch_dir, out_file_name))
-            super().run(self, out_file_name)
+            counter += 1
+            super().run(out_file_name)
             
     def analyze(self, files=None):
         if files is None:
             files = self.output_files
         counter = 0
+        col = Collector()
         for fname in files:
             with h5py.File(fname, 'r') as f:
+                col.new_record()
                 gamma = f.attrs['gamma']
                 B0 = f.attrs['B0'][0]
-                cell_dims = np.array(f.attrs['L'])
+                cell_dims = np.array([*f.attrs['L']])
                 Gxx, Gxy, Gxz = f.attrs['Gx']
                 Gyx, Gyy, Gyz = f.attrs['Gy']
                 Gzx, Gzy, Gzz = f.attrs['Gz']
-                E = f.attrs['E']
+                E = f.attrs['E'][0]
+                vT = f.attrs['sqrtKT_m']
                 w0 = f.attrs['gamma'] * B0
-                G = np.array([Gxx, Gxy, Gxz;
-                              Gyx, Gyy, Gyz;
-                              Gzx, Gyz, Gzz])
+                G = np.array([[Gxx, Gxy, Gxz],
+                              [Gyx, Gyy, Gyz],
+                              [Gzx, Gyz, Gzz]])
+                tc = f.attrs['tc']
                 
                 if counter == 0 and len(self.output_files) == 0:
                     temperature = f.attrs['T']
@@ -240,23 +259,45 @@ class PignolBenchmark(Benchmark):
                         cell_dims, temperature, mass, w0
                     )
                 counter += 1
-                L2 = np.power(np.array(cell_dims), 2)
+                L2 = np.power(cell_dims, 2)
                 bx2, by2, bz2 = G @ L2
                 if self.adiabaticity > 1:
                     expected_B2 = gamma**2/(2 * w0) * (by2 + bz2) + \
                         gamma**2/(6 * w0**3) * 3 * vT**2 * np.sum(G[1,:] * G[1,:]) + np.sum(G[2,:] * G[2,:])
-                    expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2
+                    #expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2
+                    expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2 * 1/(1/(w0 * tc)**2 + 1)
                     expected_BE = -gamma**2 * E/(c**2 * w0**2) * (Gyy * vT**2 + Gzz * vT**2)
                 else:
                     expected_B2 = 0 # Need an analytic expression for that integral
-                    expected_E2 = -gamma**2 * E**2/(2 * c**4) * (L2[1] + L2[2])/12
-                    expectd_BE = gamma*2 * E/c**2 * (Gyy * L2[1] + Gzz * L2[2])/12
+                    expected_E2 = -gamma**2 * E**2/(2 * c**4) * w0 * (L2[1] + L2[2])/12
+                    expected_BE = gamma*2 * E/c**2 * (Gyy * L2[1] + Gzz * L2[2])/12
                 
                 total_shift = expected_B2 + expected_E2 + expected_BE
-                spin_data = np.array(f['Spin'])
-                b_end = np.mean(spin_data[-1,:,:], axis=0)
+                spin_data = np.stack((f['Spin']['x'], f['Spin']['y'], f['Spin']['z']))
+                b_end = np.mean(spin_data[:,-1,:], axis=1)
+                phase_error = phase_std(spin_data[1,-1,:], spin_data[2,-1,:])/np.sqrt(spin_data.shape[2])
                 
-        return
+                col.add('tf', f['Time'][-1][0])
+                col.add('Gxx', Gxx)
+                col.add('Gyy', Gyy)
+                col.add('Gzz', Gzz)
+                col.add('Gxy', Gxy)
+                col.add('Gyz', Gyz)
+                col.add('Gzx', Gzx)
+                col.add('E', E)
+                col.add('sx', b_end[0])
+                col.add('sy', b_end[1])
+                col.add('sz', b_end[2])
+                col.add('tc', f.attrs['tc'])
+                col.add('phi', np.arctan2(b_end[2], b_end[1]))
+                col.add('phase_error', phase_error)
+                col.add('expected_shift', total_shift)
+
+        data = col.to_pandas()
+        phi0_data = data[(data['Gxx'] == 0) & (data['Gyy'] == 0) & (data['Gzz'] == 0) & \
+                        (data['Gxy'] == 0) & (data['Gyz'] == 0) & (data['Gzx'] == 0) & (data['E'] == 0)]
+        phi0 = phi0_data['phi'][0]
+        return data.assign(shift = (np.mod((data['phi'] - phi0) + np.pi, 2 * np.pi) - np.pi)/data['tf'])
 
 def parse_triplet(s):
     m = re.match('(.*),(.*),(.*)', s)
