@@ -887,9 +887,6 @@ floquetDiagonalization floquet_diagonalize(options OPT) {
 
 coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
 	cspec.normalize();
-	for (int i = 0; i < NW; i++) {
-		cout << cspec.variance[i](2, 2) << endl;
-	}
 	double Delta[2][2][NK] = {{{0}}};
 	complex<double> X[2][2][NK] = {{{0}}};
 	complex<double> Gamma[2][2][NK] = {{{0}}};
