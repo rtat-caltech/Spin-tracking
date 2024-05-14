@@ -4,6 +4,7 @@ import re
 import os
 import itertools
 import h5py
+import time
 import pandas as pd
 import sys
 from argparse import ArgumentParser
@@ -48,6 +49,17 @@ def modify_parameter(configuration, param, value):
         return new_config
     else:
         return configuration + '\n{:s}, {:s}'.format(param, value)
+
+def integrator_to_string(d):
+    mapping = {0 : 'DOP',
+               1: 'RK4',
+               2: 'Magnus CFET',
+               3: 'RK4 Quaternion',
+               4: 'RKF4',
+               5: 'RKF4 Quaternion',
+               6: 'Floquet Goertzel',
+               7: 'Floquet FFT'}
+    return mapping[d]
 
 def string_to_integrator(s):
     mapping = {r'dop\d*$' : 0,
@@ -102,8 +114,9 @@ class Benchmark:
         self.seed_random = 'seed' in integration and integration['seed'] == 'rand'
         self.executable = executable
         if not os.path.isdir(scratch_dir):
-            raise ValueError('Scratch directory {:s} does not exist'.format(scratch_dir))
+            os.mkdir(scratch_dir)
         self.scratch_dir = scratch_dir
+        self.rand_seed = 'seed' in integration and integration['seed'] == 'rand'
 
     def run(self):
         pass
@@ -111,8 +124,8 @@ class Benchmark:
     def run(self, out_file_name):
         if not os.path.isfile(self.executable):
             raise ValueError('Executable {:s} does not exist'.format(self.executable))
-        if self.seed_random:
-            self.config['seed'] = str(np.random.randint(0, 2**16 - 1))
+        if self.rand_seed:
+            self.config['seed'] = str(np.random.randint(0, 2**16))
         run(self.executable, self.scratch_dir, get_config_string(self.config), out_file_name)
 
     def analyze(self):
@@ -161,8 +174,10 @@ def knudsen_and_adiabaticity(cell_dims, temperature, mass, w0, quiet=False):
 
     return knudsen_number, adiabaticity
 
-def phase_std(y, x):
-    ph = np.arctan2(y, x)
+def phase_std_yx(y, x):
+    return phase_std(np.arctan2(y, x))
+
+def phase_std(ph):
     return np.std(np.mod(ph - ph[0] + np.pi, 2 * np.pi))
 
 class PignolBenchmark(Benchmark):
@@ -187,7 +202,6 @@ class PignolBenchmark(Benchmark):
         field_iterator = itertools.product(self.Gxx_range, self.Gyy_range, self.Gzz_range,
                                           self.Gxy_range, self.Gyz_range, self.Gzx_range,
                                           self.E_range, self.T_range)
-        counter = 0
         for params in field_iterator:
             Gxx, Gyy, Gzz, Gxy, Gyz, Gzx, E, T  = params
             cell_dims = parse_triplet(self.config['L'])
@@ -201,9 +215,8 @@ class PignolBenchmark(Benchmark):
             self.config['Gz'] = '{:.2e}, {:.2e}, {:.2e}'.format(Gzx, -Gyz, Gzz)
             self.config['E'] = '{:.2e}, 0.0, 0.0'.format(E)
             self.config['T'] = '{:.2f}'.format(T)
-            out_file_name = 'out_{:d}.hdf5'.format(counter)
+            out_file_name = 'out_{:d}.hdf5'.format(int(time.time() * 1000))
             self.output_files.append(os.path.join(self.scratch_dir, out_file_name))
-            counter += 1
             super().run(out_file_name)
             
     def analyze(self, files=None):
@@ -233,12 +246,12 @@ class PignolBenchmark(Benchmark):
                     cell_dims, temperature, mass, w0, quiet=True
                 )
                 L2 = np.power(cell_dims, 2)
-                bx2, by2, bz2 = G @ L2
+                bx2, by2, bz2 = np.power(G, 2) @ L2
                 if self.adiabaticity > 1:
-                    expected_B2 = gamma**2/(2 * w0) * (by2 + bz2) + \
-                        gamma**2/(6 * w0**3) * 3 * vT**2 * np.sum(G[1,:] * G[1,:]) + np.sum(G[2,:] * G[2,:])
-                    expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2
-                    #expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2 * 1/(1/(w0 * tc)**2 + 1)
+                    expected_B2 = gamma**2/(2 * w0) * (by2 + bz2)/12 + \
+                        gamma**2/(6 * w0**3) * 3 * vT**2 * (np.sum(G[1,:] * G[1,:]) + np.sum(G[2,:] * G[2,:]))
+                    #expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2
+                    expected_E2 = gamma**2 * E**2/(3 * c**4 * w0) * 3 * vT**2 * 1/(1/(w0 * tc)**2 + 1)
                     expected_BE = -gamma**2 * E/(c**2 * w0**2) * (Gyy * vT**2 + Gzz * vT**2)
                 else:
                     expected_B2 = 0 # Need an analytic expression for that integral
@@ -246,12 +259,14 @@ class PignolBenchmark(Benchmark):
                     expected_BE = gamma*2 * E/c**2 * (Gyy * L2[1] + Gzz * L2[2])/12
                 
                 total_shift = expected_B2 + expected_E2 + expected_BE
+                    
                 spin_data = np.stack((f['Spin']['x'], f['Spin']['y'], f['Spin']['z']))
                 if f.attrs['integratorType'] == 6 or f.attrs['integratorType'] == 7:
                     b_end = np.array((f.attrs['b_end']['x'], f.attrs['b_end']['y'], f.attrs['b_end']['z']))
                 else:
                     b_end = np.mean(spin_data[:,-1,:], axis=1)
-                phase_error = phase_std(spin_data[1,-1,:], spin_data[2,-1,:])/np.sqrt(spin_data.shape[2])
+
+                phase_error = phase_std_yx(spin_data[1,-1,:], spin_data[2,-1,:])/np.sqrt(spin_data.shape[2])
                 
                 col.add('tf', f['Time'][-1][0])
                 col.add('Gxx', Gxx)
@@ -268,6 +283,7 @@ class PignolBenchmark(Benchmark):
                 col.add('tc', f.attrs['tc'])
                 col.add('phi', np.arctan2(b_end[1], b_end[2]))
                 col.add('phase_error', phase_error)
+                col.add('iType', f.attrs['integratorType'])
                 col.add('expected_shift', total_shift)
 
         data = col.to_pandas()
