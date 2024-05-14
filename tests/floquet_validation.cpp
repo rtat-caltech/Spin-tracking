@@ -211,6 +211,7 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-4)) {
 	opt.atol = 1e-12;
 	opt.gravity = false;
 	opt.numParticles = 1;
+	opt.integratorType = 6;
 	double dt = 1e-5;
 
 	double w[NW] = {0};

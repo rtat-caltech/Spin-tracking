@@ -18,6 +18,7 @@ public:
 							   int* failureState, size_t* n_coll, size_t* n_bounce,
 							   size_t* n_steps) = 0;
 	virtual void writeSingle(string name, coords value) {}; // Used for saving Floquet result
+	virtual void writeInt(string name, int value) = 0; // Used for saving the time elapsed
 	virtual ~Logger(){};
 
 protected:
@@ -35,6 +36,7 @@ public:
 					   int* failureState, size_t* n_coll, size_t* n_bounce,
 					   size_t* n_steps) override;
 	void writeSingle(string name, coords value);
+	void writeInt(string name, int value);
 	~BinaryLogger() override;
 private:
 	template <typename T> void write(T* data);
@@ -62,6 +64,7 @@ public:
 					   int* failureState, size_t* n_coll, size_t* n_bounce,
 					   size_t* n_steps) override;
 	void writeSingle(string name, coords value);
+	void writeInt(string name, int value);
 	~HDF5Logger() override;
 
 private:

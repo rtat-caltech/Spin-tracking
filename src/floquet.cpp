@@ -20,6 +20,7 @@ using Eigen::Vector3cd;
 
 #define LAPLACE true
 
+
 using namespace std;
 
 __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt) {
@@ -253,7 +254,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {
-				Xsq[i][j][k] = norm(X[i][j][k]);
+				Xsq[i][j][k] = norm(X[i][j][k]); // The norm is the abs() squared
 			}
 		}
 	}
@@ -326,6 +327,17 @@ coords density_to_bloch(Matrix2cd rho, quaternion basis) {
 	return coords {(rho_lab * sx).trace().real(), (rho_lab * sy).trace().real(), (rho_lab * sz).trace().real()};
 }
 
+__PREPROC__ int timeSeriesLength(_PREC ioutInt, _PREC h, bool padded) {
+	// Returns length of time series, padded so that we can do in-place transform
+	if (padded) {
+		return (ioutInt/h/2 + 1) * 2;
+	} else {
+		return ioutInt/h;
+	}
+}
+
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
+
 void FFTHandler::plan(int npts, int ntransforms, cufftType type) {
 	// Plan for a batch of 1D Fourier transforms
 	// npts: Number of points in the fourier transform
@@ -361,11 +373,6 @@ void FFTHandler::transform(void* input, void* output) {
 }
 
 void TensorHandler::plan(options opt) {
-	// CUDA types
-	cutensorDataType_t typeA = CUTENSOR_C_32F;
-	cutensorDataType_t typeB = CUTENSOR_C_32F;
-	cutensorDataType_t typeC = CUTENSOR_C_32F;
-	cutensorComputeDescriptor_t descCompute = CUTENSOR_COMPUTE_DESC_32F;
 	// Create vector of modes
 	std::vector<int> modeA{'f','a','n'};
 	std::vector<int> modeB{'f','b','n'};
@@ -393,6 +400,13 @@ void TensorHandler::plan(options opt) {
 	std::vector<int64_t> extentB;
 	for(auto mode : modeB)
 		extentB.push_back(extent[mode]);
+
+#if CUTENSOR_MAJOR >= 2
+	// CUDA types
+	cutensorDataType_t typeA = CUTENSOR_C_32F;
+	cutensorDataType_t typeB = CUTENSOR_C_32F;
+	cutensorDataType_t typeC = CUTENSOR_C_32F;
+	cutensorComputeDescriptor_t descCompute = CUTENSOR_COMPUTE_DESC_32F;
 	
 	const uint32_t kAlignment = 128; // Alignment of the global-memory device pointers (bytes)
 	gpuErrchk(cudaMallocManaged(&Stensor, sizeof(cufftComplex) * extent['f'] * extent['a'] * extent['b']));
@@ -479,6 +493,88 @@ void TensorHandler::plan(options opt) {
 		gpuErrchk(cudaMalloc(&work, actualWorkspaceSize));
 		assert(uintptr_t(work) % 128 == 0); // workspace must be aligned to 128 byte-boundary
 	}
+#else
+	// CUDA types
+	cudaDataType_t typeA = CUDA_C_32F;
+	cudaDataType_t typeB = CUDA_C_32F;
+	cudaDataType_t typeC = CUDA_C_32F;
+	cutensorComputeType_t descCompute = CUTENSOR_COMPUTE_32F;
+	
+	const uint32_t kAlignment = 128; // Alignment of the global-memory device pointers (bytes)
+	gpuErrchk(cudaMallocManaged(&Stensor, sizeof(cufftComplex) * extent['f'] * extent['a'] * extent['b']));
+	
+	HANDLE_ERROR(cutensorCreate(&handle));
+	HANDLE_ERROR(cutensorInitTensorDescriptor(handle,
+	                                          &descA,
+	                                          nmodeA,
+	                                          extentA.data(),
+	                                          NULL,/*stride*/
+	                                          typeA, CUTENSOR_OP_IDENTITY));
+
+	HANDLE_ERROR(cutensorInitTensorDescriptor(handle,
+	                                          &descB,
+	                                          nmodeB,
+	                                          extentB.data(),
+	                                          NULL,/*stride*/
+	                                          typeB, CUTENSOR_OP_CONJ));
+
+	HANDLE_ERROR(cutensorInitTensorDescriptor(handle,
+	                                          &descC,
+	                                          nmodeC,
+	                                          extentC.data(),
+	                                          NULL,/*stride*/
+	                                          typeC, CUTENSOR_OP_IDENTITY));
+	
+	HANDLE_ERROR(cutensorInitContractionDescriptor(handle,
+	                                               &desc,
+	                                               &descA, modeA.data(), kAlignment,
+	                                               &descB, modeB.data(), kAlignment,
+	                                               &descC, modeC.data(), kAlignment,
+	                                               &descC, modeC.data(), kAlignment,
+	                                               descCompute));
+
+	/*
+	// Check scalar type
+	cudaDataType_t scalarType;
+	HANDLE_ERROR(cutensorOperationDescriptorGetAttribute(handle,
+														 desc,
+														 CUTENSOR_OPERATION_DESCRIPTOR_SCALAR_TYPE,
+														 (void*)&scalarType,
+														 sizeof(scalarType)));
+	
+	assert(scalarType == CUTENSOR_C_32F);
+	*/
+	
+	// Set algorithm
+	const cutensorAlgo_t algo = CUTENSOR_ALGO_DEFAULT;
+	
+	cutensorContractionFind_t find;
+	HANDLE_ERROR(cutensorInitContractionFind(
+					 handle,
+					 &find,
+					 algo));
+
+	// Estimate workspace size
+	uint64_t worksize = 0;
+	const cutensorWorksizePreference_t workspacePref = CUTENSOR_WORKSPACE_RECOMMENDED;
+	HANDLE_ERROR(cutensorContractionGetWorkspaceSize(handle,
+	                                                 &desc,
+	                                                 &find,
+	                                                 workspacePref,
+	                                                 &worksize));
+	actualWorkspaceSize = worksize;
+	// Create contraction plan
+	HANDLE_ERROR(cutensorInitContractionPlan(handle,
+	                                         &my_plan,
+	                                         &desc,
+	                                         &find,
+	                                         worksize));
+
+	if (actualWorkspaceSize > 0) {
+		gpuErrchk(cudaMalloc(&work, actualWorkspaceSize));
+		assert(uintptr_t(work) % 128 == 0); // workspace must be aligned to 128 byte-boundary
+	}
+#endif
 	
 	planned = true;
 }
@@ -488,11 +584,19 @@ void TensorHandler::execute(cufftComplex *B) {
 		cout << "Plan was not called before execute for TensorHandler" << endl;
 	}
 	gpuErrchk(cudaStreamCreate(&stream));
+#if CUTENSOR_MAJOR >= 2
 	HANDLE_ERROR(cutensorContract(handle,
 								  my_plan,
 								  (void*) &alpha, B, B,
 								  (void*) &beta, Stensor, Stensor,
 								  work, actualWorkspaceSize, stream));
+#else
+	HANDLE_ERROR(cutensorContraction(handle,
+	                                 &my_plan,
+	                                 (void*) &alpha, B, B,
+	                                 (void*) &beta, Stensor, Stensor,
+	                                 work, actualWorkspaceSize, stream));
+#endif
 	gpuErrchk(cudaStreamDestroy(stream));
 }
 
@@ -581,21 +685,15 @@ __global__ void addComplex(cufftComplex* real_part, cufftComplex* imaginary_part
 TensorHandler::~TensorHandler() {
 	if (planned) {
 		HANDLE_ERROR(cutensorDestroy(handle));
+#if CUTENSOR_MAJOR >= 2
 		HANDLE_ERROR(cutensorDestroyPlan(my_plan));
 		HANDLE_ERROR(cutensorDestroyOperationDescriptor(desc));
 		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descA));
 		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descB));
 		HANDLE_ERROR(cutensorDestroyTensorDescriptor(descC));
+#endif
 		cudaFree(Stensor);
-	}
-}
-
-__PREPROC__ int timeSeriesLength(_PREC ioutInt, _PREC h, bool padded) {
-	// Returns length of time series, padded so that we can do in-place transform
-	if (padded) {
-		return (ioutInt/h/2 + 1) * 2;
-	} else {
-		return ioutInt/h;
+		cudaFree(work);
 	}
 }
 
@@ -609,3 +707,5 @@ FFTHandler::~FFTHandler() {
 		cufftSafeCall( cufftDestroy(my_plan) );
 	}
 }
+
+#endif

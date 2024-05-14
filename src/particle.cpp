@@ -913,13 +913,15 @@ particle::particle(const options OPT){
 }
 
 coords particle::floquetResults() {
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 	if (opt.integratorType == 7) {
 		tensorHandler.getSpectrum(&cspec, opt);
 	}
+#endif
 	return floquet_integrate(fd, cspec, opt);
 }
 
-void particle::postProcess(Logger* log) {
+void particle::postProcess(Logger* log, int time_elapsed) {
 	if (opt.integratorType == 6 || opt.integratorType == 7) {
 		coords b_end = floquetResults();
 		cout << b_end << endl;
@@ -928,6 +930,7 @@ void particle::postProcess(Logger* log) {
 		coords b_end = spinMean();
 		cout << b_end << endl;
 	}
+	log->writeInt("Simulation Time", time_elapsed);
 }
 
 void particle::outputData(Logger* log){

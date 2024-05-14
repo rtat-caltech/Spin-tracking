@@ -742,7 +742,7 @@ __PREPROC__ int integrateSpectrum(_PREC t0, _PREC tf, SpectrumAggregator& specag
 	return n_steps;
 }
 
-
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 __PREPROC__ int collectNoiseSamples(_PREC t0, _PREC tf, cufftReal* Bnoise, const coords& p_old,
 									const coords& p_new, const coords& v_old, const coords& v_new, options OPT, _PREC h, int integrator_steps) {
 	_PREC t = first_sample_point(t0, h);
@@ -760,6 +760,7 @@ __PREPROC__ int collectNoiseSamples(_PREC t0, _PREC tf, cufftReal* Bnoise, const
 	}	
 	return n_steps;
 }
+#endif
 
 __PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options OPT, _PREC h) {
 	_PREC t = t0;

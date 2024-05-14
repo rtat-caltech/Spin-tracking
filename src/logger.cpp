@@ -32,6 +32,10 @@ void BinaryLogger::writeSingle(string name, coords value) {
 	fwrite(&value, sizeof(coords), 1, f);
 }
 
+void BinaryLogger::writeInt(string name, int value) {
+	fwrite(&value, sizeof(int), 1, f);
+}
+
 template <typename T>
 void BinaryLogger::write(T* data) {
 	fwrite(data, sizeof(T), opt.numParticles, f);
@@ -67,6 +71,10 @@ void HDF5Logger::writeSnapshot(_PREC* t, coords* pos, coords* v, coords* S,
 
 void HDF5Logger::writeSingle(string name, coords value) {
 	writeOption<coords>(name, value);
+}
+
+void HDF5Logger::writeInt(string name, int value) {
+	writeOption<int>(name, value);
 }
 
 void HDF5Logger::writeOptions() {
@@ -190,7 +198,7 @@ bool pathExists(hid_t id, const std::string& path) {
 #endif
 
 std::unique_ptr<Logger> createLogger(options opt, const char* outputName) {
-	std::string ext = std::string(fs::path(outputName).extension());
+	std::string ext = fs::path(outputName).extension().string();
 	bool use_hdf5 = boost::iequals(ext, ".hdf5") || boost::iequals(ext, ".h5");
 	std::unique_ptr<Logger> log;
 	if (use_hdf5) {

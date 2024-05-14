@@ -104,11 +104,11 @@ public:
 		if (opt.integratorType == 6 || opt.integratorType == 7) {
 			fd = initializeSpectra(cspec, opt);
 		}
+        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 		if (opt.integratorType == 7) {
 			fftHandler.plan(opt);
 			tensorHandler.plan(opt);
 		}
-        #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 		synchronize();
 	    initParticlesGPU<<<numBlocks, numPartsPerBlock>>>(opt, S, v, v_old, 
 	                                                      pos, pos_old, t, t_old, tf, dt, next_gas_coll_time, h,
@@ -127,7 +127,7 @@ public:
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
 	coords floquetResults();
-	void postProcess(Logger* log);
+	void postProcess(Logger* log, int time_elapsed);
 	coords spinMean();
 private:
     options opt;
@@ -181,8 +181,10 @@ private:
     SpectrumAggregator *specagg;
     CovarianceSpectrum cspec;
     floquetDiagonalization fd;
+#if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)    
 	FFTHandler fftHandler;
 	TensorHandler tensorHandler;
+#endif
 	float *Bnoise;
 };
 

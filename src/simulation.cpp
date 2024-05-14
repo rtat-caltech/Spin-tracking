@@ -36,6 +36,8 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
 		std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 	}
-	p.postProcess(log.get());
+	stop = std::chrono::high_resolution_clock::now();
+	duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+	p.postProcess(log.get(), duration);
 	return;
 }
