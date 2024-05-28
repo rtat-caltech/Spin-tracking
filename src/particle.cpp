@@ -652,15 +652,16 @@ __global__ void spectrumSum(SpectrumAggregator *specagg, SpectrumAggregator* out
 	if (ipart < opt.numParticles) {
 		specagg[ipart].compile_results(islast);
 		__syncthreads();
-		for (unsigned int s = 1; s < opt.numParticles; s *= 2) {
+
+		for (unsigned int s = 1; s < blockDim.x; s *= 2) {
 			if (ipart % (2 * s) == 0) {
 				specagg[ipart].add(specagg[ipart + s]);
 			}
 			__syncthreads();
 		}
-		
-		if (ipart == 0) {
-			*output = specagg[0];
+
+		if (threadIdx.x == 0) {
+			output[blockIdx.x] = specagg[ipart];
 		}
 	}
 }
@@ -947,16 +948,20 @@ void particle::runSimulation(_PREC nextTOut){
 													  partID, failureState, stopParticle, coll_type, wall_hit, specagg, Bnoise, nextTOut);
 	gpuErrchk( cudaPeekAtLastError() );
 	gpuErrchk( cudaDeviceSynchronize() );
+	size_t ssize = sizeof(SpectrumAggregator);
 	if (opt.integratorType == 6) {
 		synchronize();
 		// Sum over each block
 		SpectrumAggregator* ssum;
-		cudaMallocManaged(&ssum, sizeof(SpectrumAggregator) * numBlocks);
+		cudaMallocManaged(&ssum, ssize * numBlocks);
 		spectrumSum<<<numBlocks, numPartsPerBlock>>>(specagg, ssum, opt, opt.tf == nextTOut);
 		synchronize();
 		// Transfer to host
-		SpectrumAggregator* hsum = (SpectrumAggregator*) malloc(sizeof(SpectrumAggregator) * numBlocks);
-		cudaMemcpy(hsum, ssum, sizeof(SpectrumAggregator) * numBlocks, cudaMemcpyDeviceToHost);
+		SpectrumAggregator* hsum = (SpectrumAggregator*) malloc(ssize * numBlocks);
+
+		cudaMemcpy(hsum, ssum, ssize * numBlocks, cudaMemcpyDeviceToHost);
+		synchronize();
+
 		for (int i = 0; i < numBlocks; i++) {
 			cspec.add(hsum[i].get_covariance_spectrum());
 		}

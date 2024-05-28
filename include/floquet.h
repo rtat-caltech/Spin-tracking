@@ -40,6 +40,8 @@ using Eigen::Vector2d;
 #define NK 11
 #define NW 17
 
+int nearest_index(double* arr, int length, double value);
+
 class Spectrum {
 public:
 	double frequencies[NW] = {0};
@@ -64,6 +66,8 @@ public:
 	void initialize(double (&freq)[NW], double d, int n_samp = 0);
 	void add(CovarianceSpectrum other);
 	void normalize();
+	Matrix3cd lookup(double frequency);
+	vector<quaternion> get_collapse_ops();
 	vector<pair<quaternion, Spectrum>> extract();
 	double dt;
 private:
@@ -227,6 +231,16 @@ struct floquetDiagonalization {
 
 __PREPROC__ void goertzel_stage_1(const coords& x, coords& s1, coords& s2, double w, double dt);
 __PREPROC__ pair<coords, coords> goertzel_stage_2_vector(const coords& s1, const coords& s2, double w, double dt);
+
+void floquet_Delta(floquetDiagonalization fd, double (&Delta)[2][2][NK]);
+
+void floquet_Delta(quaternion f_modes_0, quaternion f_energies, vector<quaternion> propagators, int n_prop, double period, double (&Delta)[2][2][NK]);
+
+void floquet_X(floquetDiagonalization fd, quaternion c_op, complex<double> (&X)[2][2][NK]);
+
+void floquet_X(quaternion f_modes_0, quaternion f_energies, quaternion c_op, vector<quaternion> propagators, int n_prop, double period, complex<double> (&X)[2][2][NK]);
+
+void floquet_master_equation_rates(floquetDiagonalization fd, vector<quaternion> c_ops, CovarianceSpectrum cspec, complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 
 void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]);
 

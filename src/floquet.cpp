@@ -58,16 +58,7 @@ complex<double> Spectrum::lookup(double frequency) {
 	if (frequency < 0) {
 		return conj(lookup(-frequency));
 	}
-	double bestdiff = numeric_limits<double>::infinity();
-	for (int i = 0; i < NW; i++) {
-		double diff = abs(frequencies[i] - frequency);
-		if (diff < bestdiff) {
-			bestdiff = diff;
-		} else {
-			return power[i-1];
-		}
-	}
-	return power[NW];
+	return power[nearest_index(frequencies, NW, frequency)];
 }
 
 void CovarianceSpectrum::initialize(double (&freq)[NW], double d, int n_samp) {
@@ -94,12 +85,29 @@ void CovarianceSpectrum::normalize() {
 	}
 }
 
+int nearest_index(double* arr, int length, double value) {
+	double bestdiff = numeric_limits<double>::infinity();
+	for (int i = 0; i < length; i++) {
+		double diff = abs(arr[i] - value);
+		if (diff < bestdiff) {
+			bestdiff = diff;
+		} else {
+			return i - 1;
+		}
+	}
+	return length - 1;
+}
+
+Matrix3cd CovarianceSpectrum::lookup(double frequency) {
+	if (frequency < 0) {
+		return lookup(-frequency).conjugate().transpose();
+	}
+	return variance[nearest_index(frequencies, NW, frequency)];
+}
+
 vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 	vector<pair<quaternion, Spectrum>> out;
-	quaternion c_ops[3];
-	c_ops[0] = {0, 1, 0, 0};
-	c_ops[1] = {0, 0, 1, 0};
-	c_ops[2] = {0, 0, 0, 1};	
+	vector<quaternion> c_ops = get_collapse_ops();
 	for (int i = 0; i < 3; i++) {
 		Spectrum spec;
 		for (int j = 0; j < NW; j++) {
@@ -110,6 +118,14 @@ vector<pair<quaternion, Spectrum>> CovarianceSpectrum::extract() {
 		out.push_back(p);
 	}
 	return out;
+}
+
+vector<quaternion> CovarianceSpectrum::get_collapse_ops() {
+	vector<quaternion> c_ops;
+	c_ops.push_back({0, 1, 0, 0});
+	c_ops.push_back({0, 0, 1, 0});
+	c_ops.push_back({0, 0, 0, 1});
+	return c_ops;
 }
 
 __PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag) {
@@ -125,14 +141,12 @@ __PREPROC__ void covMat::add(covMat other) {
 }
 
 __PREPROC__ void SpectrumAggregator::update(const coords& x) {
-	for (int i=0; i < NW; i++) {
+	for (int i = 0; i < NW; i++) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
 		coords a, b;
 	    goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
 		cmat[i].add_outer(a, b, x, (coords) {0, 0, 0});
 	}
-	dc_term = dc_term + x;
-	dc_samples += 1;
 	n_samples += 1;
 }
 
@@ -150,13 +164,14 @@ __PREPROC__ void SpectrumAggregator::reset() {
 
 __PREPROC__ void SpectrumAggregator::compile_results(bool islast) {
 	coords a, b;
-	for (int i = 1; i < NW; i++) {
+	for (int i = 0; i < NW; i++) {
 		goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
 		cmat[i].real_diag = a * a + b * b;
 	}
-	if (islast) {
-		cmat[0].real_diag = (dc_term * dc_term);
-	}
+	// if (islast) {
+	// 	cmat[0].real_diag = (dc_term * dc_term);
+	// 	cmat[1].real_diag = (dc_term * dc_term);
+	// }
 }
 
 __PREPROC__ void SpectrumAggregator::add(SpectrumAggregator other) {
@@ -210,6 +225,92 @@ void print_as_su2(quaternion q) {
 
 double sq(double x) {
 	return x * x;
+}
+
+void floquet_Delta(floquetDiagonalization fd, double (&Delta)[2][2][NK]) {
+	floquet_Delta(fd.f_modes_0, fd.f_energies, fd.propagators, fd.n_prop, fd.period, Delta);
+}
+
+void floquet_Delta(quaternion f_modes_0, quaternion f_energies, vector<quaternion> propagators, int n_prop, double period, double (&Delta)[2][2][NK]) {
+	double omega = 2 * M_PI/period;
+	double ea = atan2(f_energies.z, f_energies.w)/period;
+	double eb = -atan2(f_energies.z, f_energies.w)/period;
+	double es[2] = {ea, eb};
+	for (int k = 0; k < NK; k++) {
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 2; j++) {
+				double f = (es[j] - es[i]) + (k - NK/2) * omega;
+				Delta[i][j][k] = f;
+			}
+		}
+	}
+}
+
+void floquet_X(floquetDiagonalization fd, quaternion c_op, complex<double> (&X)[2][2][NK]) {
+	floquet_X(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, fd.period, X);
+}
+
+void floquet_X(quaternion f_modes_0, quaternion f_energies, quaternion c_op, vector<quaternion> propagators, int n_prop, double period, complex<double> (&X)[2][2][NK]) {
+	quaternion Xq[NK] = {0};
+	double omega = 2 * M_PI/period;
+	double ea = atan2(f_energies.z, f_energies.w)/period;
+	double eb = -atan2(f_energies.z, f_energies.w)/period;
+	double es[2] = {ea, eb};
+	int kmax = NK/2;
+
+	for (int i = 0; i < n_prop; i++) {
+		double t = (i+1) * period/n_prop;
+		double weight = 1.0/n_prop;
+		quaternion phase = {cos(ea * t), 0, 0, -sin(ea * t)};
+		quaternion f_modes_t = propagators[i] * f_modes_0 * phase;
+		quaternion q = conj(f_modes_t) * c_op * f_modes_t;
+		for (int k = 0; k < NK; k++) {
+			double arg = (k - kmax) * omega * t;
+			quaternion k_phase = {cos(arg), 0, 0, sin(arg)};
+			Xq[k] = Xq[k] + q * k_phase * weight;
+		}
+	}
+	
+	for (int k = 0; k <= kmax*2; k++) {
+		X[0][0][k] = Xq[k].z - im_unit * Xq[k].w;
+		X[1][1][k] = conj(X[0][0][k]);
+		X[0][1][k] = Xq[k].x - im_unit * Xq[k].y;
+		X[1][0][k] = Xq[2*kmax-k].x + im_unit * Xq[2*kmax-k].y;
+	}
+}
+
+void floquet_master_equation_rates(floquetDiagonalization fd, vector<quaternion> c_ops, CovarianceSpectrum cspec, complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
+	complex<double> X[3][2][2][NK] = {{{{0}}}};
+	double Delta[2][2][NK] = {{{0}}};
+	double omega = 2 * M_PI/fd.period;
+	int kmax = NK/2;
+	floquet_Delta(fd, Delta);
+	for (int i = 0; i < c_ops.size(); i++) {
+		floquet_X(fd, c_ops[i], X[i]);
+	}
+	for (int a = 0; a < 3; a++) {
+		for (int b = 0; b < 3; b++) {
+			// Now compute Zeta (A = Zeta + Zeta^T)
+			for (int k = 0; k <= kmax * 2; k++) {
+				for (int i = 0; i < 2; i++) {
+					for (int j = 0; j < 2; j++) {
+						Zeta[i][j] = Zeta[i][j] + X[a][i][j][k] * conj(X[b][i][j][k]) * cspec.lookup(Delta[i][j][k])(a, b)/2.0;
+					}
+				}
+			}
+
+			// Now compute Omicron
+			for (int k = 0; k <= kmax * 2; k++) {
+				for (int i = 0; i < 2; i++) {
+					for (int j = 0; j < 2; j++) {
+						double f = (k - NK/2) * omega;
+						Omicron[i][j] = Omicron[i][j] + cspec.lookup(f)(a, b)
+							* X[a][i][i][k] * conj(X[b][j][j][k]);
+					}
+				}
+			}
+		}
+	}
 }
 
 void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
@@ -280,7 +381,6 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	}
 
 	// Now compute Omicron
-
 	for (int k = 0; k <= kmax * 2; k++) {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) {

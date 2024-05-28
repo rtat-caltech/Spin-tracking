@@ -15,7 +15,6 @@ file(GLOB SOURCES CONFIGURE_DEPENDS "${SOURCE_DIRECTORY}/[a-zA-Z]*.cpp")
 file(GLOB UNIT_TESTS CONFIGURE_DEPENDS "${TEST_DIRECTORY}/[a-zA-Z]*.cpp")
 file(GLOB LOCAL_HEADERS CONFIGURE_DEPENDS "${HEADER_DIRECTORY}/[a-zA-Z]*.h")
 
-
 # Create library
 add_library(mainlib ${SOURCES} ${LOCAL_HEADERS})
 target_include_directories(mainlib PRIVATE ${HEADER_DIRECTORY})
@@ -29,11 +28,11 @@ target_compile_options(test PRIVATE -w)
 
 find_package(HDF5 COMPONENTS CXX)
 if (HDF5_FOUND)
-  include_directories(${HDF5_INCLUDE_DIRS})
+  target_include_directories(mainlib PRIVATE ${HDF5_CXX_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(mainlib HDF5::HDF5)
   target_compile_definitions(mainlib PUBLIC USEHDF5=1)
-  target_link_libraries(mainlib ${HDF5_CXX_LIBRARIES} ${HDF5_LIBRARIES})
 else()
-  message(STATUS "Could not find HDF5 library - HDF5 saving be disabled")
+  message(STATUS "Could not find HDF5 library - HDF5 saving will be disabled")
 endif()
 
 IF (CMAKE_CUDA_ARCHITECTURES)

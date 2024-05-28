@@ -29,11 +29,11 @@ void mainAnalysis(options opt, int totalTime, const char* outputName, unsigned i
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count();
 	for(int i = 0; i < numIterations; i++){
 		_PREC nextTime = ((_PREC)i+1.0)*opt.ioutInt; //figure out the next stop time for the particles
-		start = std::chrono::high_resolution_clock::now();
 		p.runSimulation(nextTime);
 		p.outputData(log.get());
-		stop = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(stop-start).count();
+        auto tnow = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono:: duration_cast<std::chrono::milliseconds>(tnow - stop).count();
+        stop = tnow;
 		std::cout<<"iter "<<i<<", duration "<<nextTime<<", "<<duration<<std::endl;
 	}
 	stop = std::chrono::high_resolution_clock::now();
