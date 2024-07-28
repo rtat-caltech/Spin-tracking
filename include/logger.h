@@ -11,12 +11,13 @@ namespace fs = std::filesystem;
 
 class Logger {
 public:
-	Logger(const options opt, const char* outputName);
+	Logger(const options opt, int n_records);
 	virtual void openFile(const char* outputName) = 0;
 	virtual void writeOptions() = 0;
 	virtual void writeSnapshot(_PREC* t, coords* pos, coords* v, coords* S,
 							   int* failureState, size_t* n_coll, size_t* n_bounce,
 							   size_t* n_steps) = 0;
+	virtual void writeSpin(_PREC t, coords S) = 0;
 	virtual void writeSingle(string name, coords value) {}; // Used for saving Floquet result
 	virtual void writeInt(string name, int value) = 0; // Used for saving the time elapsed
 	virtual ~Logger(){};
@@ -24,17 +25,19 @@ public:
 protected:
 	options opt;
 	int nsave;
+	int npart;
 	char* outputName;
 };
 
 class BinaryLogger : public Logger {
 public:
-	BinaryLogger(const options OPT, const char* outputName);
+	BinaryLogger(const options opt, int n_records);
 	void openFile(const char* outputName) override;
 	void writeOptions() override;
 	void writeSnapshot(_PREC* t, coords* pos, coords* v, coords* S,
 					   int* failureState, size_t* n_coll, size_t* n_bounce,
 					   size_t* n_steps) override;
+	void writeSpin(_PREC t, coords S) override;
 	void writeSingle(string name, coords value);
 	void writeInt(string name, int value);
 	~BinaryLogger() override;
@@ -57,12 +60,13 @@ bool pathExists(hid_t id, const std::string& path);
 
 class HDF5Logger : public Logger {
 public:
-	HDF5Logger(const options OPT, const char* outputName);
+	HDF5Logger(const options opt, int n_records);
 	void openFile(const char* outputName) override;	
 	void writeOptions() override;
 	void writeSnapshot(_PREC* t, coords* pos, coords* v, coords* S,
 					   int* failureState, size_t* n_coll, size_t* n_bounce,
 					   size_t* n_steps) override;
+	void writeSpin(_PREC t, coords S) override;
 	void writeSingle(string name, coords value);
 	void writeInt(string name, int value);
 	~HDF5Logger() override;
@@ -83,6 +87,6 @@ private:
 
 #endif
 
-std::unique_ptr<Logger> createLogger(options opt, const char* outputName);
+std::unique_ptr<Logger> createLogger(options opt, const char* outputName, int n_records);
 
 #endif

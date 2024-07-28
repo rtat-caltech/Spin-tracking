@@ -913,7 +913,7 @@ particle::particle(const options OPT){
 	}
 }
 
-coords particle::floquetResults() {
+vector<coords> particle::floquetResults() {
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 	if (opt.integratorType == 7) {
 		tensorHandler.getSpectrum(&cspec, opt);
@@ -923,13 +923,22 @@ coords particle::floquetResults() {
 }
 
 void particle::postProcess(Logger* log, int time_elapsed) {
-	if (opt.integratorType == 6 || opt.integratorType == 7) {
-		coords b_end = floquetResults();
+	if (isFloquet(opt)) {
+		vector<coords> bloch_vectors = floquetResults();
+		RangeUnion stopTimes;
+		stopTimes.concatenate(opt.stopTimes);
+		int i = 0;
+		while (stopTimes.hasNext()) {
+			_PREC t = stopTimes.next();
+			log->writeSpin(t, bloch_vectors[i]);
+			i += 1;
+		}
+		coords b_end = bloch_vectors[bloch_vectors.size() - 1];
 		cout << b_end << endl;
-		log->writeSingle("b_end", b_end);
 	} else {
 		coords b_end = spinMean();
 		cout << b_end << endl;
+		log->writeSingle("b_end", b_end);
 	}
 	log->writeInt("Simulation Time", time_elapsed);
 }
@@ -937,6 +946,9 @@ void particle::postProcess(Logger* log, int time_elapsed) {
 void particle::outputData(Logger* log){
 	// n * t * d
 	synchronize();
+	if (isFloquet(opt)) {
+		return;
+	}
 	log->writeSnapshot(t, pos, v, S, failureState, n_coll, n_bounce, n_steps);
 }
 

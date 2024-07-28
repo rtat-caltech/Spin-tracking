@@ -5,6 +5,7 @@
 #include "../include/integrator.h"
 #include "../include/logger.h"
 #include "../include/simulation.h"
+#include "../include/optionsParser.h"
 #include <iostream>
 #include <stdlib.h>
 #if USEHDF5
@@ -37,6 +38,7 @@ BOOST_AUTO_TEST_CASE(hdf5_output, * utf::tolerance(1e-9)) {
 	opt.ioutInt = 0.05;
 	opt.integratorType = 0;
 	opt.numParticles = 3;
+	compileOptions(opt);
 
 	int nsave = 5;
 	

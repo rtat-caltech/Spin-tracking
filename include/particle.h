@@ -101,7 +101,7 @@ public:
 		}
     };
     void initParticles() {
-		if (opt.integratorType == 6 || opt.integratorType == 7) {
+	    if (isFloquet(opt)) {
 			fd = initializeSpectra(cspec, opt);
 		}
         #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
@@ -126,7 +126,7 @@ public:
 	void aggregateSpectrum(CovarianceSpectrum& cspec, int numParticles);
 	SpectrumAggregator* getSpectrumAggregators();
 	coords* getVelocities();
-	coords floquetResults();
+	vector<coords> floquetResults();
 	void postProcess(Logger* log, int time_elapsed);
 	coords spinMean();
 private:

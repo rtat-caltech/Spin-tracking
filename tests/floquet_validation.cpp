@@ -6,6 +6,7 @@
 #include "../include/floquet.h"
 #include "../include/integrator.h"
 #include "../include/simulation.h"
+#include "../include/optionsParser.h"
 #include <iostream>
 #include <stdlib.h>
 
@@ -56,7 +57,16 @@ BOOST_AUTO_TEST_CASE(diagonalization, * utf::tolerance(quaternion(1e-9))) {
 	quaternion eigen_vectors = qEigenvec(q);
 	BOOST_TEST(eigen_values.x == 0);
 	BOOST_TEST(eigen_values.y == 0);
+	BOOST_TEST(norm(eigen_values) == 1);
+	BOOST_TEST(norm(eigen_vectors) == 1);
+	
 	quaternion a = eigen_vectors * eigen_values * conj(eigen_vectors);
+	
+	// Make sure matrix is diagonal
+	Matrix2cd lambdas = toSU2(eigen_values);
+	BOOST_TEST(lambdas(0,1) == complex<double>(0, 0));
+	BOOST_TEST(lambdas(1,0) == complex<double>(0, 0));
+	
 	BOOST_TEST(q == a);
 }
 
@@ -71,26 +81,28 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	opt.w = 1/tf * 2 * M_PI;
 	opt.atol = 1e-12;
 	opt.rtol = 1e-12;
+	compileOptions(opt);
 	coords s0 = {0, 1, 0};
 	coords s = {0, 1, 0};
 
 	int n_prop = 100;
 	vector<quaternion> propagators;
-	quaternion y = {1, 0, 0, 0};
 	coords dummy = {0, 0, 0};
 	double h = 1e-6;
+	floquetDiagonalization fd = floquet_diagonalize(opt);
 	for (int i=0; i < n_prop; i++) {
 		double t1 = t0 + (tf - t0) * i/n_prop;
 		double t2 = t0 + (tf - t0) * (i+1)/n_prop;
-		integrateHamiltonian(t1, t2, y, opt, 1e-6);
 		integrateMagnusCFET(t1, t2, s, dummy, dummy, dummy, dummy, opt, h);
-		coords a = y * s0;
+		coords a = fd.propagators[i] * s0;
 		coords b = s;
 	  	BOOST_TEST(a.x == b.x);
 		BOOST_TEST(a.y == b.y);
 		BOOST_TEST(a.z == b.z);
-		propagators.push_back(y);
 	}
+	cout << "Floquet:" << endl;
+	cout << fd.f_modes_0 << endl;
+	cout << fd.f_energies << endl;
 	// Look in scripts/qutipFloquet.py for how these tensors are calculated
 	double Delta_ref[2][2][NK] = {{{-31415.9265359, -25132.74122872, -18849.55592154, -12566.37061436, -6283.18530718, 0., 6283.18530718, 12566.37061436, 18849.55592154, 25132.74122872, 31415.9265359}, {-30941.87521652, -24658.68990934, -18375.50460216, -12092.31929499, -5809.13398781, 474.05131937, 6757.23662655, 13040.42193373, 19323.60724091, 25606.79254809, 31889.97785527}}, {{-31889.97785527, -25606.79254809, -19323.60724091, -13040.42193373, -6757.23662655, -474.05131937, 5809.13398781, 12092.31929499, 18375.50460216, 24658.68990934, 30941.87521652}, {-31415.9265359, -25132.74122872, -18849.55592154, -12566.37061436, -6283.18530718, 0., 6283.18530718, 12566.37061436, 18849.55592154, 25132.74122872, 31415.9265359}}};
 
@@ -112,11 +124,8 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	complex<double> Zeta[2][2] = {{0}};
 	complex<double> Omicron[2][2] = {{0}};
 	
-	quaternion eigen_values = qEigenval(propagators[n_prop-1]);
-	quaternion eigen_vectors = qEigenvec(propagators[n_prop-1]);
-
-	double ea = -atan2(eigen_values.z, eigen_values.w)/(tf - t0);
-	double eb = atan2(eigen_values.z, eigen_values.w)/(tf - t0);
+	double ea = -atan2(fd.f_energies.z, fd.f_energies.w)/fd.period;
+	double eb = atan2(fd.f_energies.z, fd.f_energies.w)/fd.period;
 	double deltaE = (ea - eb);
 
 	quaternion c_op = {0, 0, 1, 0};
@@ -131,8 +140,21 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 			spec.power[k*3 + i] = 1/(pow(w * (tf - t0), 2) + 1);
 		}
 	}
+	CovarianceSpectrum cspec;
+	cspec.initialize(spec.frequencies, 1);
+	for (int i = 0; i < NW; i++) {
+		cspec.variance[i](1, 1) = spec.power[i];
+	}
 	
-	floquet_master_equation_rates(eigen_vectors, eigen_values, c_op, propagators, n_prop, tf - t0, spec, Delta, X, Gamma, Zeta, Omicron);
+
+	floquet_Delta(fd, Delta);
+	floquet_X(fd, c_op,  X);
+	
+	vector<quaternion> c_ops;
+	c_ops.push_back(quaternion(0, 1, 0, 0));
+	c_ops.push_back(c_op);
+	c_ops.push_back(quaternion(0, 0, 0, 1));
+	floquet_master_equation_rates(fd, c_ops, cspec, Zeta, Omicron);
 
 	for (int i=0; i < 2; i++) {
 		for (int j=0; j < 2; j++) {
@@ -142,7 +164,6 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 				BOOST_TEST(Delta[i][j][k] == Delta_ref[i][j][k]);
 				BOOST_TEST(real(X[i][j][k]) - X_re_ref[i][j][k] == 0);
 				BOOST_TEST(imag(X[i][j][k]) - X_im_ref[i][j][k] == 0);
-				BOOST_TEST(abs(Gamma[i][j][k]) - Gamma_ref[i][j][k] == 0);
 			}
 		}
 	}
@@ -153,6 +174,168 @@ BOOST_AUTO_TEST_CASE(propagators, * utf::tolerance(1e-8)) {
 	BOOST_TEST(sf.x == b_ref.x);
 	BOOST_TEST(sf.y == b_ref.y);
 	BOOST_TEST(sf.z == b_ref.z);
+}
+
+BOOST_AUTO_TEST_CASE(SU2, * utf::tolerance(1e-10)) {
+	// Map identity to identity
+	quaternion qid = {1, 0, 0, 0};
+	Matrix2cd identity = toSU2(qid);
+	BOOST_TEST(identity(0, 0) == complex<double>(1, 0));
+	BOOST_TEST(identity(0, 1) == complex<double>(0, 0));
+	BOOST_TEST(identity(1, 0) == complex<double>(0, 0));
+	BOOST_TEST(identity(1, 1) == complex<double>(1, 0));
+
+	// Group isomorphism? What's that?
+	quaternion a = {1, 2, -3, 4};
+	a = a/norm(a);
+	quaternion b = {10, -5, 6, 3};
+	b = b/norm(b);
+	Matrix2cd c_su2 = toSU2(a * b);
+	Matrix2cd ab_su2 = toSU2(a) * toSU2(b);
+	Matrix2cd a_conj = toSU2(a).adjoint();
+	Matrix2cd a_conj_2 = toSU2(conj(a));
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			BOOST_TEST(abs(ab_su2(i,j) - c_su2(i, j)) == 0);
+			BOOST_TEST(abs(a_conj(i,j) - a_conj_2(i, j)) == 0);
+		}
+	}
+
+	// Exponentiation
+	coords w = {3, -5, 4};
+	coords wv = sin(len(w)/2) * w/len(w);
+	quaternion wq = {cos(len(w)/2), wv.x, wv.y, wv.z};
+	Matrix2cd w_rotation = toSU2(wq);
+	Matrix2cd sx, sy, sz;
+	sx << 0, 1,
+		1, 0;
+	sy << 0, (0.0 - 1.0 * im_unit),
+		(0.0 + 1.0 * im_unit), 0;
+	sz << 1, 0,
+		0, -1;
+	Matrix2cd w_rotation_2 = ((sx * w.x + sy * w.y + sz * w.z)/2 * -im_unit).exp();
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			BOOST_TEST(abs(w_rotation(i,j) - w_rotation_2(i, j)) == 0);
+		}
+	}	
+}
+
+BOOST_AUTO_TEST_CASE(axis_rotation, * utf::tolerance(1e-9)) {
+	coords bx = {1, 0, 0};
+	coords by = {0, 1, 0};
+	coords bz = {0, 0, 1};
+	double t = 1/sqrt(2);
+	quaternion qrotx = {t, t, 0, 0}; // 90 degree rotation about x axis (rotates y into z)
+	quaternion qroty = {t, 0, t, 0};
+	quaternion qrotz = {t, 0, 0, t};
+
+	coords r_xy = qv_mult(qrotx, by);
+	coords r_yz = qv_mult(qroty, bz);
+	coords r_zx = qv_mult(qrotz, bx);
+
+	BOOST_TEST(r_xy.x == bz.x);
+	BOOST_TEST(r_xy.y == bz.y);
+	BOOST_TEST(r_xy.z == bz.z);
+
+	BOOST_TEST(r_yz.x == bx.x);
+	BOOST_TEST(r_yz.y == bx.y);
+	BOOST_TEST(r_yz.z == bx.z);
+
+	BOOST_TEST(r_zx.x == by.x);
+	BOOST_TEST(r_zx.y == by.y);
+	BOOST_TEST(r_zx.z == by.z);
+
+	Vector2cd px, py, pz, p_xy, p_yz, p_zx;
+	px << t, t;
+	py << t, im_unit * t;
+	pz << 1, 0;
+	p_xy = toSU2(qrotx) * py;
+	p_yz = toSU2(qroty) * pz;
+	p_zx = toSU2(qrotz) * px;
+
+	cout << p_xy << endl;
+	cout << p_yz << endl;
+	cout << p_zx << endl;
+	BOOST_TEST(abs((complex<double>) (p_xy.adjoint() * pz)) == 1);
+	BOOST_TEST(abs((complex<double>) (p_yz.adjoint() * px)) == 1);
+	BOOST_TEST(abs((complex<double>) (p_zx.adjoint() * py)) == 1);
+}
+
+BOOST_AUTO_TEST_CASE(proper_rotation, * utf::tolerance(1e-9)) {
+	quaternion a = {1, 2, -3, 4};
+	a = a/norm(a);
+	coords b = {-5, 6, 3};
+
+	coords b2 = density_to_bloch(bloch_to_density(b));
+	BOOST_TEST(b.x == b2.x);
+	BOOST_TEST(b.y == b2.y);
+	BOOST_TEST(b.z == b2.z);	
+
+	coords c = qv_mult(a, b);
+	coords d = density_to_bloch(toSU2(a) * bloch_to_density(b) * toSU2(a).adjoint());
+	coords e = density_to_bloch(bloch_to_density(b, conj(a)));
+	BOOST_TEST(c.x == d.x);
+	BOOST_TEST(c.y == d.y);
+	BOOST_TEST(c.z == d.z);
+	BOOST_TEST(c.x == e.x);
+	BOOST_TEST(c.y == e.y);
+	BOOST_TEST(c.z == e.z);
+}
+
+BOOST_AUTO_TEST_CASE(transformations, * utf::tolerance(1e-9)) {
+	double t0 = 0.0;
+	double tf = 1;
+	options opt;
+	opt.gravity = false;
+	opt.T = 0.25;
+	opt.B0 = {5e-6, 0.0, 0.0};
+	opt.E = {0, 0, 0};
+	opt.a = 3e-5;
+	opt.w = 1e3 * 2 * M_PI;
+	opt.atol = 1e-13;
+	opt.rtol = 1e-13;
+	compileOptions(opt);
+
+	coords s0, s1, res;
+	floquetDiagonalization fd;
+	coords zeros = {0, 0, 0};
+	_PREC h;
+	s0 = {0, 0, 1};
+	s1 = {0, 0, 1};
+	h = 1e-6;
+	integrateDOP(t0, tf, s0, zeros, zeros, zeros, zeros, opt, h);
+	fd = floquet_diagonalize(opt);
+	res = density_to_bloch(bloch_to_density(s1, fd.f_modes_0),
+	                              fd.f_modes_0 * pow(fd.f_energies, 1000));
+
+	BOOST_TEST(res.x == s0.x);
+	BOOST_TEST(res.y == s0.y);
+	BOOST_TEST(res.z == s0.z);
+
+	s0 = {0, 1, 0};
+	s1 = {0, 1, 0};
+	h = 1e-6;
+	integrateDOP(t0, tf, s0, zeros, zeros, zeros, zeros, opt, h);
+	res = density_to_bloch(bloch_to_density(s1, fd.f_modes_0),
+	                       fd.f_modes_0 * pow(fd.f_energies, 1000));
+	BOOST_TEST(res.x == s0.x);
+	BOOST_TEST(res.y == s0.y);
+	BOOST_TEST(res.z == s0.z);
+
+	s0 = {1, 0, 0};
+	s1 = {1, 0, 0};
+	h = 1e-6;
+	integrateDOP(t0, tf, s0, zeros, zeros, zeros, zeros, opt, h);
+	fd = floquet_diagonalize(opt);
+	res = density_to_bloch(bloch_to_density(s1, fd.f_modes_0),
+	                              fd.f_modes_0 * pow(fd.f_energies, 1000));
+	BOOST_TEST(res.x == s0.x);
+	BOOST_TEST(res.y == s0.y);
+	BOOST_TEST(res.z == s0.z);
+
+	s1 = {1, 0, 0};
+	density_to_bloch(bloch_to_density(s1, fd.f_modes_0));
 }
 
 BOOST_AUTO_TEST_CASE(goertzel, * utf::tolerance(1e-9)) {
@@ -212,6 +395,7 @@ BOOST_AUTO_TEST_CASE(spectrum_calculation, * utf::tolerance(1e-4)) {
 	opt.gravity = false;
 	opt.numParticles = 1;
 	opt.integratorType = 6;
+	compileOptions(opt);
 	double dt = 1e-5;
 
 	double w[NW] = {0};
@@ -255,13 +439,15 @@ BOOST_AUTO_TEST_CASE(free_spectrum, * utf::tolerance(1e-6)) {
 	opt.atol = 1e-12;
 	opt.gravity = false;
 	opt.numParticles = 1;
+	opt.ioutInt = 1.2;
 	opt.yi = {0.0, 1.0, 0.0};
+	compileOptions(opt);
 	double dt = 1e-5;
 
 	floquetDiagonalization fd = floquet_diagonalize(opt);
 
 	double Szz = 5e-3; // This quantity is gamma^2 S_{Bz, Bz}
-
+	
 	CovarianceSpectrum cspec;
 	int nsamp = (int) ((tf - t0)/dt);
 	cspec.initialize(fd.frequencies, dt, nsamp);
@@ -281,7 +467,8 @@ BOOST_AUTO_TEST_CASE(free_spectrum, * utf::tolerance(1e-6)) {
 
 	coords b_ref = {0.0, cos(duration * w2), -sin(duration * w2)};
 	coords b0 = {0.0, cos(duration * w0), -sin(duration * w0)};
-	coords b_end = floquet_integrate(fd, cspec, opt);
+	vector<coords> b_arr = floquet_integrate(fd, cspec, opt);
+	coords b_end = b_arr[b_arr.size() - 1];
 	
 	double shift_ref = asin(len(cross(b_ref, b0)));
 	double shift_fm = asin(len(cross(b_end, b0)));	

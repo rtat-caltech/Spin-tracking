@@ -100,7 +100,7 @@ int nearest_index(double* arr, int length, double value) {
 
 Matrix3cd CovarianceSpectrum::lookup(double frequency) {
 	if (frequency < 0) {
-		return lookup(-frequency).conjugate().transpose();
+		return lookup(-frequency).conjugate();
 	}
 	return variance[nearest_index(frequencies, NW, frequency)];
 }
@@ -128,16 +128,24 @@ vector<quaternion> CovarianceSpectrum::get_collapse_ops() {
 	return c_ops;
 }
 
-__PREPROC__ void covMat::add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag) {
-	// Computes c + 2 u v^dag
-	imag_diag = imag_diag + 2 * (u_imag * v_real - u_real * v_imag);
+__PREPROC__ void covMat::add_outer(const float (&u_real)[3], const float (&u_imag)[3], const float (&x)[3]) {
+	// Computes c + 2 x u^\dag
+	for (int i =0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			entries[i][j][0] += x[i] * u_real[j];
+			entries[i][j][1] += -x[i] * u_imag[j];
+		}
+	}
 }
 
 __PREPROC__ void covMat::add(covMat other) {
-	real_diag = other.real_diag + real_diag;
-	imag_diag = other.imag_diag + imag_diag;
-	real_off_diag = other.real_off_diag + real_off_diag;
-	imag_off_diag = other.imag_off_diag + imag_off_diag;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 2; k++) {
+				entries[i][j][k] += other.entries[i][j][k];
+			}
+		}
+	}
 }
 
 __PREPROC__ void SpectrumAggregator::update(const coords& x) {
@@ -145,7 +153,7 @@ __PREPROC__ void SpectrumAggregator::update(const coords& x) {
 		goertzel_stage_1(x, s1[i], s2[i], w[i], dt);
 		coords a, b;
 	    goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
-		cmat[i].add_outer(a, b, x, (coords) {0, 0, 0});
+	    cmat[i].add_outer({(float) a.x, (float) a.y, (float) a.z}, {(float) b.x, (float) b.y, (float) b.z}, {(float) x.x, (float) x.y, (float) x.z});
 	}
 	n_samples += 1;
 }
@@ -154,10 +162,13 @@ __PREPROC__ void SpectrumAggregator::reset() {
 	for (int i = 0; i < NW; i++) {
 		s1[i] = {0, 0, 0};
 		s2[i] = {0, 0, 0};
-		cmat[i].real_diag = {0, 0, 0};
-		cmat[i].imag_diag = {0, 0, 0};
-		cmat[i].real_off_diag = {0, 0, 0};
-		cmat[i].imag_off_diag = {0, 0, 0};		
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 3; k++) {
+				for (int l = 0; l < 2; l++) {
+					cmat[i].entries[j][k][l] = 0;
+				}
+			}
+		}
 	}
 	n_samples = 0;
 }
@@ -166,12 +177,7 @@ __PREPROC__ void SpectrumAggregator::compile_results(bool islast) {
 	coords a, b;
 	for (int i = 0; i < NW; i++) {
 		goertzel_stage_2_vector(a, b, s1[i], s2[i], w[i], dt);
-		cmat[i].real_diag = a * a + b * b;
 	}
-	// if (islast) {
-	// 	cmat[0].real_diag = (dc_term * dc_term);
-	// 	cmat[1].real_diag = (dc_term * dc_term);
-	// }
 }
 
 __PREPROC__ void SpectrumAggregator::add(SpectrumAggregator other) {
@@ -185,9 +191,11 @@ __PREPROC__ CovarianceSpectrum SpectrumAggregator::get_covariance_spectrum() {
 	CovarianceSpectrum spec = CovarianceSpectrum();
 	spec.initialize(w, dt, n_samples);
 	for (int i = 0; i < NW; i++) {
-		spec.variance[i](0, 0) += complex<double> (cmat[i].real_diag.x, -cmat[i].imag_diag.x);
-		spec.variance[i](1, 1) += complex<double> (cmat[i].real_diag.y, -cmat[i].imag_diag.y);
-		spec.variance[i](2, 2) += complex<double> (cmat[i].real_diag.z, -cmat[i].imag_diag.z);
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 3;k++) {
+				spec.variance[i](j, k) += complex<double> (cmat[i].entries[j][k][0] * 2, cmat[i].entries[j][k][1] * 2);
+			}
+		}
 	}
 	return spec;
 }
@@ -303,8 +311,8 @@ void floquet_master_equation_rates(floquetDiagonalization fd, vector<quaternion>
 			for (int k = 0; k <= kmax * 2; k++) {
 				for (int i = 0; i < 2; i++) {
 					for (int j = 0; j < 2; j++) {
-						double f = (k - NK/2) * omega;
-						Omicron[i][j] = Omicron[i][j] + cspec.lookup(f)(a, b)
+						//double f = (k - NK/2) * omega;
+						Omicron[i][j] = Omicron[i][j] + cspec.lookup(Delta[j][j][k])(a, b)
 							* X[a][i][i][k] * conj(X[b][j][j][k]);
 					}
 				}
@@ -312,7 +320,7 @@ void floquet_master_equation_rates(floquetDiagonalization fd, vector<quaternion>
 		}
 	}
 }
-
+/*
 void floquet_master_equation_rates(floquetDiagonalization fd, quaternion c_op, Spectrum spec, double (&Delta)[2][2][NK], complex<double> (&X)[2][2][NK], complex<double> (&Gamma)[2][2][NK], complex<double> (&Zeta)[2][2], complex<double> (&Omicron)[2][2]) {
 	floquet_master_equation_rates(fd.f_modes_0, fd.f_energies, c_op, fd.propagators, fd.n_prop, fd.period, spec, Delta, X, Gamma, Zeta, Omicron);
 }
@@ -392,6 +400,7 @@ void floquet_master_equation_rates(quaternion f_modes_0, quaternion f_energies, 
 	}
 	return;
 }
+*/
 
 Matrix2cd bloch_to_density(coords bloch) {
 	quaternion basis = {1, 0, 0, 0};
@@ -399,14 +408,14 @@ Matrix2cd bloch_to_density(coords bloch) {
 }
 
 Matrix2cd bloch_to_density(coords bloch, quaternion basis) {
-	Matrix2cd basis_matrix = toSU2(basis);
+	Matrix2cd basis_matrix = toSU2(conj(basis));
 	double x = bloch.x;
 	double y = bloch.y;
 	double z = bloch.z;
 	Matrix2cd rho;
 	rho << (1 + z), (x - y * im_unit),
 		(x + y * im_unit), (1 - z);
-	return basis_matrix* rho * basis_matrix.adjoint()/2.0;
+	return basis_matrix * rho * basis_matrix.adjoint()/2.0;
 }
 
 coords density_to_bloch(Matrix2cd rho) {
@@ -416,7 +425,7 @@ coords density_to_bloch(Matrix2cd rho) {
 
 coords density_to_bloch(Matrix2cd rho, quaternion basis) {
 	Matrix2cd sx, sy, sz;
-	Matrix2cd basis_matrix = toSU2(basis);
+	Matrix2cd basis_matrix = toSU2(conj(basis));
 	sx << 0, 1,
 		1, 0;
 	sy << 0, (0.0 - 1.0 * im_unit),
@@ -750,7 +759,8 @@ void StoCspec(complex<float>* S, CovarianceSpectrum* cspec, int nf, int nt, int 
 		int S_idx = min(round((cspec->frequencies[i])/(2*M_PI*df)), nf-1.0f);
 		for (int j = 0; j < 3; j++) {
 			for (int k = 0; k < 3; k++) {
-				cspec->variance[i](j, k) = S[3 * nf * j + nf * k + S_idx];
+				// cuTensors are column-major
+				cspec->variance[i](j, k) = S[3 * nf * k + nf * j + S_idx];
 			}
 		}
 	}
@@ -800,6 +810,10 @@ TensorHandler::~TensorHandler() {
 __PREPROC__ int FFTLength(_PREC ioutInt, _PREC h) {
 	// Returns length of FFT (# of complex elements)
 	return timeSeriesLength(ioutInt, h, true)/2;
+}
+
+__PREPROC__ bool isFloquet(options opt) {
+	return opt.integratorType == 6 || opt.integratorType == 7;
 }
 
 FFTHandler::~FFTHandler() {

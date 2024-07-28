@@ -1,11 +1,13 @@
 #include "../include/logger.h"
 
-Logger::Logger(const options OPT, const char* outputName) {
+Logger::Logger(const options OPT, int n_records) {
 	opt = OPT;
-	nsave = (int) ((OPT.tf - OPT.t0)/OPT.ioutInt + 1);
+	nsave = opt.stopTimes.size();
+	// n_records: number of states to save per time point (i.e. for 1024 particles, 1024).
+	npart = n_records;
 }
 
-BinaryLogger::BinaryLogger(const options OPT, const char* outputName) : Logger(OPT, outputName) {}
+BinaryLogger::BinaryLogger(const options OPT, int n_records) : Logger(OPT, n_records) {}
 
 void BinaryLogger::openFile(const char* outputName) {
 	f = fopen(outputName, "wb");
@@ -32,13 +34,18 @@ void BinaryLogger::writeSingle(string name, coords value) {
 	fwrite(&value, sizeof(coords), 1, f);
 }
 
+void BinaryLogger::writeSpin(_PREC t, coords S) {
+	fwrite(&t, sizeof(_PREC), 1, f);
+	fwrite(&S, sizeof(coords), 1, f);
+}
+
 void BinaryLogger::writeInt(string name, int value) {
 	fwrite(&value, sizeof(int), 1, f);
 }
 
 template <typename T>
 void BinaryLogger::write(T* data) {
-	fwrite(data, sizeof(T), opt.numParticles, f);
+	fwrite(data, sizeof(T), npart, f);
 }
 
 BinaryLogger::~BinaryLogger() {
@@ -50,7 +57,7 @@ BinaryLogger::~BinaryLogger() {
 
 using namespace H5;
 
-HDF5Logger::HDF5Logger(const options OPT, const char* outputName) : Logger(OPT, outputName) {}
+HDF5Logger::HDF5Logger(const options OPT, int n_records) : Logger(OPT, n_records) {}
 
 void HDF5Logger::openFile(const char* outputName) {
 	f5 = new H5File(outputName, H5F_ACC_TRUNC);
@@ -67,6 +74,11 @@ void HDF5Logger::writeSnapshot(_PREC* t, coords* pos, coords* v, coords* S,
 	write<size_t>(n_coll, "Num Collisions");
 	write<size_t>(n_bounce, "Num Bounces");
 	write<size_t>(n_steps, "Num Steps");
+}
+
+void HDF5Logger::writeSpin(_PREC t, coords S) {
+	write<_PREC>(&t, "Time");
+	write<coords>(&S, "Spin");
 }
 
 void HDF5Logger::writeSingle(string name, coords value) {
@@ -129,7 +141,7 @@ void HDF5Logger::massWriteOptions(string* names, T* values, int n) {
 template <typename T>
 void HDF5Logger::write(T* data, const char* datasetName) {
 	DataType myType = getH5Type(data);
-	hsize_t fdim[] = {nsave, opt.numParticles};
+	hsize_t fdim[] = {nsave, npart};
 	DataSpace fspace(2, fdim);
 	if (!pathExists(f5->getId(), datasetName)) {
 		// Create Dataset
@@ -139,16 +151,15 @@ void HDF5Logger::write(T* data, const char* datasetName) {
 		int nt0 = 0;
 		att.write(PredType::NATIVE_INT, &nt0);
 		delete dset;
-	}			
-
+	}
 	DataSet* dataset = new DataSet(f5->openDataSet(datasetName));
 	Attribute attr = dataset->openAttribute("nt");
 	int nt;
 	attr.read(PredType::NATIVE_INT, &nt);
-	hsize_t count_f[2] = {1, opt.numParticles};
+	hsize_t count_f[2] = {1, npart};
 	hsize_t start_f[2] = {nt, 0};
 	fspace.selectHyperslab(H5S_SELECT_SET, count_f, start_f);
-	hsize_t dim_m[] = {opt.numParticles};
+	hsize_t dim_m[] = {npart};
 	DataSpace mspace(1, dim_m);
 	dataset->write(data, myType, mspace, fspace);
 
@@ -197,18 +208,18 @@ bool pathExists(hid_t id, const std::string& path) {
 
 #endif
 
-std::unique_ptr<Logger> createLogger(options opt, const char* outputName) {
+std::unique_ptr<Logger> createLogger(options opt, const char* outputName, int n_records) {
 	std::string ext = fs::path(outputName).extension().string();
 	bool use_hdf5 = boost::iequals(ext, ".hdf5") || boost::iequals(ext, ".h5");
 	std::unique_ptr<Logger> log;
 	if (use_hdf5) {
 #if USEHDF5
-		log = std::unique_ptr<Logger>(new HDF5Logger(opt, outputName));
+		log = std::unique_ptr<Logger>(new HDF5Logger(opt, n_records));
 #else
 		throw runtime_error("HDF5 saving is not enabled, but output file has hdf5 extension.");
 #endif
 	} else {
-		log = std::unique_ptr<Logger>(new BinaryLogger(opt, outputName));
+		log = std::unique_ptr<Logger>(new BinaryLogger(opt, n_records));
 	}
 	log->openFile(outputName);
 	log->writeOptions();

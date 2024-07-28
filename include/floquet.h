@@ -75,12 +75,9 @@ private:
 };
 
 struct covMat {
-	// Compact representation of 3x3 covariance matrix state
-	coords real_diag;
-	coords imag_diag;
-	coords real_off_diag;
-	coords imag_off_diag;
-	__PREPROC__ void add_outer(coords u_real, coords u_imag, coords v_real, coords v_imag);
+	// Representation of 3x3 covariance matrix state
+	float entries[3][3][2] = {{{0}}};
+	__PREPROC__ void add_outer(const float (&u_real)[3], const float (&u_imag)[3], const float (&x)[3]);
 	__PREPROC__ void add(covMat other);
 };	
 
@@ -121,7 +118,7 @@ static const char* _cudaGetErrorEnum(cufftResult error)
 	case CUFFT_SUCCESS:
 		return "CUFFT_SUCCESS";
 
-	case CUFFT_INVALID_PLAN:
+ 	case CUFFT_INVALID_PLAN:
 		return "CUFFT_INVALID_PLAN";
 
 	case CUFFT_ALLOC_FAILED:
@@ -177,6 +174,7 @@ private:
 	bool planned = false;
 };
 
+__PREPROC__ bool isFloquet(options opt); // Returns True if integrator is of Floquet type
 __PREPROC__ int FFTLength(_PREC ioutInt, _PREC h);
 __global__ void heavisideScale(float* correlation, int nx, int ny);
 void StoCspec(complex<float>* S, CovarianceSpectrum* cspec, int nf, int nt, int nsegment);

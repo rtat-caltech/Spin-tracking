@@ -90,6 +90,6 @@ __PREPROC__ _PREC min_d(_PREC, _PREC);
 __PREPROC__ _PREC max_d(_PREC, _PREC);
 
 floquetDiagonalization floquet_diagonalize(options OPT);
-coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt);
+vector<coords> floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt);
 
 #endif

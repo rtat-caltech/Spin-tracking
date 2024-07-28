@@ -21,10 +21,9 @@ bool to_bool(std::string str) {
     return b;
 }
 
-std::vector<std::string> grabElementsInLine(std::string s){
+std::vector<std::string> splitString(std::string s, std::string delimiter) {
 	size_t pos = 0;
 	std::string token;
-	std::string delimiter = ",";
 	std::vector<std::string> elements;
 	while ((pos = s.find(delimiter)) != std::string::npos) {
 		token = s.substr(0, pos);
@@ -34,6 +33,11 @@ std::vector<std::string> grabElementsInLine(std::string s){
 	token = s.substr(0, pos);
 	elements.push_back(removeWhitespace(token));
 	return elements;
+}
+
+std::vector<std::string> grabElementsInLine(std::string s){
+	std::string delimiter = ",";
+	return splitString(s, delimiter);
 }
 
 
@@ -168,10 +172,24 @@ void parseLine(options& opt, std::string s){
 	else if(elements.at(0) == "iout"){
 		opt.iout = std::stoi(elements.at(1));
 	}
+	else if(elements.at(0) == "stopTimes") {
+		for (int i = 1; i < elements.size(); i++) {
+			opt.stopTimes.push_back(parseRange(elements.at(i)));
+		}
+	}
 	else{
 		std::cout<<"Unrecognized Option: "<<elements.at(0)<<std::endl;
 		std::cout<<"Line Ignored"<<std::endl;
 	}
+}
+
+Range parseRange(std::string rangeString) {
+	std::vector<std::string> strings = splitString(rangeString, ":");
+	if (strings.size() != 3) {
+		std::cout << "Invalid range specification " << rangeString << std::endl;
+	}
+	Range range((_PREC) std::stod(strings[0]), (_PREC) std::stod(strings[2]),(_PREC) std::stod(strings[1]));
+	return range;
 }
 
 options optionParser(char * filename){
@@ -179,19 +197,29 @@ options optionParser(char * filename){
 	std::ifstream file;
 	file.open(filename);
 	//create the default option list
-	options opts;
+	options opt;
 	if (file.is_open()) { 
 		std::string sa;
 		// Read data from the file object and put it into a string
 		
 		while (getline(file, sa)) { 
 			// Print the data of the string.
-			parseLine(opts, sa);
+			parseLine(opt, sa);
 		}
 		// Close the file object.
 		file.close(); 
 	}
 	
 	file.close();
-	return opts;
+	compileOptions(opt);
+	return opt;
 }
+
+void compileOptions(options& opt) {
+	// Any post-processing that needs to be done on user-defined options
+	_PREC k = 1.380649e-23;
+	opt.tc = 1.6e-4*opt.m/(k*pow(opt.T, 8.0));
+	opt.sqrtKT_m = sqrt(k*opt.T/opt.m);
+	opt.stopTimes.push_back(Range(opt.t0, opt.tf, opt.ioutInt));
+}
+

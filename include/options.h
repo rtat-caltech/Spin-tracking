@@ -3,6 +3,7 @@
 
 #include "double3.h"
 #include "quaternion.h"
+#include "utils.h"
 
 const _PREC G_CONST = -9.81;
 const _PREC c2 = 299792458.0 * 299792458.0;
@@ -40,7 +41,7 @@ struct options{
     _PREC maxPosStep = 0.1; //largest step size for position/velocity integration
 	_PREC ioutInt = 0.05; // how frequently to output the state data
     _PREC diffuse = 1.0; //the probability of diffuse collisions (1 meaning 100%, 0 meaning 0%)
-
+	RangeUnion stopTimes = RangeUnion();
     
 	unsigned int nmax = 10000000;
 	unsigned int seed = 0;//random number seed

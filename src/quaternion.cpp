@@ -163,7 +163,7 @@ __PREPROC__ coords rodriguez(const coords k, const coords v1){
 }
 
 // "Diagonalize" a quaternion, viewed as a SU(2) matrix
-// i.e. a + bi + cj + dk -> {{a + bi, c + di}, {-c + di, a - bi}}
+// i.e. w + xi + yj + zk -> {{w + xi, y + zi}, {-y + zi, w - xi}}
 // The diagonalization is: q = cpc*
 
 __PREPROC__ quaternion qEigenval(const quaternion q) {
@@ -179,10 +179,22 @@ __PREPROC__ quaternion qEigenvec(const quaternion q) {
 Matrix2cd toSU2(const quaternion q) {
 	Matrix2cd out;
 	complex<double> a, b, c, d;
+	/*
 	a = q.w + im_unit * q.z;
 	b = q.y + im_unit * q.x;
 	c = -q.y + im_unit * q.x;
 	d = q.w - im_unit * q.z;
+	*/
+	
+	double x = -q.z;
+	double y = -q.y;
+	double z = -q.x;
+	
+	a = q.w + im_unit * x;
+	b = y + im_unit * z;
+	c = -y + im_unit * z;
+	d = q.w - im_unit * x;
+
 	out << a, b, c, d;
 	return out;
 }

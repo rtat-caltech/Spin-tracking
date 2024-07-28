@@ -2,12 +2,16 @@
 #define __OPTIONSPARSER_H_DEFINED__
 
 #include "options.h"
-#include<sstream>
+#include <sstream>
 #include <string>
 #include <math.h>
 
 void parseLine(options& opt, std::string s);
 
 options optionParser(char * filename);
+
+Range parseRange(std::string rangeString);
+
+void compileOptions(options& opt);
 
 #endif

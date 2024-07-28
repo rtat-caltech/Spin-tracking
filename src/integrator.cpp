@@ -65,7 +65,9 @@ __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t
 	coords p, v, G, B, N;
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
 	G = grad(p, OPT);
-	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + 1.0/c2*cross(v, OPT.E) + G;
+	N = 1.0/c2*cross(v, OPT.E) + G;
+	N.y = 0; //TODO
+	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + N;
 	return OPT.gamma * B;
 }
 
@@ -76,6 +78,7 @@ __PREPROC__ coords findNoiseTerm(const _PREC t, const options OPT, const _PREC t
 	G = grad(p, OPT);
 	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
 	B = 1.0/c2*cross(v, OPT.E) + G + N;
+	B.y = 0; //TODO
 	return OPT.gamma * B;
 }
 
@@ -808,37 +811,40 @@ __PREPROC__ int integrateHamiltonian(_PREC t0, _PREC tf, quaternion& y, options 
 	return 0;
 }
 
-Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf,  Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2], const complex<_PREC> (&Omicron)[2][2]) {
+Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, const Matrix2cd rho, const complex<_PREC> (&Zeta)[2][2], const complex<_PREC> (&Omicron)[2][2]) {
 	//_PREC diagonal_decay = -(A(0, 0) + A(1, 1));
 	_PREC dt = tf - t0;
 	Vector2cd p_diag_0;
 	p_diag_0 << rho(0, 0), rho(1, 1);
 	Matrix2cd A_diag {
-		{-Zeta[1][0]+Zeta[0][1], Zeta[0][1]+Zeta[1][0]},
-		{Zeta[1][0]+Zeta[0][1], -Zeta[1][0]+Zeta[0][1]},
+		{-Zeta[1][0]-Zeta[0][1], Zeta[0][1]+Zeta[1][0]},
+		{Zeta[1][0]+Zeta[0][1], -Zeta[1][0]-Zeta[0][1]},
 	};
-
+	A_diag = A_diag;
 	Matrix2cd A_exp = (A_diag * dt).exp();
 	Vector2cd p_diag_1 = A_exp * p_diag_0;
-	rho(0, 0) = p_diag_1(0);
-	rho(1, 1) = p_diag_1(1);
 	complex<_PREC> decay_01 = -(Zeta[0][0] + Zeta[0][1] + Zeta[0][1] + Zeta[1][1]);
 	complex<_PREC> decay_10 = -(Zeta[1][0] + Zeta[1][1] + Zeta[0][0] + Zeta[1][0]);
-	
+
 	Matrix2cd A_off_diag {
 		{Omicron[0][1] + decay_01, Omicron[1][0]},
 		{Omicron[0][1], Omicron[1][0] + decay_10},
-	};
+		};
 	Matrix2cd A_off_diag_exp = (A_off_diag * dt).exp();
 	Vector2cd p_off_diag_0;
 	p_off_diag_0 << rho(0, 1), rho(1, 0);
 	Vector2cd p_off_diag_1 = A_off_diag_exp * p_off_diag_0;
-	rho(0, 1) = p_off_diag_1(0);
-	rho(1, 0) = p_off_diag_1(1);
+
+	Matrix2cd rho_out;
+	rho_out(0, 0) = p_diag_1(0);
+	rho_out(1, 1) = p_diag_1(1);
+	rho_out(0, 1) = p_off_diag_1(0);
+	rho_out(1, 0) = p_off_diag_1(1);
 	
 	//rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
 	//rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
-	return rho;
+	cout << density_to_bloch(rho_out) << endl;
+	return rho_out;
 }
 
 floquetDiagonalization floquet_diagonalize(options OPT) {
@@ -883,10 +889,9 @@ floquetDiagonalization floquet_diagonalize(options OPT) {
 	fd.period = tf - t0;
 	fd.n_prop = n_prop;
 	return fd;
-
 }
 
-coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
+vector<coords> floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, options opt) {
 	cspec.normalize();
 	double Delta[2][2][NK] = {{{0}}};
 	complex<double> X[2][2][NK] = {{{0}}};
@@ -894,21 +899,29 @@ coords floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum cspec, op
 	complex<double> Zeta[2][2] = {{0}};
 	complex<double> Omicron[2][2] = {{0}};
 
-	Matrix2cd rho = bloch_to_density(opt.yi, fd.f_modes_0);
+	Matrix2cd rho0 = bloch_to_density(opt.yi, fd.f_modes_0);
 
 	vector<quaternion> c_ops = cspec.get_collapse_ops();
 	floquet_master_equation_rates(fd, c_ops, cspec, Zeta, Omicron);
-	/*
-	vector<pair<quaternion, Spectrum>> specs = cspec.extract();
-	for (int i = 0; i < specs.size(); i++) {
-		quaternion c_op = specs.at(i).first;
-		Spectrum spec = specs.at(i).second;
-		floquet_master_equation_rates(fd, c_op, spec, 
-		                              Delta, X, Gamma, Zeta, Omicron);
-	}
-	*/
 
-	rho = integrateFloquetMarkov(opt.t0, opt.tf, rho, Zeta, Omicron);
-	int n_period = round((opt.tf - opt.t0)/fd.period);
-	return density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+	cout << Zeta[0][0] << endl;
+	cout << Zeta[0][1] << endl;
+	cout << Zeta[1][0] << endl;
+	cout << Zeta[1][1] << endl;
+	cout << Omicron[0][1] << endl;
+	cout << Omicron[1][0] << endl;
+
+	double t0 = opt.t0;
+	double tf = opt.tf;
+	vector<coords> bloch_vectors;
+	RangeUnion stopTimes;
+	stopTimes.concatenate(opt.stopTimes);
+	while (stopTimes.hasNext()) {
+		_PREC t = stopTimes.next();
+		Matrix2cd rho = integrateFloquetMarkov(t0, t, rho0, Zeta, Omicron);
+		int n_period = round((t - t0)/fd.period); // TODO: Saving at times not multiple of period not yet possible
+		coords b = density_to_bloch(rho, fd.f_modes_0 * pow(fd.f_energies, n_period));
+		bloch_vectors.push_back(b);
+	}
+	return bloch_vectors;
 }

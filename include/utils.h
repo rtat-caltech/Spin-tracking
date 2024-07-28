@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <stdint.h>
+#include <vector>
+#include "double3.h"
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -54,4 +56,30 @@ void genericMalloc(T** ptr, int n) {
 	*ptr = (T*) malloc(sizeof(T) * n);
 #endif	
 }
+
+typedef struct Range {
+	_PREC start;
+	_PREC stop;
+	_PREC step;
+	_PREC get_nth(int n);
+	Range(_PREC a, _PREC b, _PREC c) : start(a), stop(b), step(c) {};
+	int size();
+};
+
+using std::vector;
+
+class RangeUnion {
+	public:
+	RangeUnion() {};
+	RangeUnion(vector<Range> ranges);
+	void concatenate(RangeUnion other);
+	void push_back(Range range);
+	bool hasNext();
+	_PREC next();
+	int size();
+	vector<Range> ranges;
+	private:
+	vector<int> positions;
+};
+
 #endif
