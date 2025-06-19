@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-project(Spin-tracking LANGUAGES CUDA CXX)
+project(Spin-tracking LANGUAGES CUDA CXX C)
 
 message("  C: '${CMAKE_C_COMPILER}'")
 message("  C++: '${CMAKE_CXX_COMPILER}'")
@@ -26,14 +26,18 @@ target_compile_options(mainlib PRIVATE -w -lineinfo) # Suppress warnings
 add_subdirectory(tests)
 target_compile_options(test PRIVATE -w)
 
+find_package(MPI REQUIRED COMPONENTS C CXX)
 find_package(HDF5 COMPONENTS CXX)
 if (HDF5_FOUND)
   target_include_directories(mainlib PRIVATE ${HDF5_CXX_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(mainlib HDF5::HDF5)
+  target_link_libraries(mainlib MPI::MPI_C HDF5::HDF5)
   target_compile_definitions(mainlib PUBLIC USEHDF5=1)
 else()
   message(STATUS "Could not find HDF5 library - HDF5 saving will be disabled")
 endif()
+
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+target_link_libraries(mainlib Eigen3::Eigen)
 
 IF (CMAKE_CUDA_ARCHITECTURES)
    find_package(CUDA 11.7 REQUIRED)
@@ -89,3 +93,9 @@ ENDIF ()
 add_executable(main main.cpp)
 target_compile_options(main PRIVATE -w) # Suppress warnings
 target_link_libraries(main mainlib)
+
+IF (TRUE)
+  add_executable(rngdump rngdump.cpp)
+  target_compile_options(rngdump PRIVATE -w)
+  target_link_libraries(rngdump mainlib)
+ENDIF ()

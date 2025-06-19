@@ -27,15 +27,7 @@
 #include "quaternion.h"
 #include "floquet.h"
 #include "logger.h"
-
-struct rngState{
-    uint64_t x;
-    uint64_t y;
-    uint64_t z;
-    uint64_t w;
-    _PREC spare; //used for the normal generator
-    bool hasSpare = false; //used for the normal generator
-};
+#include "rng.h"
 
 #if defined(__HIPCC__) || defined(__NVCOMPILER) || defined(__NVCC__)
 //these are the larger kernel calls

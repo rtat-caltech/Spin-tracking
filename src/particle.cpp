@@ -30,94 +30,6 @@ template <typename T>
 	//return (T(0) < val) - (val < T(0)); //we don't want the 0 case
 }
 
-__PREPROCD__ uint64_t rol64(const uint64_t x, const int k) {
-	return (x << k) | (x >> (64 - k));
-}
-
-/*
-//no longer used but leaving it here in case we want to add it back later on
-__PREPROCD__ uint64_t particle::splitmix64(uint64_t state) {
-uint64_t result = (state += 0x9E3779B97f4A7C15);
-result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
-result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
-return result ^ (result >> 31);
-}
-
-
-__PREPROCD__ void particle::xorshift128_init(uint64_t seed) {
-uint64_t splitmix64_state = seed; //apply the seed to that generator
-uint64_t tmp = splitmix64();
-rngState[0] = (uint32_t)tmp;
-rngState[1] = (uint32_t)(tmp >> 32);
-
-tmp = splitmix64();
-rngState[2] = (uint32_t)tmp;
-rngState[3] = (uint32_t)(tmp >> 32);
-}
-*/
-
-__PREPROCD__ uint64_t xoshiro256p(rngState& state) {
-	//using this https://en.wikipedia.org/wiki/Xorshift#xoshiro256+
-	const uint64_t result = state.x + state.z;
-	const uint64_t t = state.y << 17;
-	state.z ^= state.x;
-	state.w ^= state.y;
-	state.y ^= state.z;
-	state.x ^= state.w;
-	state.z ^= t;
-	state.w = rol64(state.z, 45);
-	return result;
-}
-
-__PREPROCD__ static inline double DoubleFromBits(const uint64_t i) {
-	return (i >> 11) * 0x1.0p-53;
-}
-
-__PREPROCD__ _PREC uniform(rngState& state) {
-	//A random number between low and high based on the xoshiro256** algorithm
-	//https://en.wikipedia.org/wiki/Xorshift#xoshiro256**
-	//https://prng.di.unimi.it/
-	uint64_t temp = xoshiro256p(state);
-	const double out = DoubleFromBits(temp);
-	return out;
-}
-
-__PREPROCD__ _PREC uniform(rngState& state, const _PREC low, const _PREC high) {
-	return uniform(state)*(high-low)+low;
-}
-
-__PREPROCD__ _PREC normal(rngState& state, const _PREC mean, const _PREC std) {
-	//Generates a random value from a normal distribution using the Marsaglia Polar Method.
-	//https://en.wikipedia.org/wiki/Marsaglia_polar_method
-	if(state.hasSpare) {
-		state.hasSpare = false;
-		return state.spare * std + mean;
-	} else {
-		_PREC ts, tu, tv;
-		do {
-			tu = uniform(state, -1.0, 1.0);
-			tv = uniform(state, -1.0, 1.0);
-			ts = tu*tu + tv*tv;
-		} while (ts >= 1.0 || ts == 0.0);
-		ts = sqrt(-2.0*log(ts)/ts);
-		state.spare = tv * ts;
-		state.hasSpare = true;
-		return mean + std * tu * ts;
-	}
-}
-
-__PREPROCD__ _PREC maxboltz(rngState& state, const _PREC sqrtkT_m) {
-	return normal(state, 0.0, 1.0) * sqrtkT_m;
-}
-
-__PREPROCD__ _PREC unif02pi(rngState& state) {
-	return uniform(state) * 2.0 * M_PI;
-}
-
-__PREPROCD__ _PREC exponential(rngState& state, const _PREC tc) {
-	return - tc * log(1.0 - uniform(state));
-}
-
 __PREPROCD__ void calc_next_collision_time(_PREC t, _PREC tf, coords v, coords pos, _PREC& next_gas_coll_time, _PREC& dt, char& coll_type, size_t &n_bounce, size_t &n_coll, bool& finished, char& wall_hit, rngState& state, const options opt) {
 	_PREC dx, dy, dz, dtx, dty, dtz = (_PREC)0.0;
 	if(opt.gravity) {
@@ -303,50 +215,24 @@ __PREPROCD__ void update_position_and_velocity(_PREC &t_old, _PREC &t, _PREC &dt
 			pos.y = sgn(pos.y)*opt.L.y*0.5;
 			pos.z = sgn(pos.z)*opt.L.z*0.5;
 		}
-		if(opt.diffuse > FLT_MIN) {
-			//could maybe have diffuse scattering, so sample the RNG to see if it happens
-			bool diffuse = (_PREC)uniform(state) < (_PREC)opt.diffuse;
-			if(diffuse) { //if we want to do a diffuse collision, do this
-				//V = sqrt(vx * vx + vy * vy + vz * vz);
-				_PREC phi,theta;
-				phi = acos(sqrt(uniform(state)));
-				theta = unif02pi(state);
-				if (wall_hit == 'x') {
-					v.x = -1 * sgn(v.x) * Vel * cos(phi);
-					v.y = -Vel * sin(phi) * cos(theta);
-					v.z = Vel * sin(phi) * sin(theta);
-				} else if (wall_hit == 'y') {
-					v.x = Vel * sin(phi) * cos(theta);
-					v.y = -1 * sgn(v.y) * Vel * cos(phi);
-					v.z = Vel * sin(phi) * sin(theta);
-				} else if (wall_hit == 'z') {
-					v.x = Vel * sin(phi) * cos(theta);
-					v.y = Vel * sin(phi) * sin(theta);
-					v.z = -1 * sgn(v.z) * Vel * cos(phi);
-				} else {
-					stopParticle = true;
-				}
-			} else { //otehrwise just flip the velocities around and call it a day
-				if (wall_hit == 'x')
-					v.x *= -1.0;
-				else if (wall_hit == 'y')
-					v.y *= -1.0;
-				else if (wall_hit == 'z')
-					v.z *= -1.0;
-				else if (wall_hit == 'a') {
-					v.x *= -1.0;
-					v.y *= -1.0;
-					v.z *= -1.0;
-				} else if (wall_hit == 'b') {
-					v.x *= -1.0;
-					v.y *= -1.0;
-				} else if (wall_hit == 'c') {
-					v.x *= -1.0;
-					v.z *= -1.0;
-				} else if (wall_hit == 'd') {
-					v.y *= -1.0;
-					v.z *= -1.0;
-				}
+		if(opt.diffuse > FLT_MIN && ((_PREC) uniform(state) < (_PREC) opt.diffuse)) {
+			_PREC phi,theta;
+			phi = acos(sqrt(uniform(state)));
+			theta = unif02pi(state);
+			if (wall_hit == 'x') {
+				v.x = -1 * sgn(v.x) * Vel * cos(phi);
+				v.y = -Vel * sin(phi) * cos(theta);
+				v.z = Vel * sin(phi) * sin(theta);
+			} else if (wall_hit == 'y') {
+				v.x = Vel * sin(phi) * cos(theta);
+				v.y = -1 * sgn(v.y) * Vel * cos(phi);
+				v.z = Vel * sin(phi) * sin(theta);
+			} else if (wall_hit == 'z') {
+				v.x = Vel * sin(phi) * cos(theta);
+				v.y = Vel * sin(phi) * sin(theta);
+				v.z = -1 * sgn(v.z) * Vel * cos(phi);
+			} else {
+				stopParticle = true;
 			}
 		} else { //otehrwise just flip the velocities around and call it a day
 			if (wall_hit == 'x')
@@ -455,22 +341,9 @@ __global__ void initParticlesGPU(options opt, coords *S, coords *v, coords *v_ol
 	unsigned int ipart = threadIdx.x + blockIdx.x * blockDim.x;
 	if(ipart < opt.numParticles) {
 		rngState rng;
-		uint64_t tempstate = opt.seed + ipart;
-		uint64_t result = (tempstate += 0x9E3779B97f4A7C15);
-		result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
-		result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
-		result = result ^ (result >> 31);
-		rng.x = (uint32_t)result;
-		rng.y = (uint32_t)(result >> 32);
-		result = (tempstate += 0x9E3779B97f4A7C15);
-		result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
-		result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
-		result = result ^ (result >> 31);
-		rng.z = (uint32_t)result;
-		rng.w = (uint32_t)(result >> 32);
-		uniform(rng);//scramble the state a few more times just to get things really going
-		uniform(rng);//yes this is highly recommended because otherwise the positions will be strongly correlated
-		uniform(rng);
+		uint64_t tempstate = opt.seed;
+		tempstate = splitmix64(tempstate) ^ ipart;
+		initialize_xoshiro_state(rng, tempstate);
 
 		//now handle the position and velocity information
 		coords tempos;
@@ -678,23 +551,9 @@ void initParticlesCPU(options opt, coords *pS, coords *pv, coords *pv_old,
 #endif
 	for(int ipart = 0; ipart < opt.numParticles; ipart++) {
 		rngState rng;
-		uint64_t tempstate = opt.seed + ipart;
-		uint64_t result = (tempstate += 0x9E3779B97f4A7C15);
-		result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
-		result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
-		result = result ^ (result >> 31);
-		rng.x = (uint32_t)result;
-		rng.y = (uint32_t)(result >> 32);
-		result = (tempstate += 0x9E3779B97f4A7C15);
-		result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;
-		result = (result ^ (result >> 27)) * 0x94D049BB133111EB;
-		result = result ^ (result >> 31);
-		rng.z = (uint32_t)result;
-		rng.w = (uint32_t)(result >> 32);
-		uniform(rng);//scramble the state a few more times just to get things really going
-		uniform(rng);//yes this is highly recommended because otherwise the positions will be strongly correlated
-		uniform(rng);
-
+		uint64_t tempstate = opt.seed;
+		tempstate = splitmix64(tempstate) ^ ipart;
+		initialize_xoshiro_state(rng, tempstate);
 
 		//now handle the position and velocity information
 		coords tempos;

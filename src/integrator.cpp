@@ -66,7 +66,6 @@ __PREPROC__ coords findCrossTerm(const _PREC t, const options OPT, const _PREC t
 	interpolate(t,t0,tf,p_old,p_new,v_old,v_new,p,v,OPT);
 	G = grad(p, OPT);
 	N = 1.0/c2*cross(v, OPT.E) + G;
-	N.y = 0; //TODO
 	B = pulse(t, OPT.a, OPT.w) + OPT.B0 + N;
 	return OPT.gamma * B;
 }
@@ -78,7 +77,6 @@ __PREPROC__ coords findNoiseTerm(const _PREC t, const options OPT, const _PREC t
 	G = grad(p, OPT);
 	N = testNoise(t, OPT.noiseAmplitudes, OPT.noiseFrequencies);
 	B = 1.0/c2*cross(v, OPT.E) + G + N;
-	B.y = 0; //TODO
 	return OPT.gamma * B;
 }
 
@@ -843,7 +841,6 @@ Matrix2cd integrateFloquetMarkov(_PREC t0, _PREC tf, const Matrix2cd rho, const 
 	
 	//rho(0, 1) = rho(0, 1) * exp(decay_01 * dt);
 	//rho(1, 0) = rho(1, 0) * exp(decay_10 * dt);
-	cout << density_to_bloch(rho_out) << endl;
 	return rho_out;
 }
 
@@ -903,13 +900,6 @@ vector<coords> floquet_integrate(floquetDiagonalization fd, CovarianceSpectrum c
 
 	vector<quaternion> c_ops = cspec.get_collapse_ops();
 	floquet_master_equation_rates(fd, c_ops, cspec, Zeta, Omicron);
-
-	cout << Zeta[0][0] << endl;
-	cout << Zeta[0][1] << endl;
-	cout << Zeta[1][0] << endl;
-	cout << Zeta[1][1] << endl;
-	cout << Omicron[0][1] << endl;
-	cout << Omicron[1][0] << endl;
 
 	double t0 = opt.t0;
 	double tf = opt.tf;
